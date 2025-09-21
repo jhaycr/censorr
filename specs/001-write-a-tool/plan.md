@@ -1,0 +1,112 @@
+# Implementation Plan: Plex/Arr Clean Censor Tool
+
+**Branch**: `001-write-a-tool` | **Date**: 2025-09-20 | **Spec**: ./spec.md
+**Input**: Feature specification from `/specs/001-write-a-tool/spec.md`
+
+## Summary
+Primary requirement: Provide a CLI-first, composable pipeline that can extract/accept subtitles and audio, mask profanities in subtitles via fuzzy matching, mute aligned audio windows, and optionally remux into a playable output. Support Radarr/Sonarr triggers by tag, clear naming, sidecar export, and dry-run/explain for predictability.
+
+Technical approach (high level): Implement a Python 3 CLI with a small core (Artifacts, Operations, Registry, Planner, Executor). Use adapters to call FFmpeg for extract/mute/remux and Python subtitle parsing utilities for SRT/WEBVTT. Use RapidFuzz for fuzzy matching. Maintain deterministic workdir, manifest-based caching, and structured execution/audit logs.
+
+## Technical Context
+- Language/Version: Python 3.11+
+- Primary Dependencies: RapidFuzz, FFmpeg (external binary), a subtitle parsing library (e.g., pysubs2 or custom minimal parser), click/typer for CLI, pydantic for data validation (selectors/artifacts), PyYAML for config.
+- Storage: Local filesystem workdir; deterministic layout; manifest.json per operation.
+- Testing: pytest + tmp_path fixtures; golden samples for subtitles/audio; integration tests performing dry-run and small media fragments.
+- Target Platform: Linux server; Docker/Podman friendly. FFmpeg must be available on PATH.
+- Project Type: Single project (CLI tool + library) → default structure.
+- Performance Goals: Handle feature-length media with linear passes; keep memory bounded by streaming where possible; parallelize independent ops.
+- Constraints: Avoid full re-encode unless requested; preserve codecs by default; ensure idempotency and deterministic filenames.
+- Scale/Scope: Single-node CLI; batch processing through Arr triggers.
+
+## Constitution Check
+- KISS: Minimal core (Artifacts, Ops, Planner, Executor) with adapters; avoid frameworks beyond CLI/validation.
+- SRP: Each Operation does one thing (extract-subtitles, merge-subs, mask-subs, extract-audio, mute-audio, remux, export-sidecar, qc-subs).
+- Composition: Ops wired via artifact types; no inheritance chains.
+- Explicit Contracts: Documented shapes for Artifact/Selector/Operation contracts in `/contracts` and `data-model.md`.
+- Plugin-First: Operation registry allows plugin registration at startup.
+- YAGNI: No HTTP server; CLI-only; manifest caching is simple file-based.
+- Test-First & Docs: Contract and acceptance tests before implementation; quickstart guides usage.
+- Observability: Execution and audit logs per op under workdir.
+- Idempotency/Dry-Run: Planner/executor support dry-run and manifest checks.
+
+Status: No violations anticipated; any complexity will be documented in Complexity Tracking.
+
+## Project Structure
+
+### Documentation (this feature)
+```
+specs/001-write-a-tool/
+├── plan.md
+├── research.md
+├── data-model.md
+├── quickstart.md
+├── contracts/
+└── tasks.md (generated later)
+```
+
+### Source Code (repository root)
+```
+src/
+├── cli/
+├── models/
+├── ops/
+├── planner/
+├── adapters/
+└── utils/
+
+tests/
+├── unit/
+├── contract/
+└── integration/
+```
+
+Structure Decision: Option 1 (single project).
+
+## Phase 0: Outline & Research
+Create `research.md` to resolve:
+- FFmpeg strategies:
+  - Audio extraction without re-encode (copy) vs with re-encode when needed.
+  - Applying mute windows: filter_complex volume enable between timestamps vs generate silenced segments and splice.
+  - Subtitle extraction and format conversions (SRT/WEBVTT).
+- Fuzzy matching with RapidFuzz:
+  - Token-based vs partial ratios; thresholds; normalization.
+  - Word-boundary handling and allow-list precedence.
+- Subtitle parsing/normalization:
+  - Library choice (pysubs2) vs minimal custom parser; handling malformed cues and encoding normalization.
+  - Merging strategies and deduplication semantics.
+- Arr integrations:
+  - Custom Script env vars and Webhook payload fields; tag detection; safest defaults.
+
+Output: research.md with Decisions, Rationale, Alternatives for each topic.
+
+## Phase 1: Design & Contracts
+- Data Model (`data-model.md`): Define Artifact, Selector, Operation, MuteWindow, AuditLogEntry, ManifestEntry with fields and validation.
+- Contracts (`/contracts`):
+  - artifacts.md: Artifact types, metadata, validation rules.
+  - selectors.md: Unified selector model, reference to `selector.schema.json`, examples.
+  - operation.md: Operation interface (inputs, outputs, run contract), error modes.
+- Quickstart (`quickstart.md`): Environment setup, installing deps, small sample run (dry-run), interpreting logs, troubleshooting.
+- Agent file: If agent updater exists, note to run it post-creation (manual in this repo).
+
+Re-check Constitution Gates; update if any complexity was added.
+
+## Phase 2: Task Planning Approach (informational)
+- Generate tasks from contracts + data model + quickstart.
+- TDD order; mark independent test files as parallelizable.
+
+## Complexity Tracking
+(n/a at plan time)
+
+## Progress Tracking
+- [ ] Phase 0: Research complete (/plan)
+- [ ] Phase 1: Design complete (/plan)
+- [ ] Phase 2: Task planning complete (/tasks)
+- [ ] Phase 3: Tasks generated (/tasks)
+- [ ] Phase 4: Implementation complete
+- [ ] Phase 5: Validation passed
+
+- [ ] Initial Constitution Check: PASS
+- [ ] Post-Design Constitution Check: PASS
+- [ ] All NEEDS CLARIFICATION resolved
+- [ ] Complexity deviations documented
