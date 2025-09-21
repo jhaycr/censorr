@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/selector.schema.json",
+  "title": "Unified Track Selector",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["VIDEO", "AUDIO", "SUBTITLE"],
+      "description": "The media track type this selector applies to"
+    },
+    "language": {
+      "type": "string",
+      "description": "BCP-47 or ISO-639-2 language code (e.g., 'en', 'eng', 'ja', 'jpn')"
+    },
+    "role": {
+      "type": "string",
+      "enum": ["main", "commentary", "descriptive"],
+      "description": "Role of the track (primarily for audio)"
+    },
+    "codec": {
+      "type": "string",
+      "description": "Preferred codec (e.g., 'aac', 'ac3', 'opus', 'srt', 'webvtt')"
+    },
+    "forced": {
+      "type": "boolean",
+      "description": "Whether only forced subtitles should be selected (SUBTITLE only)"
+    },
+    "prefer": {
+      "type": "boolean",
+      "description": "Indicates user preference boost when multiple tracks match"
+    },
+    "firstOnly": {
+      "type": "boolean",
+      "description": "If true, only the first matching track is selected"
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Explicit priority for ordering selectors; lower numbers evaluated first"
+    }
+  },
+  "required": ["type"],
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "AUDIO" } }, "required": ["type"] },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["forced"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "VIDEO" } }, "required": ["type"] },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["forced"] },
+            { "required": ["role"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "SUBTITLE" } }, "required": ["type"] },
+      "then": {
+        "properties": {
+          "forced": { "type": "boolean" }
+        }
+      }
+    }
+  ]
+}

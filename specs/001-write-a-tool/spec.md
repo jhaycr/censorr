@@ -1,0 +1,230 @@
+# Feature Specification: Plex/Arr Clean Censor Tool
+
+**Feature Branch**: `001-write-a-tool`  
+**Created**: 2025-09-20  
+**Status**: Draft  
+**Input**: User description: "Write a tool that is part of a Plex and arr-stack (Radarr, Sonarr) ecosystem. This tool will censor audio and subtitles for video files (movies, TV episodes) based on subtitle files. This tool will be able to be integrated as either Sonarr/Radarr Custom Script or Webhook. An example use-case is the admin of my Plex server to apply a tag (e.g \"clean\", \"censor\") to a movie in Ombi or Overseer. When the movie is imported into Radarr, the tool will extract the audio track and subtitle file for the specified language, apply a \"bad words\" list, and use mute any censored words from the list based on the subtitle timings. The tool will create a new subtitle track (with bad words masked) and new audio track (with bad words muted), and create separate artifacts (like a local masked subtitle) or attach them to the movie (like a muted audio track). A Plex user should be able to select the new tracks by name (e.g. \"en [CLEAN]\"). Masking can occur as \"full\" (all letters of a bad word are replaced with asterisks), \"partial\" (all but the first letter of a bad word are replaced with asterisks). Bad words use fuzzy matching to capture different spellings (\"Goddam\" versus \"God damn\"), punctuation or variations (e.g. \"Godammnit\"). Muting occurs at the subtitle level, covering the entire timing window where censored words appear."
+
+## Execution Flow (main)
+```
+1. Parse user description from Input
+	→ If empty: ERROR "No feature description provided"
+2. Extract key concepts from description
+	→ Identify: actors, actions, data, constraints
+3. For each unclear aspect:
+	→ Mark with [NEEDS CLARIFICATION: specific question]
+4. Fill User Scenarios & Testing section
+	→ If no clear user flow: ERROR "Cannot determine user scenarios"
+5. Generate Functional Requirements
+	→ Each requirement must be testable
+	→ Mark ambiguous requirements
+6. Identify Key Entities (if data involved)
+7. Run Review Checklist
+	→ If any [NEEDS CLARIFICATION]: WARN "Spec has uncertainties"
+	→ If implementation details found: ERROR "Remove tech details"
+8. Return: SUCCESS (spec ready for planning)
+```
+
+---
+
+## ⚡ Quick Guidelines
+- ✅ Focus on WHAT users need and WHY
+- ❌ Avoid HOW to implement (no tech stack, APIs, code structure)
+- 👥 Written for business stakeholders, not developers
+
+### Section Requirements
+- Mandatory sections: Must be completed for every feature
+- Optional sections: Include only when relevant to the feature
+- When a section doesn't apply, remove it entirely (don't leave as "N/A")
+
+### For AI Generation
+When creating this spec from a user prompt:
+1. Mark all ambiguities: Use [NEEDS CLARIFICATION: specific question] for any assumption you'd need to make
+2. Don't guess: If the prompt doesn't specify something (e.g., "login system" without auth method), mark it
+3. Think like a tester: Every vague requirement should fail the "testable and unambiguous" checklist item
+4. Common underspecified areas:
+	- User types and permissions
+	- Data retention/deletion policies  
+	- Performance targets and scale
+	- Error handling behaviors
+	- Integration requirements
+	- Security/compliance needs
+
+---
+
+## User Scenarios & Testing (mandatory)
+
+### Primary User Story
+As a CLI user, I want to compose a standalone, step-by-step media censoring and cleaning pipeline—extract subtitles from a video (or accept a provided subtitle file), merge multiple subtitles together (such as full vs forced subtitles), process/mask the subtitles based on fuzzy matches against a provided configuration of "bad words", optionally remux the masked subtitles into the video, extract the target audio track, apply mute windows derived from the processed subtitles, and remux the muted audio. I want to mix and match operations, skip or override steps with alternate input. When I provide a video as an input for subtitle extraction, I want the ability to provide selection criteria that select the subtitle track based on matches of track metadata such as language and name.
+
+### Acceptance Scenarios
+1. Given a newly imported movie with English main subtitles and English audio, when the item carries a "clean" tag and the tool executes post-import, then the system produces: (a) a new English subtitle track with profanities masked according to the selected policy (full/partial) and (b) a new English audio variant with profane words muted over the corresponding subtitle cue durations; both are available as selectable tracks in Plex with a clear naming convention (e.g., "en [CLEAN]").
+2. Given a video that has multiple English subtitle tracks (main + forced), when the selection policy targets English and forced-only=false, then the system selects both tracks and, if configured to merge, produces one interleaved English subtitle output sorted by start time with deduplication of identical overlapping text.
+3. Given a user supplies an external subtitle file for English via CLI/config, when the pipeline runs, then the system validates compatibility and skips subtitle extraction from the container, using the supplied subtitle instead.
+4. Given a user supplies an external audio file via CLI/config, when the pipeline runs, then the system validates compatibility and skips audio extraction from the container, using the supplied audio instead.
+5. Given a malformed subtitle file with out-of-order or overlapping timestamps, when the pipeline runs in non-strict mode, then the system attempts to normalize numbering, ordering, and encoding to produce a valid merged output and logs all corrections to an audit log; in strict mode, the pipeline fails fast with a descriptive error.
+6. Given a TV episode with multiple audio tracks (e.g., main and commentary), when the audio selector prioritizes "lang=en, role=main", then the system targets the main English audio for muting and passes through others unchanged unless explicitly selected for processing.
+7. Given a user only needs cleaned subtitles, when the pipeline runs with subtitle-only target, then it produces a processed/masked subtitle artifact and may stop without remuxing the video.
+8. Given a user has externally provided mute windows for audio (without subtitles), when the pipeline runs with audio-only target, then it applies the provided timing windows to mute the selected audio track and may stop without remuxing the video.
+
+### Edge Cases
+ - No subtitles available in the requested language: by default, the pipeline fails fast with a clear error if masking is requested and no compatible subtitles exist. If the target excludes masking and either (a) audio-only muting is requested with externally supplied mute windows or (b) no cleaning is requested, the pipeline proceeds accordingly.
+- Multiple tracks match the selector: by default select all; if first-only is specified, select only the highest-priority match.
+ - Forced-only requested but only main subs exist: default behavior is to fall back to the best matching main subtitle in the requested language, logging the fallback decision. If --strict-selector is set, the pipeline fails instead.
+- Fuzzy matching catches substrings within benign words (false positives): provide a safe-list mechanism and audit logging.
+- Subtitles contain mixed encodings or malformed cues: auto-normalize to UTF-8 and correct numbering; in strict mode, abort.
+- Long silence windows or dense cue overlaps: ensure remuxing preserves A/V sync and subtitle cue validity.
+- Container without embedded subs but external sidecar present: allow selection of sidecar files per policy.
+ - Multi-language libraries: default language is 'en' (English) if not specified. Users can override per-run via --language and/or structured selectors.
+ - Track naming consistency across players: embedded tracks are titled "<Language Name> [CLEAN]" (e.g., "English [CLEAN]"). Sidecar subtitles default to filename pattern "<Title>.<lang>.clean.srt" (e.g., "Movie.en.clean.srt"). Audio tracks embedded in containers are titled "<Language Name> (Clean Muted)".
+
+## Requirements (mandatory)
+
+### Functional Requirements
+- FR-001 (Pipeline composition; maps REQ-001): The system MUST support composing a pipeline of extract, process, and package steps where each step consumes and produces well-defined artifacts. Operations MUST be composable as long as input/output artifact types align, and typical flows MUST include video → subtitle → processed subtitle → packaged video and video → audio → muted audio → packaged video.
+	Pipelines MAY conclude after producing a processed subtitle artifact or a muted audio artifact without remux, depending on requested targets.
+- FR-002 (Artifact abstraction; maps REQ-002): Interactions between steps MUST occur via immutable Artifact types (VIDEO, AUDIO, SUBTITLE). Each Artifact MUST carry metadata such as format, codec, language, and flags. The pipeline MUST validate artifact compatibility before execution.
+- FR-003 (Input substitution; maps REQ-003): Users MUST be able to provide external subtitle and/or audio files to bypass extraction (e.g., via flags or config). The system MUST validate compatibility (language, timing format, container compatibility) before proceeding.
+- FR-004 (Operation discovery; maps REQ-004): Help output MUST list available operations with a brief description of expected input and produced output artifacts.
+- FR-005 (Subtitle selection; maps REQ-025): Users MUST be able to specify subtitle selection criteria (e.g., language and forced flag). If multiple tracks match, the system selects all unless configured to select only the first.
+- FR-006 (Subtitle merging & interleaving; maps REQ-026, REQ-028): When multiple subtitle tracks are selected and merging is enabled, the system MUST combine them into a single subtitle artifact, interleaving cues by start timestamp, preserving overlaps, and removing duplicates where text is identical.
+- FR-007 (Subtitle format preservation; maps REQ-029): Merged or processed subtitles MUST output as a valid file in the chosen format (SRT or WEBVTT). SRT outputs MUST renumber sequentially starting at 1; WEBVTT outputs MUST contain valid cue formatting and ordered timestamps. A configuration option MUST allow choosing the output subtitle format.
+- FR-008 (Subtitle error handling; maps REQ-030): The system MUST attempt to recover from common subtitle issues (missing/duplicate sequence numbers, overlapping/out-of-order timestamps, mixed encodings) by normalizing and correcting where possible. A strict mode MUST cause the pipeline to fail fast on malformed inputs with descriptive errors.
+- FR-009 (Subtitle error logging; maps REQ-031): All corrections and unrecoverable errors MUST be captured in an audit log with before/after details. Users MUST be able to direct this log to stdout or a file.
+- FR-010 (Subtitle selector specification; maps REQ-032): Users MUST be able to express structured subtitle selectors via CLI flags or JSON configuration, including language, forced flag, and preference ranking. Multiple selectors MAY be combined. When multiple tracks match a selector, all are chosen unless configured to select only the first. Selectors are applied in priority order provided by the user.
+- FR-011 (Audio selector specification; maps REQ-033): Users MUST be able to express audio selectors via CLI flags or JSON configuration, including language, codec, role, and priority. Multiple selectors MAY be combined and applied in priority order.
+- FR-012 (Unified track selector model; maps REQ-034): A common selector model MUST be used across track types, distinguishing VIDEO, AUDIO, and SUBTITLE via a type field and validating allowable fields per type. Structured selectors MUST be validated against a published schema located at `selector.schema.json` in the repository root; the CLI validates `--selectors-json` inputs against this schema.
+- FR-013 (Audio extraction; maps REQ-040): Given a VIDEO, the system MUST support extraction of audio tracks, preserving codec or re-encoding when requested by configuration.
+- FR-014 (Audio muting; maps REQ-041): Given AUDIO and SUBTITLE artifacts, the system MUST mute audio segments that align with selected subtitle timings containing censored terms. The muted output remains otherwise unchanged.
+- FR-015 (Packaging/remux; maps REQ-050): The system MUST allow packaging/remuxing VIDEO with one or more AUDIO and SUBTITLE artifacts into a single playable output, preserving codecs unless re-encoding is requested.
+- FR-016 (Arr integration trigger): The system MUST support invocation by Radarr/Sonarr on Import/Download events. Triggering defaults to media items tagged with any of ["clean", "censor"] on the movie/series in Radarr/Sonarr. For Custom Script, standard environment fields are consumed (e.g., event type, path, media type). For Webhook, JSON payload must include title, path, and tags. Tags in Radarr/Sonarr determine trigger; Ombi/Overseerr propagate via those platforms' tag workflows.
+- FR-017 (Masking policy): The system MUST support both "full" masking (all letters replaced) and "partial" masking (all but first letter replaced) for censored words in subtitle text, selectable by configuration and/or request. Default is "partial" globally; per-language overrides are supported via config (e.g., overrides.en=partial, overrides.es=full).
+- FR-018 (Fuzzy matching): The system MUST recognize variations of profane terms including spacing, punctuation, and common misspellings to reduce misses while minimizing false positives. Defaults: case-insensitive matching; text normalization (whitespace/punctuation); token-based fuzzy threshold 85/100; word-boundary regex to avoid substring false positives; bad-word dictionary loaded from user config (YAML/JSON) with optional aliases; an allow-list (safe-list) takes precedence to prevent masking/muting of whitelisted terms.
+- FR-019 (Track naming): Cleaned artifacts MUST present clear and consistent track names in players. Embedded subtitle title: "<Language Name> [CLEAN]" (e.g., "English [CLEAN]"). Embedded audio title: "<Language Name> (Clean Muted)". Sidecar subtitle filename default: "<Title>.<lang>.clean.srt" (e.g., "Movie.en.clean.srt").
+
+Additional Functional Requirements (planning, execution, CLI, and extensibility)
+- FR-020 (Operation contract): The system MUST represent each pipeline step as an Operation with a declared name, declared input artifact types, declared output artifact types, and a standard run() contract that accepts inputs, a working directory, and execution flags (dry-run, verbose) and returns produced artifacts.
+- FR-021 (Typed artifacts): Data passed between operations MUST be modeled as typed Artifacts carrying type, path, and metadata, enabling validation and compatibility checks.
+- FR-022 (Operation registry): The system MUST maintain a registry of available Operations and which artifact types they produce to support discovery and planning.
+- FR-023 (Planner): Given requested targets and any user-provided artifacts, the system MUST compute an ordered plan of operations that can produce the targets, omitting producers for already-provided artifacts and failing clearly if no producer exists.
+- FR-024 (Producer selection policy): When multiple operations can produce the same artifact type, planning MUST choose a producer according to a configurable priority policy (defaulting to registration order) and allow users to override.
+- FR-025 (Executor/orchestrator): The system MUST execute the planned operations in order, passing produced artifacts downstream and writing outputs into a working directory, honoring dry-run (no side effects) and verbose modes, and raising informative errors if required inputs are missing.
+- FR-026 (CLI entry points): The CLI MUST accept flags to specify provided inputs and targets (e.g., --video, --subtitles, --target, --workdir, --dry-run, --verbose) and invoke the planner and executor accordingly, returning a success exit code on completion.
+- FR-027 (Preemption/fallback): When user-supplied artifacts exist for required types, planning MUST treat them as satisfied and not schedule any producer for those types; integration tests MUST demonstrate that e.g., supplying subtitles causes extraction to be omitted.
+- FR-028 (Adapters for external tools): Operations that invoke external tools MUST do so via dedicated adapters that encapsulate argument building, escaping, timeouts, and error parsing to keep operations testable.
+- FR-029 (Operation strategies): Where multiple algorithms exist for the same operation, users MUST be able to select a strategy via configuration or CLI, and operations MUST adapt behavior accordingly.
+- FR-030 (Deterministic workdir layout): All intermediate and final outputs MUST be written under a configurable working directory using deterministic names derived from inputs and operation purpose.
+- FR-031 (Manifest and caching): The system SHOULD maintain a manifest in the working directory capturing input/output checksums per operation and skip re-running operations whose inputs are unchanged unless explicitly forced.
+- FR-032 (Idempotency): Re-running the pipeline with unchanged inputs MUST be safe and produce identical outputs; operations MUST check for existing outputs and avoid redundant work when appropriate.
+- FR-033 (Error handling for external tools): On non-zero exits from external tools, the system MUST capture stdout/stderr in per-operation logs within the working directory, fail with a clear message, and preserve any existing artifacts.
+- FR-034 (Observable execution log): The system MUST emit a structured execution log in the working directory with per-operation entries (start/end times, exit codes, stdout/stderr references, produced artifact paths).
+- FR-035 (Dry-run and explain): The CLI MUST support a dry-run that prints the planned operations without creating files, and an explain mode that describes why each operation was selected during planning.
+- FR-036 (Skip/force step controls): The CLI MUST accept controls to skip a planned operation or force re-execution of specific operations even when cached.
+- FR-037 (Parallelism): Where the dependency graph permits, the system SHOULD execute independent operations concurrently, with a user-configurable parallelism level, and results MUST match serial execution.
+- FR-038 (Plugin discovery): At startup, the system SHOULD load additional operations from a configured plugins source and register them into the operation registry.
+- FR-039 (Unit testability): Each Operation MUST be unit-testable in isolation with temporary working directories and mocked adapters.
+- FR-040 (CLI listing and documentation): The CLI MUST provide operation discovery (e.g., --list-ops) and helpful usage (--help) documentation including flags and brief operation descriptions.
+- FR-041 (Validation of provided artifacts): When users supply external artifacts, the system MUST validate existence and basic compatibility (format/parseability) and fail with helpful errors if invalid.
+- FR-042 (Acceptance tests and fixtures): The project SHOULD include small sample fixtures and end-to-end acceptance tests that exercise common planning and execution flows, asserting artifact presence and manifest entries.
+- FR-043 (Extensibility): Adding a new operation MUST be possible by implementing the Operation contract and registering it, without modifying planner or executor code.
+
+- FR-044 (Local subtitle export): Users MUST be able to export processed/masked subtitles as a sidecar file adjacent to the media using Plex-discoverable naming conventions; embedding into the container remains optional and configurable.
+- FR-045 (Subtitle quality check): Users MUST be able to enable a quality-check pass that performs case-insensitive regex searches on the processed subtitle against the configured bad-words list and reports any residual matches. In strict mode, residual matches cause the pipeline to fail with a descriptive report.
+- FR-046 (External mute windows): Users MUST be able to provide external mute windows (e.g., JSON/CSV of [start,end] times) to drive audio-only muting when no subtitle artifact is present; the muting operation MUST accept either subtitle-derived or externally supplied timing windows.
+
+Traceability for additional requirements
+- FR-020 ↔ Operation contract (addendum REQ-001)
+- FR-021 ↔ Typed artifacts (addendum REQ-002)
+- FR-022 ↔ Operation registry (addendum REQ-003)
+- FR-023 ↔ Planner (addendum REQ-004)
+- FR-024 ↔ Planner producer selection (addendum REQ-005)
+- FR-025 ↔ Executor/orchestrator (addendum REQ-006)
+- FR-026 ↔ CLI entry points (addendum REQ-007)
+- FR-027 ↔ Preemption/fallback (addendum REQ-008)
+- FR-028 ↔ Adapters for external tools (addendum REQ-009)
+- FR-029 ↔ Strategy support for ops (addendum REQ-010)
+- FR-030 ↔ Deterministic workdir layout (addendum REQ-011)
+- FR-031 ↔ Manifest and caching (addendum REQ-012)
+- FR-032 ↔ Idempotency (addendum REQ-013)
+- FR-033 ↔ Error handling/unwanted behavior (addendum REQ-014)
+- FR-034 ↔ Observable execution log (addendum REQ-015)
+- FR-035 ↔ Dry-run and explain mode (addendum REQ-016)
+- FR-036 ↔ Skip/force step controls (addendum REQ-017)
+- FR-037 ↔ Parallelism (addendum REQ-018)
+- FR-038 ↔ Plugin discovery (addendum REQ-019)
+- FR-039 ↔ Unit testability (addendum REQ-020)
+- FR-040 ↔ CLI listing and documentation (addendum REQ-021)
+- FR-041 ↔ Validation of provided artifacts (addendum REQ-022)
+- FR-042 ↔ Acceptance tests / fixtures (addendum REQ-023)
+- FR-043 ↔ Extensibility (addendum REQ-024)
+
+### Key Entities (include if feature involves data)
+- Artifact (VIDEO, AUDIO, SUBTITLE): Conceptual units produced/consumed by pipeline steps; immutable once created; include metadata such as language, codec/format, channel/layout (for audio), forced flag (for subtitles), and user-visible naming attributes.
+- Selector: Structured filter and prioritization model with common fields (type, language, role, codec, forced, prefer, firstOnly, priority) with type-specific validation and ordering semantics.
+- Pipeline Step (Operation): A unit that declares required input artifact types and produced output artifact types; validated at composition time; examples include extract, process (mask/mute), and package/remux.
+- Audit Log Entry: Records of corrections, normalization steps, errors, and decisions (e.g., selector results), including before/after context and timestamps.
+
+---
+
+## Non-Functional Requirements
+
+- NFR-001 (KISS & Simplicity): Designs MUST remain as simple as possible to meet current needs. Additional layers/patterns require documented rationale in the plan/spec.
+- NFR-002 (Single Responsibility): Operations and modules MUST have one clear purpose. Complex behavior MUST be composed from small units.
+- NFR-003 (Composition over Inheritance): Prefer composition and explicit wiring over inheritance hierarchies.
+- NFR-004 (Explicit Contracts): Public contracts (artifacts, selectors, ops) MUST be explicitly documented; the public surface area is minimal and stable.
+- NFR-005 (Plugin-First Extensibility): New behaviors SHOULD be added via a registry-backed plugin API without modifying core planner/executor logic.
+- NFR-006 (YAGNI & Documented Complexity): Avoid speculative features. Any added abstraction MUST be justified and recorded in "Complexity Tracking" within the plan.
+- NFR-007 (Test-First & Doc-Driven): Features MUST land with tests and updated docs (spec/quickstart/contracts). No implementation without failing tests first in the workflow.
+- NFR-008 (Container-Native Compatibility): Tooling SHOULD run cleanly in common homelab contexts (Linux, Docker/Podman). CLI MUST be primary; any HTTP/automation layer MUST call the same contracts.
+- NFR-009 (Observability & Auditability): Structured logs and audit trails MUST be produced for operations and corrections; logs are written under workdir with stable fields.
+- NFR-010 (Idempotency & Dry-Run): Pipelines MUST be repeatable and converge; dry-run MUST surface planned actions without side effects.
+- NFR-011 (Deterministic Outputs): Workdir layout and filenames MUST be deterministic based on inputs/op purpose.
+- NFR-012 (Documentation Deliverables): Each feature MUST update quickstart and operation help text; selector schema reference MUST be included when selectors are exposed.
+
+---
+
+## Review & Acceptance Checklist
+Content Quality
+- [x] No implementation details (languages, frameworks, APIs)
+- [x] Focused on user value and business needs
+- [x] Written for non-technical stakeholders
+- [x] All mandatory sections completed
+
+Requirement Completeness
+- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] Requirements are testable and unambiguous  
+- [x] Success criteria are measurable
+- [x] Scope is clearly bounded
+- [x] Dependencies and assumptions identified
+
+Constitution Gates
+- [ ] KISS: Is there a simpler equivalent design documented?
+- [ ] SRP: Do operations have one clear purpose each?
+- [ ] Composition: Are behaviors composed rather than inherited?
+- [ ] Explicit Contracts: Are public inputs/outputs documented and minimal?
+- [ ] Plugin-First: Can extensions be added without core changes?
+- [ ] YAGNI: Any added abstraction justified in plan’s Complexity Tracking?
+- [ ] Test-First & Docs: Tests precede implementation and docs updated?
+- [ ] Observability: Structured logs/audit coverage present?
+- [ ] Idempotency/Dry-Run: Repeatable with dry-run showing planned actions?
+
+Dependencies & Assumptions (non-exhaustive)
+- Integration events will supply enough metadata to identify media, language, and tags. [Assumption]
+- Player environments (Plex) will display multiple audio/subtitle tracks and selected naming formats consistently. [Assumption]
+- Source media contains at least one of: embedded subtitles, external sidecar subtitles, or externally provided subtitles; otherwise masking is not applicable. [Assumption]
+
+---
+
+## Execution Status
+Updated during spec creation
+
+- [x] User description parsed
+- [x] Key concepts extracted
+- [x] Ambiguities marked
+- [x] User scenarios defined
+- [x] Requirements generated
+- [x] Entities identified
+- [ ] Review checklist passed
+
+---
+
