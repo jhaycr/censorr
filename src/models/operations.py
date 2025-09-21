@@ -1,0 +1,95 @@
+"""Operation models and base classes."""
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Set
+from pathlib import Path
+from pydantic import BaseModel, Field, model_validator
+from .artifacts import Artifact, ArtifactType
+
+
+class OperationFlags(BaseModel):
+    """Flags that control operation execution."""
+    
+    dry_run: bool = Field(False, description="Don't create files, just show what would happen")
+    verbose: bool = Field(False, description="Verbose output")
+    strategy: str = Field("default", description="Operation strategy to use")
+    force: bool = Field(False, description="Overwrite existing output files")
+    skip_existing: bool = Field(False, description="Skip processing if output already exists")
+    parallel: bool = Field(False, description="Enable parallel execution of operations")
+    max_jobs: int = Field(1, description="Maximum number of parallel jobs (implies parallel=True)")
+    
+    @model_validator(mode='after')
+    def validate_flags(self):
+        """Validate flag combinations and apply automatic adjustments."""
+        # If max_jobs > 1, automatically enable parallel
+        if self.max_jobs > 1:
+            self.parallel = True
+        
+        # Force and skip_existing are mutually exclusive
+        if self.force and self.skip_existing:
+            raise ValueError("force and skip_existing flags cannot be used together")
+        
+        # Validate max_jobs is positive
+        if self.max_jobs <= 0:
+            raise ValueError("max_jobs must be a positive integer")
+        
+        return self
+
+
+class Operation(ABC):
+    """Base class for all pipeline operations."""
+    
+    def __init__(self, name: str):
+        self.name = name
+    
+    @property
+    @abstractmethod
+    def consumes(self) -> Set[ArtifactType]:
+        """Return the set of artifact types this operation consumes."""
+        pass
+    
+    @property
+    @abstractmethod
+    def produces(self) -> Set[ArtifactType]:
+        """Return the set of artifact types this operation produces."""
+        pass
+    
+    @abstractmethod
+    def run(
+        self, 
+        inputs: List[Artifact], 
+        workdir: Path, 
+        flags: OperationFlags
+    ) -> List[Artifact]:
+        """Execute the operation.
+        
+        Args:
+            inputs: List of input artifacts
+            workdir: Working directory for outputs
+            flags: Execution flags
+            
+        Returns:
+            List of produced artifacts
+            
+        Raises:
+            ValueError: If required inputs are missing
+            RuntimeError: If operation fails
+        """
+        pass
+    
+    def validate_inputs(self, inputs: List[Artifact]) -> None:
+        """Validate that required inputs are present."""
+        input_types = {artifact.type for artifact in inputs}
+        if not self.consumes.issubset(input_types):
+            missing = self.consumes - input_types
+            raise ValueError(f"Missing required input types: {missing}")
+
+
+class OperationResult(BaseModel):
+    """Result of an operation execution."""
+    
+    operation: str = Field(..., description="Operation name")
+    inputs: List[str] = Field(..., description="Input artifact paths")
+    outputs: List[str] = Field(..., description="Output artifact paths")
+    success: bool = Field(..., description="Whether operation succeeded")
+    error: str = Field("", description="Error message if failed")
+    logs: List[str] = Field(default_factory=list, description="Operation logs")
