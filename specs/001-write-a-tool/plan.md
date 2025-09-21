@@ -4,7 +4,7 @@
 **Input**: Feature specification from `/specs/001-write-a-tool/spec.md`
 
 ## Summary
-Primary requirement: Provide a CLI-first, composable pipeline that can extract/accept subtitles and audio, mask profanities in subtitles via fuzzy matching, mute aligned audio windows, and optionally remux into a playable output. Support Radarr/Sonarr triggers by tag, clear naming, sidecar export, and dry-run/explain for predictability.
+Primary requirement: Provide a CLI-first, composable pipeline that can extract/accept subtitles and audio, mask profanities in subtitles via fuzzy matching, mute aligned audio windows, and optionally remux into a playable output. Support Radarr/Sonarr triggers by tag, clear naming, sidecar export, and dry-run/explain for predictability. Deliverables MUST be container-deployable (Docker/Podman) with a minimal, non-root image and documented Compose/Podman examples per Constitution XII.
 
 Technical approach (high level): Implement a Python 3 CLI with a small core (Artifacts, Operations, Registry, Planner, Executor). Use adapters to call FFmpeg for extract/mute/remux and Python subtitle parsing utilities for SRT/WEBVTT. Use RapidFuzz for fuzzy matching. Maintain deterministic workdir, manifest-based caching, and structured execution/audit logs.
 
@@ -14,9 +14,10 @@ Technical approach (high level): Implement a Python 3 CLI with a small core (Art
 - Storage: Local filesystem workdir; deterministic layout; manifest.json per operation.
 - Testing: pytest + tmp_path fixtures; golden samples for subtitles/audio; integration tests performing dry-run and small media fragments.
 - Target Platform: Linux server; Docker/Podman friendly. FFmpeg must be available on PATH.
+- Containerization: Provide a Dockerfile (Podman compatible) producing a minimal, non-root image with ENTRYPOINT to the CLI; publish Compose/Podman run examples; log to stdout/stderr.
 - Project Type: Single project (CLI tool + library) → default structure.
 - Performance Goals: Handle feature-length media with linear passes; keep memory bounded by streaming where possible; parallelize independent ops.
-- Constraints: Avoid full re-encode unless requested; preserve codecs by default; ensure idempotency and deterministic filenames.
+- Constraints: Avoid full re-encode unless requested; preserve codecs by default; ensure idempotency and deterministic filenames. Container images must use pinned bases and support amd64/arm64 when feasible.
 - Scale/Scope: Single-node CLI; batch processing through Arr triggers.
 
 ## Constitution Check
@@ -27,10 +28,10 @@ Technical approach (high level): Implement a Python 3 CLI with a small core (Art
 - Plugin-First: Operation registry allows plugin registration at startup.
 - YAGNI: No HTTP server; CLI-only; manifest caching is simple file-based.
 - Test-First & Docs: Contract and acceptance tests before implementation; quickstart guides usage.
-- Observability: Execution and audit logs per op under workdir.
+- Observability: Execution and audit logs per op under workdir; container logs on stdout/stderr; optional healthcheck guidance for long-running modes.
 - Idempotency/Dry-Run: Planner/executor support dry-run and manifest checks.
 
-Status: No violations anticipated; any complexity will be documented in Complexity Tracking.
+Container Deployability (XII): Plan includes Dockerfile (non-root, pinned base), ENTRYPOINT, stdout/stderr logging, and Compose/Podman examples. Multi-arch documented. No violations anticipated; any complexity will be documented in Complexity Tracking.
 
 ## Project Structure
 

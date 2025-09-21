@@ -66,6 +66,8 @@ As a CLI user, I want to compose a standalone, step-by-step media censoring and 
 6. Given a TV episode with multiple audio tracks (e.g., main and commentary), when the audio selector prioritizes "lang=en, role=main", then the system targets the main English audio for muting and passes through others unchanged unless explicitly selected for processing.
 7. Given a user only needs cleaned subtitles, when the pipeline runs with subtitle-only target, then it produces a processed/masked subtitle artifact and may stop without remuxing the video.
 8. Given a user has externally provided mute windows for audio (without subtitles), when the pipeline runs with audio-only target, then it applies the provided timing windows to mute the selected audio track and may stop without remuxing the video.
+9. Given a masked English subtitle still contains residual profane terms per the configured bad-words list (after applying any allow-list), when the QC step runs, then by default the pipeline fails with a descriptive message and writes a QC report to the working directory listing matches and example cues.
+10. Given residual profane terms exist, when the user supplies the CLI flag to continue on QC failure, then the pipeline completes subsequent steps (e.g., export sidecar, remux) and emits a warning that links to the QC report; the process exit code indicates success.
 
 ### Edge Cases
  - No subtitles available in the requested language: by default, the pipeline fails fast with a clear error if masking is requested and no compatible subtitles exist. If the target excludes masking and either (a) audio-only muting is requested with externally supplied mute windows or (b) no cleaning is requested, the pipeline proceeds accordingly.
@@ -77,6 +79,7 @@ As a CLI user, I want to compose a standalone, step-by-step media censoring and 
 - Container without embedded subs but external sidecar present: allow selection of sidecar files per policy.
  - Multi-language libraries: default language is 'en' (English) if not specified. Users can override per-run via --language and/or structured selectors.
  - Track naming consistency across players: embedded tracks are titled "<Language Name> [CLEAN]" (e.g., "English [CLEAN]"). Sidecar subtitles default to filename pattern "<Title>.<lang>.clean.srt" (e.g., "Movie.en.clean.srt"). Audio tracks embedded in containers are titled "<Language Name> (Clean Muted)".
+ - QC false positives and allow-list interaction: Allow-listed terms MUST not trigger QC failures. QC uses the same normalized matching and word-boundary handling as masking. A configurable sample limit controls how many example excerpts per term are logged in the report.
 
 ## Requirements (mandatory)
 
@@ -129,8 +132,15 @@ Additional Functional Requirements (planning, execution, CLI, and extensibility)
 - FR-043 (Extensibility): Adding a new operation MUST be possible by implementing the Operation contract and registering it, without modifying planner or executor code.
 
 - FR-044 (Local subtitle export): Users MUST be able to export processed/masked subtitles as a sidecar file adjacent to the media using Plex-discoverable naming conventions; embedding into the container remains optional and configurable.
-- FR-045 (Subtitle quality check): Users MUST be able to enable a quality-check pass that performs case-insensitive regex searches on the processed subtitle against the configured bad-words list and reports any residual matches. In strict mode, residual matches cause the pipeline to fail with a descriptive report.
+- FR-045 (Subtitle quality check): After masking completes, the system MUST automatically perform a quality-check pass that scans the processed subtitle using case-insensitive regex based on the same configured bad-words patterns (after applying any allow-list/safe-list). The QC MUST:
+	- Report residual matches with counts, example excerpts (up to N samples per term), and cue indices/timestamps for auditing.
+	- Write a machine-readable QC report under the working directory and summarize to the execution log.
+	- Fail the pipeline by default if any residual matches are detected, with a clear failure message pointing to the QC report.
+	- Respect allow-listed terms so they do not contribute to residual failures.
+	- Be deterministic and run regardless of whether subsequent steps (e.g., remux) are requested.
+	(See FR-047 for an override flag to continue the pipeline on QC failures.)
 - FR-046 (External mute windows): Users MUST be able to provide external mute windows (e.g., JSON/CSV of [start,end] times) to drive audio-only muting when no subtitle artifact is present; the muting operation MUST accept either subtitle-derived or externally supplied timing windows.
+- FR-047 (QC override flag): The CLI MUST provide a flag to continue the pipeline despite QC failures (residual matches). When this flag is set, QC results are treated as a soft failure: the pipeline proceeds, exit status remains success, and a warning is logged with a pointer to the QC report. The flag MUST be clearly documented (e.g., "--continue-on-qc-fail"). If both configuration and CLI specify behavior, the CLI MUST take precedence for that run.
 
 Traceability for additional requirements
 - FR-020 ↔ Operation contract (addendum REQ-001)

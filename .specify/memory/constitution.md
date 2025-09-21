@@ -1,13 +1,14 @@
 <!--
 Sync Impact Report
-- Version change: 0.2.0 → 0.3.0 (MINOR: added container compatibility principle)
+- Version change: 0.2.0 → 0.3.0 (MINOR: added container deployability principle and constraints)
 - Modified principles:
-	* III. Test‑First & Doc‑Driven (title normalized for hyphenation)
+	* None (new principle added)
 - Added sections:
-	* XII. Container‑Native Compatibility
+	* XII. Container‑Deployable Deliverables
+	* Additional container constraints in Security & Operational Constraints
 - Removed sections: None
 - Templates requiring updates:
-	* ✅ .specify/templates/plan-template.md (footer update to v0.3.0 required)
+	* ✅ .specify/templates/plan-template.md (footer updated to Constitution v0.3.0)
 	* ✅ .specify/templates/spec-template.md (no changes required)
 	* ✅ .specify/templates/tasks-template.md (no changes required)
 	* ⚠ .specify/templates/commands/* (directory not present)
@@ -70,15 +71,16 @@ You Aren’t Gonna Need It: avoid speculative features. Any added abstraction mu
 justified in the plan/spec and tracked in “Complexity Tracking” with rationale and
 alternatives considered.
 
-### XII. Container‑Native Compatibility
-Solutions MUST be compatible with common container platforms (Docker, Podman, Compose)
-without bespoke host assumptions.
-- Base images MUST be minimal and pinned; support non‑root execution by default.
-- Config, data, and logs MUST be mountable via volumes; no hidden state in images.
-- Network and ports MUST be declarative and configurable via env/flags.
-- Health/readiness endpoints or checks SHOULD be provided for orchestration.
-- Deterministic startup/shutdown and idempotent operations are REQUIRED.
-- Provide example Compose/K8s snippets in quickstart/docs for new services.
+### XII. Container‑Deployable Deliverables
+All solutions MUST be straightforward to deploy as containers (Docker/Podman):
+- Provide a working Dockerfile (Podman compatible) that builds a minimal, non‑root image.
+- Define a sensible ENTRYPOINT/CMD for the CLI, emitting logs to stdout/stderr.
+- Support configuration via flags and environment variables (env never required when a flag exists).
+- Include a HEALTHCHECK when applicable for long‑running modes; short‑lived CLI remains simple.
+- Document required volumes (e.g., media, workdir) and example Compose/Podman run invocations.
+- Ensure images are reproducible: pinned bases, deterministic builds; provide SBOM or dependency manifest.
+- Prefer multi‑arch builds (amd64, arm64) or document supported arches.
+- Security: run as non‑root, least privileges; no secrets baked into images.
 
 ## Security & Operational Constraints
 
@@ -88,6 +90,7 @@ without bespoke host assumptions.
 - Configuration: Single source of truth via config file (YAML/TOML) and/or flags. Environment variables allowed but never required when a flag exists.
 - Failure modes: Timeouts for remote calls; retries with backoff for transient errors; clear, actionable error messages; no silent fallback behavior.
 - Backups and reversibility: Changes to persistent data must document backup/restore steps in quickstart/docs; destructive actions require confirmation.
+- Container images: Build minimal, non‑root images with pinned bases; publish or document build steps; provide Compose/Podman examples and healthcheck guidance where relevant; log to stdout/stderr only.
 
 ## Development Workflow & Quality Gates
 
@@ -108,4 +111,4 @@ This constitution supersedes other practices for this repository. Amendments req
 
 All reviews must verify compliance with the Core Principles and Quality Gates. Complexity must be justified in the plan/spec. Deviations are recorded in "Complexity Tracking" within plans.
 
-**Version**: 0.3.0 | **Ratified**: 2025-09-14 | **Last Amended**: 2025-09-20
+**Version**: 0.3.0 | **Ratified**: 2025-09-14 | **Last Amended**: 2025-09-21
