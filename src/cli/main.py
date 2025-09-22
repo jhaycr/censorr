@@ -1,7 +1,7 @@
 """Main CLI entry point for censorr."""
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 import json
 
 import typer
@@ -13,7 +13,17 @@ from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 from src.models.selectors import Selector
 from src.planner.planner import Planner
+from src.planner.registry import OperationRegistry
 from src.planner.executor import Executor
+
+# Import all available operations
+from src.ops.extract_subtitles import ExtractSubtitlesOperation
+from src.ops.merge_subtitles import MergeSubtitlesOperation
+from src.ops.mask_subtitles import MaskSubtitlesOperation
+from src.ops.export_sidecar import ExportSidecarOperation
+from src.ops.extract_audio import ExtractAudioOperation
+from src.ops.mute_audio import MuteAudioOperation
+from src.ops.remux import RemuxOperation
 
 # Create the main CLI app
 app = typer.Typer(
@@ -23,6 +33,38 @@ app = typer.Typer(
 )
 
 console = Console()
+
+def create_operation_registry() -> OperationRegistry:
+    """Create and populate the operation registry with all available operations."""
+    registry = OperationRegistry()
+    
+    # Register all operations
+    registry.register(ExtractSubtitlesOperation())
+    registry.register(MergeSubtitlesOperation())
+    registry.register(MaskSubtitlesOperation())
+    registry.register(ExportSidecarOperation())
+    registry.register(ExtractAudioOperation())
+    registry.register(MuteAudioOperation())
+    registry.register(RemuxOperation())
+    
+    return registry
+
+def determine_target_types(operation_list: Optional[List[str]], registry: OperationRegistry) -> Set[ArtifactType]:
+    """Determine target artifact types from operation list or use defaults."""
+    if operation_list:
+        # If specific operations are requested, find what they produce
+        target_types = set()
+        for op_name in operation_list:
+            try:
+                operation = registry.get_operation(op_name)
+                target_types.update(operation.produces)
+            except KeyError:
+                # Operation not found - let planner handle the error
+                pass
+        return target_types
+    else:
+        # Default: full pipeline ending with remuxed video
+        return {ArtifactType.VIDEO}
 
 # Version callback
 def version_callback(value: bool):
@@ -114,6 +156,30 @@ def process(
     jobs: int = typer.Option(
         1, "--jobs", "-j",
         help="Number of parallel jobs (automatically enables parallel mode)"
+    ),
+    continue_on_qc_fail: bool = typer.Option(
+        False, "--continue-on-qc-fail",
+        help="Continue pipeline execution despite QC failures (residual profane matches)"
+    ),
+    subtitle_title_include: Optional[str] = typer.Option(
+        None, "--subtitle-title-include",
+        help="Include subtitle tracks with titles containing these substrings (comma-separated)"
+    ),
+    subtitle_title_exclude: Optional[str] = typer.Option(
+        None, "--subtitle-title-exclude", 
+        help="Exclude subtitle tracks with titles containing these substrings (comma-separated)"
+    ),
+    subtitle_title_regex: Optional[str] = typer.Option(
+        None, "--subtitle-title-regex",
+        help="Include subtitle tracks with titles matching these regex patterns (comma-separated)"
+    ),
+    exclude_sdh: bool = typer.Option(
+        False, "--exclude-sdh",
+        help="Exclude hearing-impaired/SDH subtitle tracks"
+    ),
+    profanity_list_file: Optional[str] = typer.Option(
+        None, "--profanity-list-file",
+        help="Path to JSON file with an array of {word: string, ...} objects for profanity masking"
     )
 ):
     """
@@ -149,14 +215,37 @@ def process(
         
         # Create selectors
         selectors = []
-        if language:
+        
+        # Parse title filter lists
+        title_include_list = []
+        if subtitle_title_include:
+            title_include_list = [s.strip() for s in subtitle_title_include.split(",")]
+        
+        title_exclude_list = []
+        if subtitle_title_exclude:
+            title_exclude_list = [s.strip() for s in subtitle_title_exclude.split(",")]
+        
+        title_regex_list = []
+        if subtitle_title_regex:
+            title_regex_list = [s.strip() for s in subtitle_title_regex.split(",")]
+        
+        # Check if any subtitle filtering is requested
+        has_subtitle_filters = (language or title_include_list or title_exclude_list or 
+                               title_regex_list or exclude_sdh)
+        
+        if has_subtitle_filters:
             # Create subtitle selector
             subtitle_selector = Selector(
                 type=ArtifactType.SUBTITLE,
-                language=language
+                language=language,
+                title_include=title_include_list,
+                title_exclude=title_exclude_list,
+                title_regex=title_regex_list,
+                exclude_sdh=exclude_sdh
             )
             selectors.append(subtitle_selector)
-            
+        
+        if language:
             # Create audio selector with same criteria
             audio_selector = Selector(
                 type=ArtifactType.AUDIO,
@@ -200,7 +289,9 @@ def process(
             force=force,
             skip_existing=skip_existing,
             parallel=parallel,
-            max_jobs=jobs
+            max_jobs=jobs,
+            continue_on_qc_fail=continue_on_qc_fail,
+            profanity_list_file=profanity_list_file
         )
         
         # Plan operations
@@ -218,16 +309,27 @@ def process(
             elif flags.skip_existing:
                 rprint("[yellow]Skip mode: Will skip existing files[/yellow]")
         
-        planner = Planner()
-        plan = planner.plan([input_artifact], selectors, operation_list)
+        # Create registry and planner
+        registry = create_operation_registry()
+        planner = Planner(registry)
+        
+        # Determine target artifact types from operations
+        target_types = determine_target_types(operation_list, registry)
+        
+        plan = planner.plan(
+            [input_artifact],
+            target_types,
+            selectors=selectors,
+            requested_operations=operation_list
+        )
         
         if verbose or dry_run:
             rprint("[blue]Execution plan:[/blue]")
-            for i, (operation_name, operation_inputs) in enumerate(plan, 1):
-                rprint(f"  {i}. {operation_name}")
+            for i, operation in enumerate(plan.operations, 1):
+                rprint(f"  {i}. {operation.name}")
                 if verbose:
-                    for artifact in operation_inputs:
-                        rprint(f"     - {artifact.type.value}: {Path(artifact.path).name}")
+                    rprint(f"     - Consumes: {', '.join(t.value for t in operation.consumes)}")
+                    rprint(f"     - Produces: {', '.join(t.value for t in operation.produces)}")
         
         if dry_run:
             rprint("[yellow]Dry run mode - no files will be modified[/yellow]")
@@ -238,13 +340,16 @@ def process(
             rprint("[blue]Executing operations...[/blue]")
         
         executor = Executor()
-        results = executor.execute(plan, output_path, flags)
+        results = executor.execute(plan, output_path, artifacts=[input_artifact], flags=flags)
         
         # Report results
         if results:
-            rprint(f"[green]✓ Processing complete! Generated {len(results)} output files:[/green]")
+            rprint(f"[green]✓ Processing complete! Generated {len(results)} operation results[/green]")
             for result in results:
-                rprint(f"  - {result.type.value}: {result.path}")
+                if result.success:
+                    rprint(f"  - ✓ {result.operation}: Success")
+                else:
+                    rprint(f"  - ✗ {result.operation}: Failed")
         else:
             rprint("[yellow]No output files generated[/yellow]")
             

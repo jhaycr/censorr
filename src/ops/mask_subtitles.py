@@ -2,8 +2,9 @@
 
 Applies profanity filtering to subtitle content using fuzzy matching.
 """
+import json
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Dict, Any, Optional
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import Operation, OperationFlags
 from src.utils.subtitle_parser import SubtitleParser, SubtitleEntry, SubtitleError
@@ -23,9 +24,9 @@ class MaskSubtitlesOperation(Operation):
         self.description = "Apply profanity filtering to subtitle content using fuzzy matching"
         self.parser = SubtitleParser()
         
-        # Use default profanity list if none provided
+        # Defer allow-list initialization; we'll read from file at run-time
         if profanity_list is None:
-            profanity_list = self._get_default_profanity_list()
+            profanity_list = []
         
         self.matcher = FuzzyMatcher(
             similarity_threshold=85.0,  # High threshold for profanity matching
@@ -64,12 +65,34 @@ class MaskSubtitlesOperation(Operation):
             if not subtitle_artifacts:
                 raise ValueError("No subtitle artifacts found for masking")
             
-            # Process first subtitle artifact (operation expects single subtitle)
-            input_artifact = subtitle_artifacts[0]
+            # Prefer a merged subtitle artifact if available; otherwise use the first
+            input_artifact = self._choose_best_input_subtitle(subtitle_artifacts)
+            if flags.verbose:
+                source_kind = (
+                    "merged" if ('merged_from' in input_artifact.metadata or Path(input_artifact.path).name == 'merged_subtitles.srt')
+                    else "extracted"
+                )
+                print(f"[mask_subtitles] Using {source_kind} subtitle: {input_artifact.path}")
             
             if flags.dry_run:
                 return self._handle_dry_run(input_artifact, workdir)
             
+            # Initialize profanity allow list: prefer CLI flag; else try default config/profanity_list.json
+            profanity_path: Optional[Path] = None
+            if flags.profanity_list_file:
+                profanity_path = Path(flags.profanity_list_file)
+            else:
+                profanity_path = self._resolve_default_profanity_file()
+
+            if profanity_path is not None:
+                loaded_terms = self._load_profanity_list(profanity_path)
+                self.matcher.allow_list = loaded_terms
+                if flags.verbose:
+                    print(f"[mask_subtitles] Loaded {len(loaded_terms)} profanity terms from {profanity_path}")
+            else:
+                if flags.verbose:
+                    print("[mask_subtitles] No profanity list found; proceeding with empty allow_list")
+
             # Parse subtitle file
             try:
                 entries = self.parser.parse_file(input_artifact.path)
@@ -82,6 +105,7 @@ class MaskSubtitlesOperation(Operation):
             masked_entries = []
             total_matches = 0
             entries_with_profanity = 0
+            unique_terms: Set[str] = set()
             
             for entry in entries:
                 if self.matcher.contains_profanity(entry.text):
@@ -95,6 +119,9 @@ class MaskSubtitlesOperation(Operation):
                             matches = self.matcher.match_against_allow_list(clean_word)
                             if matches and any(match.is_match for match in matches):
                                 word_matches += 1
+                                for m in matches:
+                                    if m.is_match:
+                                        unique_terms.add(m.target)
                     
                     total_matches += word_matches
                     entries_with_profanity += 1
@@ -113,7 +140,11 @@ class MaskSubtitlesOperation(Operation):
                     masked_entries.append(entry)
             
             if flags.verbose:
-                print(f"Found {total_matches} profanity matches in {entries_with_profanity} entries")
+                total_entries = len(entries)
+                unchanged = total_entries - entries_with_profanity
+                pct_masked = (entries_with_profanity / total_entries * 100.0) if total_entries else 0.0
+                print(f"[mask_subtitles] Entries: {total_entries} | Masked: {entries_with_profanity} ({pct_masked:.1f}%) | Unchanged: {unchanged}")
+                print(f"[mask_subtitles] Word-level replacements: {total_matches} | Unique profane terms matched: {len(unique_terms)}")
             
             # Generate output path
             output_path = workdir / "masked_subtitles.srt"
@@ -121,6 +152,25 @@ class MaskSubtitlesOperation(Operation):
             # Generate and write SRT content
             srt_content = self._generate_srt_content(masked_entries)
             output_path.write_text(srt_content, encoding='utf-8')
+            if flags.verbose:
+                print(f"[mask_subtitles] Wrote masked subtitles to: {output_path}")
+
+            # Run quality check on masked content
+            qc_results = self._run_quality_check(masked_entries, workdir, flags)
+            
+            # Handle QC results
+            if qc_results["residual_matches"] > 0:
+                if not flags.continue_on_qc_fail:
+                    # Fail the pipeline by default
+                    qc_report_path = qc_results["report_path"]
+                    raise RuntimeError(
+                        f"Quality check failed: Found {qc_results['residual_matches']} residual profane matches. "
+                        f"See QC report at {qc_report_path}. Use --continue-on-qc-fail to proceed despite failures."
+                    )
+                else:
+                    # Log warning but continue
+                    if flags.verbose:
+                        print(f"Warning: QC found {qc_results['residual_matches']} residual matches, but continuing due to --continue-on-qc-fail flag")
             
             # Create masked artifact
             masked_artifact = Artifact(
@@ -131,7 +181,8 @@ class MaskSubtitlesOperation(Operation):
                     "original_file": input_artifact.path,
                     "profanity_filtered": total_matches > 0,
                     "matches_found": total_matches,
-                    "entries_modified": entries_with_profanity
+                    "entries_modified": entries_with_profanity,
+                    "qc": qc_results if qc_results["residual_matches"] > 0 else None
                 }
             )
             
@@ -142,6 +193,104 @@ class MaskSubtitlesOperation(Operation):
             raise
         except Exception as e:
             raise RuntimeError(f"Unexpected error during subtitle masking: {e}")
+
+    def _run_quality_check(self, masked_entries: List[SubtitleEntry], workdir: Path, flags: OperationFlags) -> Dict[str, Any]:
+        """Run quality check on masked subtitle content.
+                        profanity_path: Optional[Path] = None
+                        if flags.profanity_list_file:
+                            profanity_path = Path(flags.profanity_list_file)
+                        else:
+                            profanity_path = self._resolve_default_profanity_file()
+
+                        if profanity_path is not None:
+                            loaded_terms = self._load_profanity_list(profanity_path)
+                            self.matcher.allow_list = loaded_terms
+                            if flags.verbose:
+                                source = str(profanity_path)
+                                print(f"Loaded {len(loaded_terms)} profanity terms from {source}")
+                        else:
+                            if flags.verbose:
+                                print("No profanity list provided; proceeding without masking terms (allow_list empty)")
+        
+        Args:
+            masked_entries: List of processed subtitle entries
+            workdir: Working directory for QC report
+            flags: Execution flags
+            
+        Returns:
+            QC results dictionary with residual matches and report path
+        """
+        residual_matches = []
+        total_residual_count = 0
+        sample_limit = 3  # Configurable limit for example excerpts per term
+        
+        # Scan for residual matches
+        for entry in masked_entries:
+            words = entry.text.split()
+            for word in words:
+                # Clean word of punctuation for matching
+                clean_word = ''.join(c for c in word if c.isalnum())
+                if not clean_word:
+                    continue
+                    
+                # Check if word matches any profanity (same logic as masking)
+                matches = self.matcher.match_against_allow_list(clean_word)
+                if matches and any(match.is_match for match in matches):
+                    # Found a residual match
+                    matched_terms = [match.target for match in matches if match.is_match]
+                    for term in matched_terms:
+                        # Find or create entry for this term
+                        term_entry = next((rm for rm in residual_matches if rm["term"] == term), None)
+                        if not term_entry:
+                            term_entry = {
+                                "term": term,
+                                "count": 0,
+                                "samples": []
+                            }
+                            residual_matches.append(term_entry)
+                        
+                        term_entry["count"] += 1
+                        total_residual_count += 1
+                        
+                        # Add sample if under limit
+                        if len(term_entry["samples"]) < sample_limit:
+                            term_entry["samples"].append({
+                                "cue_index": entry.index,
+                                "start": entry.start,
+                                "end": entry.end,
+                                "excerpt": entry.text[:100] + ("..." if len(entry.text) > 100 else "")
+                            })
+        
+        # Generate QC report
+        qc_report = {
+            "terms": residual_matches,
+            "totals": {
+                "matches": total_residual_count,
+                "terms": len(residual_matches)
+            },
+            "language": "unknown",  # Could be extracted from artifact metadata
+            "policy": "partial",  # Could be made configurable
+            "sample_limit": sample_limit
+        }
+        
+        # Write QC report to file
+        qc_report_path = workdir / "qc_report.json"
+        qc_report_path.write_text(json.dumps(qc_report, indent=2), encoding='utf-8')
+        
+        # Log summary
+        if flags.verbose:
+            if total_residual_count > 0:
+                print(f"QC: Found {total_residual_count} residual matches across {len(residual_matches)} terms")
+                print(f"QC report written to: {qc_report_path}")
+            else:
+                print("QC: No residual matches found - quality check passed")
+        
+        return {
+            "residual_matches": total_residual_count,
+            "report_path": str(qc_report_path),
+            "terms_with_matches": len(residual_matches),
+            "continued": flags.continue_on_qc_fail if total_residual_count > 0 else False
+        }
     
     def _mask_text_profanity(self, text: str) -> str:
         """Mask profanity in text with asterisks.
@@ -255,15 +404,80 @@ class MaskSubtitlesOperation(Operation):
         )
         
         return [planned_artifact]
+
+    def _choose_best_input_subtitle(self, subtitle_artifacts: List[Artifact]) -> Artifact:
+        """Choose the best subtitle to mask.
+
+        Preference order: merged (by metadata or filename) > first extracted.
+
+        This is resilient to cached artifacts where metadata may be missing.
+        """
+        if not subtitle_artifacts:
+            raise ValueError("No subtitle artifacts available")
+
+        # Prefer by explicit metadata
+        for a in subtitle_artifacts:
+            if 'merged_from' in a.metadata:
+                return a
+
+        # Prefer by filename heuristic
+        for a in subtitle_artifacts:
+            if Path(a.path).name == 'merged_subtitles.srt':
+                return a
+
+        # Fallback to the first available subtitle
+        return subtitle_artifacts[0]
     
-    def _get_default_profanity_list(self) -> List[str]:
-        """Get default profanity list for filtering.
+    def _load_profanity_list(self, file_path: Path) -> List[str]:
+        """Load profanity terms from a JSON file.
+
+        The file format is an array of JSON objects, each including at least
+        a "word" key. Example:
+        [ {"word": "damn"}, {"word": "hell", "tier": "mild", "category": "profanity"} ]
+        
+        Args:
+            file_path: Path to the JSON file
         
         Returns:
-            List of profanity terms
+            List of profanity words (strings)
         """
-        # Basic profanity list - in production this might be loaded from a file
-        return [
-            "damn", "hell", "shit", "fuck", "bitch", "ass", "crap",
-            "piss", "bastard", "bloody", "goddamn", "dammit"
-        ]
+        if not file_path.exists():
+            raise RuntimeError(f"Profanity list file not found: {file_path}")
+        try:
+            data = json.loads(file_path.read_text(encoding='utf-8'))
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid JSON in profanity list file {file_path}: {e}")
+        if not isinstance(data, list):
+            raise RuntimeError(f"Profanity list file must be a JSON array, got {type(data).__name__}")
+        words: List[str] = []
+        for i, item in enumerate(data):
+            if not isinstance(item, dict):
+                raise RuntimeError(f"Entry {i} in profanity list must be an object, got {type(item).__name__}")
+            word = item.get("word")
+            if not isinstance(word, str) or not word:
+                raise RuntimeError(f"Entry {i} missing valid 'word' string")
+            words.append(word)
+        return words
+
+    def _resolve_default_profanity_file(self) -> Optional[Path]:
+        """Resolve default profanity list path if available.
+
+        Checks the following locations in order and returns the first that exists:
+        1) Current working directory: ./config/profanity_list.json
+        2) Project root (two levels above this file): <project>/config/profanity_list.json
+
+        Returns:
+            Path to the default file if found, else None.
+        """
+        # 1) CWD/config/profanity_list.json
+        cwd_candidate = Path.cwd() / "config" / "profanity_list.json"
+        if cwd_candidate.exists():
+            return cwd_candidate
+
+        # 2) Project root/config/profanity_list.json
+        project_root = Path(__file__).resolve().parents[2]
+        root_candidate = project_root / "config" / "profanity_list.json"
+        if root_candidate.exists():
+            return root_candidate
+
+        return None

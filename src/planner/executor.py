@@ -59,6 +59,10 @@ class Executor:
         if flags is None:
             flags = OperationFlags()
         
+        # Include selectors from plan in flags
+        if plan.selectors and not flags.selectors:
+            flags.selectors = plan.selectors
+        
         context = ExecutionContext(
             workdir=workdir,
             flags=flags,
@@ -156,7 +160,9 @@ class Executor:
             
             if is_cached and not context.flags.skip_existing:
                 if context.flags.verbose:
+                    # Log to file logger and also surface to console so users understand missing per-op logs
                     self.logger.info(f"Operation {operation.name} cached, skipping execution")
+                    print(f"[executor] Using cached result for '{operation.name}' at {operation_dir}. Pass --force to re-run.")
                     context.execution_logger.add_operation_log(
                         log_entry, f"Found cached result in {operation_dir}"
                     )
@@ -263,9 +269,14 @@ class Executor:
                 if artifact.type == required_type
             ]
             
-            if matching_artifacts:
-                # For now, just take the first match
-                # TODO: Implement proper selection logic
+            if not matching_artifacts:
+                continue
+
+            # If the operation consumes subtitles, pass all subtitle artifacts
+            if required_type == ArtifactType.SUBTITLE:
+                inputs.extend(matching_artifacts)
+            else:
+                # For non-subtitle types, pass the first match as before
                 inputs.append(matching_artifacts[0])
         
         return inputs

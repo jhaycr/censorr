@@ -27,6 +27,25 @@
       "type": "boolean",
       "description": "Whether only forced subtitles should be selected (SUBTITLE only)"
     },
+    "title_include": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Include tracks with titles containing these substrings (SUBTITLE only)"
+    },
+    "title_exclude": {
+      "type": "array", 
+      "items": { "type": "string" },
+      "description": "Exclude tracks with titles containing these substrings (SUBTITLE only)"
+    },
+    "title_regex": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Include tracks with titles matching these regex patterns (SUBTITLE only)"
+    },
+    "exclude_sdh": {
+      "type": "boolean",
+      "description": "Exclude hearing-impaired/SDH tracks (SUBTITLE only)"
+    },
     "prefer": {
       "type": "boolean",
       "description": "Indicates user preference boost when multiple tracks match"
@@ -48,7 +67,11 @@
       "then": {
         "not": {
           "anyOf": [
-            { "required": ["forced"] }
+            { "required": ["forced"] },
+            { "required": ["title_include"] },
+            { "required": ["title_exclude"] },
+            { "required": ["title_regex"] },
+            { "required": ["exclude_sdh"] }
           ]
         }
       }
@@ -59,7 +82,11 @@
         "not": {
           "anyOf": [
             { "required": ["forced"] },
-            { "required": ["role"] }
+            { "required": ["role"] },
+            { "required": ["title_include"] },
+            { "required": ["title_exclude"] },
+            { "required": ["title_regex"] },
+            { "required": ["exclude_sdh"] }
           ]
         }
       }

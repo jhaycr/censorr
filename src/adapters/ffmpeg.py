@@ -26,6 +26,7 @@ class TrackInfo(BaseModel):
     codec: str = Field(..., description="Codec name")
     language: Optional[str] = Field(None, description="Language code")
     title: Optional[str] = Field(None, description="Track title")
+    forced: Optional[bool] = Field(None, description="Forced flag (subtitle disposition)")
 
 
 class MediaInfo(BaseModel):
@@ -105,12 +106,17 @@ class FFmpegAdapter:
             # Extract track info
             tracks = []
             for stream in data.get("streams", []):
+                # Get disposition info for forced flag
+                disposition = stream.get("disposition", {})
+                forced = disposition.get("forced", 0) == 1 if disposition else None
+                
                 track = TrackInfo(
                     index=stream.get("index", 0),
                     type=stream.get("codec_type", "unknown"),
                     codec=stream.get("codec_name", "unknown"),
                     language=stream.get("tags", {}).get("language"),
-                    title=stream.get("tags", {}).get("title")
+                    title=stream.get("tags", {}).get("title"),
+                    forced=forced
                 )
                 tracks.append(track)
             

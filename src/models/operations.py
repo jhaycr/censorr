@@ -1,9 +1,12 @@
 """Operation models and base classes."""
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Any, Set, TYPE_CHECKING
 from pathlib import Path
 from pydantic import BaseModel, Field, model_validator
 from .artifacts import Artifact, ArtifactType
+
+if TYPE_CHECKING:
+    from .selectors import Selector
 
 
 class OperationFlags(BaseModel):
@@ -16,6 +19,9 @@ class OperationFlags(BaseModel):
     skip_existing: bool = Field(False, description="Skip processing if output already exists")
     parallel: bool = Field(False, description="Enable parallel execution of operations")
     max_jobs: int = Field(1, description="Maximum number of parallel jobs (implies parallel=True)")
+    continue_on_qc_fail: bool = Field(False, description="Continue pipeline on QC failure (residual matches found)")
+    selectors: List['Selector'] = Field(default_factory=list, description="Track selectors for filtering operations")
+    profanity_list_file: str | None = Field(None, description="Path to JSON profanity list file for subtitle masking")
     
     @model_validator(mode='after')
     def validate_flags(self):
@@ -93,3 +99,16 @@ class OperationResult(BaseModel):
     success: bool = Field(..., description="Whether operation succeeded")
     error: str = Field("", description="Error message if failed")
     logs: List[str] = Field(default_factory=list, description="Operation logs")
+
+
+# Rebuild the model to resolve forward references
+def _rebuild_models():
+    """Rebuild models to resolve forward references."""
+    try:
+        from .selectors import Selector  # noqa: F401
+        OperationFlags.model_rebuild()
+    except ImportError:
+        # Selector not available yet, will be rebuilt later
+        pass
+
+_rebuild_models()

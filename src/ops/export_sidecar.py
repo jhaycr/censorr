@@ -71,21 +71,25 @@ class ExportSidecarOperation(Operation):
             if flags.dry_run:
                 return self._handle_dry_run(workdir, subtitle_artifacts, video_artifacts)
             
-            # Parse subtitle files
+            # Choose the best single subtitle artifact to export to avoid duplication
+            chosen_subtitle, choice_reason = self._choose_best_subtitle_artifact(subtitle_artifacts)
+            if not chosen_subtitle:
+                raise ValueError("No suitable subtitle artifact found for sidecar export")
+            
+            # Parse the chosen subtitle file
             all_subtitle_entries = []
             source_artifacts = []
-            
-            for artifact in subtitle_artifacts:
-                try:
-                    entries = self.parser.parse_file(artifact.path)
-                    all_subtitle_entries.extend(entries)
-                    source_artifacts.append(artifact.path)
+            try:
+                entries = self.parser.parse_file(chosen_subtitle.path)
+                all_subtitle_entries.extend(entries)
+                source_artifacts.append(chosen_subtitle.path)
+                
+                if flags.verbose:
+                    print(f"Using {choice_reason}: {chosen_subtitle.path}")
+                    print(f"Parsed {len(entries)} subtitle entries from {chosen_subtitle.path}")
                     
-                    if flags.verbose:
-                        print(f"Parsed {len(entries)} subtitle entries from {artifact.path}")
-                        
-                except SubtitleError as e:
-                    raise RuntimeError(f"Failed to parse subtitle file {artifact.path}: {e}")
+            except SubtitleError as e:
+                raise RuntimeError(f"Failed to parse subtitle file {chosen_subtitle.path}: {e}")
             
             # Sort subtitle entries chronologically and renumber
             all_subtitle_entries.sort(key=lambda entry: (entry.start, entry.end))
@@ -107,8 +111,18 @@ class ExportSidecarOperation(Operation):
             if flags.verbose:
                 print(f"Exporting sidecar in {self.format.value} format with {len(all_subtitle_entries)} subtitle entries")
             
-            # Generate output path
-            output_path = workdir / f"sidecar.{self.format.value}"
+            # Generate output path - prefer alongside original video file if available
+            if video_artifacts:
+                # Place sidecar alongside the first video file
+                video_path = Path(video_artifacts[0].path)
+                output_path = video_path.parent / f"{video_path.stem}.{self.format.value}"
+                if flags.verbose:
+                    print(f"[export_sidecar] Placing sidecar next to video: {output_path}")
+            else:
+                # Fallback to working directory if no video artifacts
+                output_path = workdir / f"sidecar.{self.format.value}"
+                if flags.verbose:
+                    print(f"[export_sidecar] No video input; writing sidecar in workdir: {output_path}")
             
             # Export in specified format
             if self.format == SidecarFormat.SRT:
@@ -122,6 +136,8 @@ class ExportSidecarOperation(Operation):
             
             # Write sidecar file
             output_path.write_text(content, encoding='utf-8')
+            if flags.verbose:
+                print(f"[export_sidecar] Wrote sidecar to: {output_path}")
             
             # Create sidecar artifact
             sidecar_artifact = Artifact(
@@ -279,11 +295,22 @@ class ExportSidecarOperation(Operation):
         Returns:
             List with planned sidecar artifact
         """
-        output_path = workdir / f"sidecar.{self.format.value}"
-        
+        # Select the best single subtitle artifact for planning
+        chosen_subtitle, _ = self._choose_best_subtitle_artifact(subtitle_artifacts)
+
+        # Generate output path - prefer alongside original video file if available
+        if video_artifacts:
+            # Place sidecar alongside the first video file
+            video_path = Path(video_artifacts[0].path)
+            output_path = video_path.parent / f"{video_path.stem}.{self.format.value}"
+        else:
+            # Fallback to working directory if no video artifacts
+            output_path = workdir / f"sidecar.{self.format.value}"
+
         # Collect source artifacts
         source_artifacts = []
-        source_artifacts.extend([artifact.path for artifact in subtitle_artifacts])
+        if chosen_subtitle:
+            source_artifacts.append(chosen_subtitle.path)
         source_artifacts.extend([artifact.path for artifact in video_artifacts])
         
         # Create planned artifact (not actually created)
@@ -298,3 +325,28 @@ class ExportSidecarOperation(Operation):
         )
         
         return [planned_artifact]
+
+    def _choose_best_subtitle_artifact(self, subtitle_artifacts: List[Artifact]) -> tuple[Optional[Artifact], str]:
+        """Choose a single best subtitle artifact to export.
+        
+        Preference order: masked > merged > single extracted.
+        If multiple extracted and no merged/masked, pick the first to avoid duplication.
+        
+        Returns:
+            (artifact, reason) or (None, reason)
+        """
+        if not subtitle_artifacts:
+            return None, "no subtitles provided"
+        
+        # Masked subtitles heuristic: metadata contains 'original_file' or filename is masked_subtitles.srt
+        masked = [a for a in subtitle_artifacts if (a.metadata.get('original_file') is not None) or (Path(a.path).name == 'masked_subtitles.srt')]
+        if masked:
+            return masked[0], "masked subtitle"
+        
+        # Merged subtitles heuristic: metadata contains 'merged_from' or filename is merged_subtitles.srt
+        merged = [a for a in subtitle_artifacts if ('merged_from' in a.metadata) or (Path(a.path).name == 'merged_subtitles.srt')]
+        if merged:
+            return merged[0], "merged subtitle"
+        
+        # Fallback: single extracted; if multiple, pick the first to avoid duplication
+        return subtitle_artifacts[0], "extracted subtitle"

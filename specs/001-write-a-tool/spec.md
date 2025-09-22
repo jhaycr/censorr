@@ -68,6 +68,7 @@ As a CLI user, I want to compose a standalone, step-by-step media censoring and 
 8. Given a user has externally provided mute windows for audio (without subtitles), when the pipeline runs with audio-only target, then it applies the provided timing windows to mute the selected audio track and may stop without remuxing the video.
 9. Given a masked English subtitle still contains residual profane terms per the configured bad-words list (after applying any allow-list), when the QC step runs, then by default the pipeline fails with a descriptive message and writes a QC report to the working directory listing matches and example cues.
 10. Given residual profane terms exist, when the user supplies the CLI flag to continue on QC failure, then the pipeline completes subsequent steps (e.g., export sidecar, remux) and emits a warning that links to the QC report; the process exit code indicates success.
+11. Given a video container with three English subtitle tracks — (a) a main/full track with a null/empty title or a generic title like "English", (b) a forced track titled "English Forced" (or similar), and (c) a hearing‑impaired track titled with SDH/HI/CC (e.g., "English [SDH]") — when the user targets English and specifies title/metadata filters to include main + forced while excluding SDH/HI, then the system selects only the full and forced English tracks, merges them in chronological order, and excludes the SDH/HI track from the merge.
 
 ### Edge Cases
  - No subtitles available in the requested language: by default, the pipeline fails fast with a clear error if masking is requested and no compatible subtitles exist. If the target excludes masking and either (a) audio-only muting is requested with externally supplied mute windows or (b) no cleaning is requested, the pipeline proceeds accordingly.
@@ -80,6 +81,9 @@ As a CLI user, I want to compose a standalone, step-by-step media censoring and 
  - Multi-language libraries: default language is 'en' (English) if not specified. Users can override per-run via --language and/or structured selectors.
  - Track naming consistency across players: embedded tracks are titled "<Language Name> [CLEAN]" (e.g., "English [CLEAN]"). Sidecar subtitles default to filename pattern "<Title>.<lang>.clean.srt" (e.g., "Movie.en.clean.srt"). Audio tracks embedded in containers are titled "<Language Name> (Clean Muted)".
  - QC false positives and allow-list interaction: Allow-listed terms MUST not trigger QC failures. QC uses the same normalized matching and word-boundary handling as masking. A configurable sample limit controls how many example excerpts per term are logged in the report.
+ - Subtitle titles may be missing, localized, or inconsistent: when title is null/empty, treat as "unknown" and allow inclusion via filters (e.g., include null/empty as "main/full"). When multiple naming variants exist (e.g., "English Forced", "Forced English"), title filtering SHOULD support substring and/or regex matching to cover common patterns.
+ - Hearing‑impaired synonyms and markers: SDH/HI/CC variants (e.g., "[SDH]", "(HI)", "Hearing Impaired", "Closed Captions") SHOULD be recognized for exclusion when the user requests to exclude SDH/HI. Recognition MAY rely on configurable lists and simple normalization (case-insensitive, brackets/parentheses stripped).
+ - Only SDH/HI track present for requested language: if user requested exclusion of SDH/HI and no non‑SDH tracks exist, selector behavior MUST be explicit: either fail with a clear message (strict) or proceed by selecting the best available SDH/HI track (fallback), according to a user‑visible policy/flag.
 
 ## Requirements (mandatory)
 
@@ -142,6 +146,13 @@ Additional Functional Requirements (planning, execution, CLI, and extensibility)
 - FR-046 (External mute windows): Users MUST be able to provide external mute windows (e.g., JSON/CSV of [start,end] times) to drive audio-only muting when no subtitle artifact is present; the muting operation MUST accept either subtitle-derived or externally supplied timing windows.
 - FR-047 (QC override flag): The CLI MUST provide a flag to continue the pipeline despite QC failures (residual matches). When this flag is set, QC results are treated as a soft failure: the pipeline proceeds, exit status remains success, and a warning is logged with a pointer to the QC report. The flag MUST be clearly documented (e.g., "--continue-on-qc-fail"). If both configuration and CLI specify behavior, the CLI MUST take precedence for that run.
 
+- FR-048 (Subtitle title & metadata filtering): Users MUST be able to filter subtitle tracks by title patterns and metadata in addition to language and forced flag, to precisely select English "full" + English "forced" tracks while excluding hearing‑impaired (SDH/HI/CC) tracks from merges.
+	- Title filtering MUST support simple substring contains (any-of list) and an optional regex mode; matching is case-insensitive and applies after basic normalization (trim, collapse whitespace, strip surrounding brackets/parentheses).
+	- Exclusion filters MUST allow specifying SDH/HI/CC markers via a convenience toggle (e.g., exclude SDH) and/or explicit patterns; exclusion takes precedence over inclusion when both match.
+	- Forced disposition MUST be available from track metadata (e.g., container disposition flags) and addressable via selector criteria; combining criteria MUST support: include non‑forced "main/full" (null/empty or generic title) AND include forced; exclude hearing‑impaired.
+	- When multiple tracks match inclusion and are not excluded, the system MUST select all (or the highest‑priority only when configured) and merge them chronologically per FR‑006.
+	- Behavior MUST be documented with examples, and acceptance tests MUST demonstrate selecting English full + English forced while excluding SDH/HI.
+
 Traceability for additional requirements
 - FR-020 ↔ Operation contract (addendum REQ-001)
 - FR-021 ↔ Typed artifacts (addendum REQ-002)
@@ -170,7 +181,7 @@ Traceability for additional requirements
 
 ### Key Entities (include if feature involves data)
 - Artifact (VIDEO, AUDIO, SUBTITLE): Conceptual units produced/consumed by pipeline steps; immutable once created; include metadata such as language, codec/format, channel/layout (for audio), forced flag (for subtitles), and user-visible naming attributes.
-- Selector: Structured filter and prioritization model with common fields (type, language, role, codec, forced, prefer, firstOnly, priority) with type-specific validation and ordering semantics.
+- Selector: Structured filter and prioritization model with common fields (type, language, role, codec, forced, prefer, firstOnly, priority) with type-specific validation and ordering semantics. Subtitle selectors are extended to include title-based include/exclude patterns (substring/regex) and a convenience flag to exclude hearing‑impaired (SDH/HI/CC) tracks.
 - Pipeline Step (Operation): A unit that declares required input artifact types and produced output artifact types; validated at composition time; examples include extract, process (mask/mute), and package/remux.
 - Audit Log Entry: Records of corrections, normalization steps, errors, and decisions (e.g., selector results), including before/after context and timestamps.
 

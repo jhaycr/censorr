@@ -50,12 +50,12 @@ Notes:
 
 ## New: Post-mask QC + CLI override (FR-045, FR-047)
 
-26. Operation flags plumbing
+26. ✅ Operation flags plumbing
 	- Add `continue_on_qc_fail` to execution flags/context (default False); propagate from CLI to operations.
-27. MaskSubtitlesOperation: QC step
+27. ✅ MaskSubtitlesOperation: QC step
 	- After masking, run QC using same matcher and allow-list; generate `qc_report.json`, log summary; fail by default on residuals.
 	- When `continue_on_qc_fail` is True, proceed; attach `qc` metadata to artifact with match count and report path.
-28. CLI flag
+28. ✅ CLI flag
 	- Add `--continue-on-qc-fail` boolean flag; document in help; precedence over config.
 29. Tests
 	- Unit tests for QC failure vs override and allow-list handling.
@@ -120,3 +120,32 @@ Dependencies & Ordering Notes
 - 34 depends on console entrypoint availability in `pyproject.toml`.
 - 36 and 41 are documentation/CI and can follow after 31.
 - 38 can run after 31 (and local Docker availability); mark as optional in CI.
+
+---
+
+## New: Subtitle title & metadata filtering (FR-048)
+
+42. ✅ Selector schema extension
+	- Update `Selector` for SUBTITLE to support `title_include[]`, `title_exclude[]`, `title_regex[]`, and `exclude_sdh` (boolean). Add validation: these fields only valid for SUBTITLE.
+	- Update `selector.schema.json` and `contracts/selectors.md` with examples and precedence rules (excludes win; regex opt-in).
+
+43. ✅ Adapter metadata exposure
+	- Ensure ffprobe adapter captures `title` and `forced` disposition (if available) into track metadata. Add tests with mocked ffprobe JSON covering null/empty titles and forced flags.
+
+44. ✅ Planner/selection wiring
+	- Implement title/metadata matching in selector `.matches()` for SUBTITLE: case-insensitive substring on normalized title; optional regex mode; apply excludes before includes; implement `exclude_sdh` convenience (pattern list: SDH/HI/CC variants).
+
+45. ✅ CLI flags & JSON input
+	- Add CLI flags to pass subtitle title filters (e.g., `--subtitle-title-include`, `--subtitle-title-exclude`, `--subtitle-title-regex`, `--exclude-sdh`).
+	- Ensure flags integrate with existing `--language` behavior and selector construction.
+
+46. Tests: selection behavior
+	- Unit tests for selector matching covering: null/empty title considered as main/full; include forced + full; exclude SDH/HI synonyms; regex include; exclude precedence.
+	- Integration test: a fixture with three English tracks (full, forced, SDH) → plan selects only full+forced → merge output contains only those cues.
+
+47. Docs & examples
+	- Update `quickstart.md` and `contracts/selectors.md` with examples for selecting English full + forced while excluding SDH.
+	- Add CLI help examples and a sample command in quickstart.
+
+48. Back-compat & defaults
+	- Ensure existing usages continue to work with only `--language` specified. Title filters are optional and off by default. When both include and exclude match, exclude wins; document this behavior.

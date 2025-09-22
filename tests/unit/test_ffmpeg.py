@@ -48,6 +48,43 @@ class TestFFmpegAdapter:
             assert audio_track.language == "eng"
     
     @patch('subprocess.run')
+    def test_probe_subtitle_metadata(self, mock_run):
+        """Test probing subtitle tracks with title and forced disposition."""
+        # Mock ffprobe output with subtitle metadata
+        mock_run.return_value = Mock(
+            returncode=0,
+            stdout='{"streams": [{"index": 0, "codec_type": "subtitle", "codec_name": "subrip", "tags": {"language": "eng", "title": "English [SDH]"}, "disposition": {"forced": 0}}, {"index": 1, "codec_type": "subtitle", "codec_name": "subrip", "tags": {"language": "eng", "title": "English Forced"}, "disposition": {"forced": 1}}, {"index": 2, "codec_type": "subtitle", "codec_name": "subrip", "tags": {"language": "eng"}, "disposition": {"forced": 0}}], "format": {"format_name": "matroska,webm"}}'
+        )
+        
+        adapter = FFmpegAdapter()
+        
+        with tempfile.NamedTemporaryFile(suffix=".mkv") as tmp:
+            media_info = adapter.probe(tmp.name)
+            
+            assert len(media_info.tracks) == 3
+            
+            # SDH track
+            sdh_track = media_info.tracks[0]
+            assert sdh_track.type == "subtitle"
+            assert sdh_track.language == "eng"
+            assert sdh_track.title == "English [SDH]"
+            assert sdh_track.forced == False
+            
+            # Forced track
+            forced_track = media_info.tracks[1]
+            assert forced_track.type == "subtitle"
+            assert forced_track.language == "eng"
+            assert forced_track.title == "English Forced"
+            assert forced_track.forced == True
+            
+            # Main track (no title)
+            main_track = media_info.tracks[2]
+            assert main_track.type == "subtitle"
+            assert main_track.language == "eng"
+            assert main_track.title is None
+            assert main_track.forced == False
+    
+    @patch('subprocess.run')
     def test_probe_file_not_found(self, mock_run):
         """Test probing non-existent file."""
         mock_run.return_value = Mock(returncode=1, stderr="No such file")

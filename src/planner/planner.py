@@ -11,6 +11,7 @@ class ExecutionPlan:
     """Represents a planned sequence of operations."""
     
     operations: List[Operation]
+    selectors: Optional[List] = None
     
     def __len__(self) -> int:
         """Return number of operations in plan."""
@@ -31,14 +32,18 @@ class Planner:
         self, 
         provided_artifacts: List[Artifact], 
         target_types: Set[ArtifactType],
-        strategy: str = "default"
+        selectors: Optional[List] = None,
+        strategy: str = "default",
+        requested_operations: Optional[List[str]] = None
     ) -> ExecutionPlan:
         """Plan operations to produce target artifacts.
         
         Args:
             provided_artifacts: Already available artifacts
             target_types: Set of artifact types to produce
+            selectors: Optional list of selectors for track filtering
             strategy: Planning strategy to use
+            requested_operations: If provided, honor this exact operation order
             
         Returns:
             ExecutionPlan with ordered operations
@@ -46,6 +51,16 @@ class Planner:
         Raises:
             ValueError: If no producer available for required type
         """
+        # If explicit operations were requested, honor them in order
+        if requested_operations:
+            operations = []
+            for op_name in requested_operations:
+                try:
+                    operations.append(self.registry.get_operation(op_name))
+                except KeyError:
+                    raise ValueError(f"Requested operation not found: {op_name}")
+            return ExecutionPlan(operations=operations, selectors=selectors)
+
         # Track which artifact types we already have
         available_types = {artifact.type for artifact in provided_artifacts}
         
@@ -54,7 +69,7 @@ class Planner:
         
         if not needed_types:
             # All targets already provided
-            return ExecutionPlan(operations=[])
+            return ExecutionPlan(operations=[], selectors=selectors)
         
         # Simple planning: find producer for each needed type
         # TODO: Handle dependencies between operations
@@ -73,7 +88,7 @@ class Planner:
             # For now, assume they are (TODO: recursive planning)
             operations.append(producer)
         
-        return ExecutionPlan(operations=operations)
+        return ExecutionPlan(operations=operations, selectors=selectors)
     
     def explain_plan(
         self, 
@@ -83,6 +98,15 @@ class Planner:
         """Explain why each operation was selected.
         
         Args:
+            # If explicit operations were requested, honor them in order
+            if requested_operations:
+                operations = []
+                for op_name in requested_operations:
+                    try:
+                        operations.append(self.registry.get_operation(op_name))
+                    except KeyError:
+                        raise ValueError(f"Requested operation not found: {op_name}")
+                return ExecutionPlan(operations=operations, selectors=selectors)
             provided_artifacts: Already available artifacts
             target_types: Set of artifact types to produce
             

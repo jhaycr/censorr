@@ -23,16 +23,19 @@ class MuteAudioOperation(Operation):
     
     def __init__(self):
         """Initialize the mute audio operation."""
+        super().__init__("mute_audio")
         self.ffmpeg = FFmpegAdapter()
     
+    @property
     def consumes(self) -> List[ArtifactType]:
         """Return the artifact types this operation consumes.
         
         Returns:
-            List containing AUDIO artifact type
+            List containing AUDIO artifact type and optionally SUBTITLE for mute windows
         """
         return [ArtifactType.AUDIO]
     
+    @property
     def produces(self) -> List[ArtifactType]:
         """Return the artifact types this operation produces.
         

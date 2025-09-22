@@ -20,8 +20,10 @@ class RemuxOperation(Operation):
     
     def __init__(self):
         """Initialize the remux operation."""
+        super().__init__("remux")
         self.ffmpeg = FFmpegAdapter()
     
+    @property
     def consumes(self) -> List[ArtifactType]:
         """Return the artifact types this operation consumes.
         
@@ -30,6 +32,7 @@ class RemuxOperation(Operation):
         """
         return [ArtifactType.VIDEO, ArtifactType.AUDIO, ArtifactType.SUBTITLE]
     
+    @property
     def produces(self) -> List[ArtifactType]:
         """Return the artifact types this operation produces.
         

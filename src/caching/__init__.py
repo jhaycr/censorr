@@ -226,18 +226,40 @@ class CacheManager:
         return True, operation_dir
     
     def _hash_file(self, filepath: Path) -> str:
-        """Calculate SHA256 hash of a file.
+        """Calculate a content hash or fast fingerprint for a file.
+        
+        This uses a fast path for large media files to avoid repeatedly hashing
+        multi-GB inputs when computing cache keys and manifests. For files above
+        a size threshold, we return a stable fingerprint based on file size and
+        modification time, which is sufficient for cache invalidation while
+        dramatically reducing I/O.
         
         Args:
             filepath: Path to the file
             
         Returns:
-            SHA256 hash as hex string
+            Hex digest string representing the file identity.
         """
+        try:
+            st = filepath.stat()
+            size_bytes = st.st_size
+            mtime_ns = int(st.st_mtime_ns)
+            
+            # Fast path for large files (e.g., videos). Threshold: 500 MB.
+            LARGE_FILE_THRESHOLD = 500 * 1024 * 1024
+            if size_bytes >= LARGE_FILE_THRESHOLD:
+                # Fingerprint: sha256 of size + mtime + name to remain stable across runs
+                fp = f"fp:{filepath.name}:{size_bytes}:{mtime_ns}"
+                return hashlib.sha256(fp.encode()).hexdigest()
+        except OSError:
+            # If we can't stat the file, fall back to a deterministic missing hash
+            return hashlib.sha256(b"missing_file").hexdigest()
+        
+        # Small files: compute true content hash
         hash_obj = hashlib.sha256()
         try:
             with filepath.open('rb') as f:
-                for chunk in iter(lambda: f.read(4096), b""):
+                for chunk in iter(lambda: f.read(1024 * 1024), b""):
                     hash_obj.update(chunk)
             return hash_obj.hexdigest()
         except IOError:

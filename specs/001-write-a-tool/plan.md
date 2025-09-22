@@ -19,6 +19,7 @@ Technical approach (high level): Implement a Python 3 CLI with a small core (Art
 - Performance Goals: Handle feature-length media with linear passes; keep memory bounded by streaming where possible; parallelize independent ops.
 - Constraints: Avoid full re-encode unless requested; preserve codecs by default; ensure idempotency and deterministic filenames. Container images must use pinned bases and support amd64/arm64 when feasible.
 - Scale/Scope: Single-node CLI; batch processing through Arr triggers.
+ - Selector Enhancements: Subtitle selection includes support for title/metadata filtering (case-insensitive substring and optional regex) and exclusion of SDH/HI/CC. Minimal adapter updates expose track "forced" disposition and title straight from ffprobe; CLI exposes new selector inputs with sane defaults.
 
 ## Constitution Check
 - KISS: Minimal core (Artifacts, Ops, Planner, Executor) with adapters; avoid frameworks beyond CLI/validation.
@@ -64,6 +65,20 @@ tests/
 
 Structure Decision: Option 1 (single project).
 
+## Profanity List Input (JSON dictionaries)
+
+- The `mask_subtitles` operation accepts a `--profanity-list-file` CLI option pointing to a JSON file.
+- File format: an array of JSON objects, each with at least a `word` key. Example:
+
+  [
+    { "word": "damn" },
+    { "word": "hell", "tier": 2, "category": "mild" },
+    { "word": "foobar", "replacement": "f****r" }
+  ]
+
+- Rationale: Using dictionaries enables forward-compatible expansion (tiers, categories, replacements) without breaking input.
+- Current behavior: we read the `word` field into the allow list; additional fields are ignored for now.
+
 ## Phase 0: Outline & Research
 Create `research.md` to resolve:
 - FFmpeg strategies:
@@ -85,7 +100,7 @@ Output: research.md with Decisions, Rationale, Alternatives for each topic.
 - Data Model (`data-model.md`): Define Artifact, Selector, Operation, MuteWindow, AuditLogEntry, ManifestEntry with fields and validation.
 - Contracts (`/contracts`):
   - artifacts.md: Artifact types, metadata, validation rules.
-  - selectors.md: Unified selector model, reference to `selector.schema.json`, examples.
+  - selectors.md: Unified selector model, reference to `selector.schema.json`, examples. Add subtitle-specific fields: `title_include[]`, `title_exclude[]`, `title_regex[]`, and `exclude_sdh` convenience toggle. Document precedence: excludes win.
   - operation.md: Operation interface (inputs, outputs, run contract), error modes.
 - Quickstart (`quickstart.md`): Environment setup, installing deps, small sample run (dry-run), interpreting logs, troubleshooting.
 - Agent file: If agent updater exists, note to run it post-creation (manual in this repo).
