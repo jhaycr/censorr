@@ -108,22 +108,16 @@ class MaskSubtitlesOperation(Operation):
             unique_terms: Set[str] = set()
             
             for entry in entries:
-                if self.matcher.contains_profanity(entry.text):
-                    masked_text = self._mask_text_profanity(entry.text)
-                    # Count matches by checking individual words
-                    words = entry.text.split()
-                    word_matches = 0
-                    for word in words:
-                        clean_word = ''.join(c for c in word if c.isalnum())
-                        if clean_word:
-                            matches = self.matcher.match_against_allow_list(clean_word)
-                            if matches and any(match.is_match for match in matches):
-                                word_matches += 1
-                                for m in matches:
-                                    if m.is_match:
-                                        unique_terms.add(m.target)
+                # Use new window-based matching
+                matches = self.matcher.find_matches_in_text(entry.text)
+                if matches:
+                    masked_text = self._mask_text_profanity(entry.text, matches)
                     
-                    total_matches += word_matches
+                    # Count unique terms found
+                    for match in matches:
+                        unique_terms.add(match.target)
+                    
+                    total_matches += len(matches)
                     entries_with_profanity += 1
                     
                     # Create new entry with masked text
@@ -144,7 +138,7 @@ class MaskSubtitlesOperation(Operation):
                 unchanged = total_entries - entries_with_profanity
                 pct_masked = (entries_with_profanity / total_entries * 100.0) if total_entries else 0.0
                 print(f"[mask_subtitles] Entries: {total_entries} | Masked: {entries_with_profanity} ({pct_masked:.1f}%) | Unchanged: {unchanged}")
-                print(f"[mask_subtitles] Word-level replacements: {total_matches} | Unique profane terms matched: {len(unique_terms)}")
+                print(f"[mask_subtitles] Window-based matches: {total_matches} | Unique profane terms matched: {len(unique_terms)}")
             
             # Generate output path
             output_path = workdir / "masked_subtitles.srt"
@@ -195,25 +189,15 @@ class MaskSubtitlesOperation(Operation):
             raise RuntimeError(f"Unexpected error during subtitle masking: {e}")
 
     def _run_quality_check(self, masked_entries: List[SubtitleEntry], workdir: Path, flags: OperationFlags) -> Dict[str, Any]:
-        """Run quality check on masked subtitle content.
-                        profanity_path: Optional[Path] = None
-                        if flags.profanity_list_file:
-                            profanity_path = Path(flags.profanity_list_file)
-                        else:
-                            profanity_path = self._resolve_default_profanity_file()
-
-                        if profanity_path is not None:
-                            loaded_terms = self._load_profanity_list(profanity_path)
-                            self.matcher.allow_list = loaded_terms
-                            if flags.verbose:
-                                source = str(profanity_path)
-                                print(f"Loaded {len(loaded_terms)} profanity terms from {source}")
-                        else:
-                            if flags.verbose:
-                                print("No profanity list provided; proceeding without masking terms (allow_list empty)")
+        """Run quality check to detect missed profanities in masked content.
+        
+        Since our masking operation uses the same matcher to detect profanities
+        and then masks them completely, the QC should find zero residual matches
+        if masking worked correctly. Any profanity still detectable after masking
+        indicates a bug in the masking logic.
         
         Args:
-            masked_entries: List of processed subtitle entries
+            masked_entries: List of processed subtitle entries (after masking)
             workdir: Working directory for QC report
             flags: Execution flags
             
@@ -222,44 +206,32 @@ class MaskSubtitlesOperation(Operation):
         """
         residual_matches = []
         total_residual_count = 0
-        sample_limit = 3  # Configurable limit for example excerpts per term
+        sample_limit = 3
         
-        # Scan for residual matches
+        # Scan for residual matches in the masked text using the same matcher
         for entry in masked_entries:
-            words = entry.text.split()
-            for word in words:
-                # Clean word of punctuation for matching
-                clean_word = ''.join(c for c in word if c.isalnum())
-                if not clean_word:
-                    continue
+            matches = self.matcher.find_matches_in_text(entry.text)
+            
+            if matches:
+                # This indicates a masking failure - profanity should have been masked
+                for match in matches:
+                    term_entry = next((rm for rm in residual_matches if rm["term"] == match.target), None)
+                    if not term_entry:
+                        term_entry = {"term": match.target, "count": 0, "samples": []}
+                        residual_matches.append(term_entry)
                     
-                # Check if word matches any profanity (same logic as masking)
-                matches = self.matcher.match_against_allow_list(clean_word)
-                if matches and any(match.is_match for match in matches):
-                    # Found a residual match
-                    matched_terms = [match.target for match in matches if match.is_match]
-                    for term in matched_terms:
-                        # Find or create entry for this term
-                        term_entry = next((rm for rm in residual_matches if rm["term"] == term), None)
-                        if not term_entry:
-                            term_entry = {
-                                "term": term,
-                                "count": 0,
-                                "samples": []
-                            }
-                            residual_matches.append(term_entry)
-                        
-                        term_entry["count"] += 1
-                        total_residual_count += 1
-                        
-                        # Add sample if under limit
-                        if len(term_entry["samples"]) < sample_limit:
-                            term_entry["samples"].append({
-                                "cue_index": entry.index,
-                                "start": entry.start,
-                                "end": entry.end,
-                                "excerpt": entry.text[:100] + ("..." if len(entry.text) > 100 else "")
-                            })
+                    term_entry["count"] += 1
+                    total_residual_count += 1
+                    
+                    if len(term_entry["samples"]) < sample_limit:
+                        term_entry["samples"].append({
+                            "cue_index": entry.index,
+                            "start": entry.start,
+                            "end": entry.end,
+                            "excerpt": entry.text[:160] + ("..." if len(entry.text) > 160 else ""),
+                            "matched_token": match.window_text or match.query,
+                            "matched_term": match.target
+                        })
         
         # Generate QC report
         qc_report = {
@@ -268,8 +240,8 @@ class MaskSubtitlesOperation(Operation):
                 "matches": total_residual_count,
                 "terms": len(residual_matches)
             },
-            "language": "unknown",  # Could be extracted from artifact metadata
-            "policy": "partial",  # Could be made configurable
+            "language": "unknown",
+            "policy": "partial", 
             "sample_limit": sample_limit
         }
         
@@ -292,49 +264,43 @@ class MaskSubtitlesOperation(Operation):
             "continued": flags.continue_on_qc_fail if total_residual_count > 0 else False
         }
     
-    def _mask_text_profanity(self, text: str) -> str:
-        """Mask profanity in text with asterisks.
+    def _mask_text_profanity(self, text: str, matches: List) -> str:
+        """Mask profanity in text with asterisks using window matches.
         
         Args:
             text: Original text
+            matches: List of MatchResult objects from find_matches_in_text
             
         Returns:
             Text with profanity masked
         """
-        if not self.matcher.allow_list:
+        if not matches:
             return text
+
+        # For each match, find and mask the corresponding text in the original
+        result_text = text
         
-        masked_text = text
-        words = text.split()
+        for match in matches:
+            # Use the window_text to find the exact substring to mask
+            target_phrase = match.window_text
+            
+            # Find all occurrences of this phrase in the original text (case-insensitive)
+            import re
+            
+            # Escape special regex characters in the target phrase
+            escaped_phrase = re.escape(target_phrase)
+            
+            # Create pattern that matches word boundaries to avoid partial matches
+            pattern = r'\b' + escaped_phrase + r'\b'
+            
+            # Replace all occurrences with asterisks, preserving case
+            def replacement(match_obj):
+                matched_text = match_obj.group(0)
+                return '*' * len(matched_text)
+            
+            result_text = re.sub(pattern, replacement, result_text, flags=re.IGNORECASE)
         
-        for i, word in enumerate(words):
-            # Clean word of punctuation for matching
-            clean_word = ''.join(c for c in word if c.isalnum())
-            if not clean_word:
-                continue
-                
-            # Check if word matches any profanity
-            matches = self.matcher.match_against_allow_list(clean_word)
-            if matches and any(match.is_match for match in matches):
-                # Replace word with asterisks, preserving punctuation
-                mask_length = len(clean_word)
-                mask = "*" * mask_length
-                
-                # Replace the clean part with asterisks, keeping punctuation
-                masked_word = ""
-                for char in word:
-                    if char.isalnum():
-                        if mask:
-                            masked_word += mask[0]
-                            mask = mask[1:]
-                        else:
-                            masked_word += "*"
-                    else:
-                        masked_word += char
-                
-                words[i] = masked_word
-        
-        return " ".join(words)
+        return result_text
     
     def _generate_srt_content(self, entries: List[SubtitleEntry]) -> str:
         """Generate SRT format content from subtitle entries.

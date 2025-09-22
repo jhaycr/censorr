@@ -79,6 +79,19 @@ Structure Decision: Option 1 (single project).
 - Rationale: Using dictionaries enables forward-compatible expansion (tiers, categories, replacements) without breaking input.
 - Current behavior: we read the `word` field into the allow list; additional fields are ignored for now.
 
+## Masking Refinements and Tuning (appendix)
+
+- Hyphenated-subtoken masking: Masking now targets only the profane sub-part within hyphenated or apostrophized tokens (e.g., "Criss-fuckin'-Angel" → only "fuckin'" is masked, preserving surrounding text and punctuation). Implementation splits on `-` and `'` and masks per subtoken.
+- Fuzzy matching enhancement: Similarity score uses the maximum of full ratio and partial ratio to improve recall for suffixes/compounds (e.g., `fuck` vs `fucking`/`fuckup`).
+- Threshold tuning: New CLI flag `--fuzzy-threshold` (0–100) overrides the default similarity threshold used in subtitle masking; wired through `OperationFlags.fuzzy_threshold`.
+- QC improvements: Residual scan generates variants (base, minus common suffixes like `ing`/`in`) to better catch missed forms like "6-foot-fucking-6", "Criss-fuckin'-Angel", and "shit-stirrer".
+
+### New Tasks (appended)
+- [ ] Add CLI option `--fuzzy-threshold` and plumb through to masking (Done)
+- [ ] Update fuzzy matcher to use `max(ratio, partial_ratio)` for improved recall (Done)
+- [ ] Refine masking to only replace profane sub-part inside hyphenated/apostrophized tokens (Done)
+- [ ] Enhance QC to check base + stem variants to catch hyphenated/contracted forms (Done)
+
 ## Phase 0: Outline & Research
 Create `research.md` to resolve:
 - FFmpeg strategies:

@@ -180,6 +180,10 @@ def process(
     profanity_list_file: Optional[str] = typer.Option(
         None, "--profanity-list-file",
         help="Path to JSON file with an array of {word: string, ...} objects for profanity masking"
+    ),
+    fuzzy_threshold: Optional[float] = typer.Option(
+        None, "--fuzzy-threshold",
+        help="Similarity threshold (0-100) for fuzzy profanity matching"
     )
 ):
     """
@@ -291,7 +295,8 @@ def process(
             parallel=parallel,
             max_jobs=jobs,
             continue_on_qc_fail=continue_on_qc_fail,
-            profanity_list_file=profanity_list_file
+            profanity_list_file=profanity_list_file,
+            fuzzy_threshold=fuzzy_threshold
         )
         
         # Plan operations
