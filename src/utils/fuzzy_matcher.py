@@ -84,13 +84,16 @@ class FuzzyMatcher:
         # Convert to lowercase
         text = text.lower()
         
-        # Replace hyphens and apostrophes with spaces before removing punctuation
-        # This prevents "fuckin'" from becoming "fuckin" and "mother-fucker" becoming "motherfucker"
+        # Replace hyphens and apostrophes with spaces to preserve token boundaries
+        # This prevents "fuckin'" -> "fuckin" (still a token) and avoids merging across punctuation
         text = re.sub(r"[-']", " ", text)
-        
-        # Remove other punctuation and numbers
-        text = re.sub(r'[^\w\s]', '', text)
-        text = re.sub(r'\d+', '', text)
+
+        # Replace other punctuation with spaces (do not delete) to avoid concatenating tokens
+        # Example: "D...Fuck" -> "D   Fuck" -> "d fuck" after normalization, so "fuck" is matchable
+        text = re.sub(r'[^\w\s]', ' ', text)
+
+        # Replace digits with spaces as well to avoid unwanted concatenation across numbers
+        text = re.sub(r'\d+', ' ', text)
         
         # Normalize whitespace
         text = re.sub(r'\s+', ' ', text).strip()
@@ -144,8 +147,8 @@ class FuzzyMatcher:
                 if len(target_words) == 1 and len(query_words) == 1:
                     score = self._morphology_match_score(normalized_query, normalized_target)
                 else:
-                    # Multi-word or mixed: use straight fuzzy ratio
-                    score = fuzz.ratio(normalized_query, normalized_target)
+                    # Multi-word or mixed: be strict — require exact normalized equality
+                    score = 100.0 if normalized_query == normalized_target else 0.0
         
         # Determine if this is a match
         is_match = score >= self.similarity_threshold
@@ -217,8 +220,8 @@ class FuzzyMatcher:
                     else:
                         score = fuzz.ratio(window_text, normalized_target)
                 else:
-                    # Legacy behavior for single words
-                    score = fuzz.ratio(window_text, normalized_target)
+                    # Multi-word or mixed: be strict — require exact normalized equality
+                    score = 100.0 if window_text == normalized_target else 0.0
                 
                 if score >= self.similarity_threshold:
                     # Skip stopwords
