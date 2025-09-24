@@ -103,6 +103,11 @@ class TestExtractAudioOperation:
         )
         
         mock_ffmpeg.probe.return_value = media_info
+        # Mock extract_audio to return different paths based on track index
+        def mock_extract_audio(*args, **kwargs):
+            # Extract track index from the call - it should be in the method arguments
+            # For this test, if filtering works correctly, only track 0 should be extracted
+            return "/tmp/test/audio_track_0.wav"
         mock_ffmpeg.extract_audio.return_value = "/tmp/test/audio_track_0.wav"
         
         # Test data with language filter

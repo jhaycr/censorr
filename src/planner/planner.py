@@ -117,7 +117,7 @@ class Planner:
         
         explanations = {}
         for operation in plan.operations:
-            produced_types = ", ".join(operation.produces)
+            produced_types = ", ".join(t.value for t in operation.produces)
             explanations[operation.name] = f"Produces: {produced_types}"
         
         return explanations

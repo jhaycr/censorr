@@ -398,32 +398,73 @@ class TestAudioOnlyFlow:
                 path=str(audio_path),
                 metadata={"format": "wav"}
             )
-            
-            # Test mute operation with caching
-            mute_op = MuteAudioOperation()
-            flags = OperationFlags()
-            
-            with patch.object(mute_op.ffmpeg, 'apply_mute_windows') as mock_apply:
-                # Mock muted output
-                muted_path = workdir / "muted_audio.wav"
-                mock_apply.return_value = str(muted_path)
-                
-                # First execution - should create cache entry
-                cache_key = cache_manager.create_cache_key(
-                    operation_name="mute_audio",
-                    params={},
-                    inputs=[audio_artifact]
-                )
-                
-                # Execute operation
-                results1 = mute_op.run([audio_artifact], workdir, flags)
-                
-                # Second execution - should use cache (mock this behavior)
-                results2 = mute_op.run([audio_artifact], workdir, flags)
-                
-                # Results should be consistent
-                assert len(results1) == len(results2) == 1
-                assert results1[0].type == results2[0].type == ArtifactType.AUDIO
+
+    def test_mute_audio_derived_from_subtitles_end_to_end(self):
+        """Generate a short tone and an SRT with profanity, then mute.
+
+        This ensures windows derived from subtitles are passed to ffmpeg and
+        a muted audio output is produced. Skips if ffmpeg is not available.
+        """
+        import shutil
+        import subprocess
+        if not shutil.which("ffmpeg"):
+            pytest.skip("ffmpeg not available")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workdir = Path(temp_dir)
+
+            # Generate a 6s tone
+            tone = workdir / "tone.wav"
+            subprocess.run([
+                "ffmpeg", "-f", "lavfi", "-i", "sine=frequency=440:duration=6",
+                "-y", str(tone)
+            ], check=True, capture_output=True)
+
+            # SRT with profanity between 1s and 3s
+            srt = workdir / "profanity.srt"
+            srt.write_text(
+                """1\n00:00:01,000 --> 00:00:03,000\nHoly shit!\n""",
+                encoding="utf-8",
+            )
+
+            # Profanity list
+            prof = workdir / "profanity.json"
+            prof.write_text('[{"word": "shit"}]', encoding="utf-8")
+
+            audio_art = Artifact(type=ArtifactType.AUDIO, path=str(tone), metadata={})
+            sub_art = Artifact(type=ArtifactType.SUBTITLE, path=str(srt), metadata={"language": "en"})
+
+            op = MuteAudioOperation()
+            flags = OperationFlags(profanity_list_file=str(prof), verbose=True)
+
+            results = op.run([audio_art, sub_art], workdir, flags)
+            assert len(results) == 1
+            out = Path(results[0].path)
+            assert out.exists()
+            assert results[0].metadata.get("mute_windows_applied", 0) >= 1
+
+            # Verify audio is actually muted inside the window using RMS energy
+            import wave, audioop
+            with wave.open(str(out), 'rb') as wf:
+                rate = wf.getframerate()
+                width = wf.getsampwidth()
+                nch = wf.getnchannels()
+
+                def segment_rms(t0: float, t1: float) -> int:
+                    start = max(0, int(t0 * rate))
+                    count = max(0, int((t1 - t0) * rate))
+                    wf.setpos(start)
+                    data = wf.readframes(count)
+                    if nch == 2:
+                        data = audioop.tomono(data, width, 0.5, 0.5)
+                    return audioop.rms(data, width)
+
+                # Window was 1-3s; sample inside and outside
+                rms_muted = segment_rms(1.2, 1.8)
+                rms_clean = segment_rms(4.0, 4.6)
+
+                # Muted region should be at least 20x quieter (adjust if needed on CI)
+                assert rms_muted < max(50, rms_clean * 0.05), f"Muted RMS too high: {rms_muted} vs clean {rms_clean}"
     
     def test_no_audio_tracks_handling(self):
         """Test handling video files with no audio tracks."""

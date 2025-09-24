@@ -23,6 +23,7 @@ from src.ops.mask_subtitles import MaskSubtitlesOperation
 from src.ops.export_sidecar import ExportSidecarOperation
 from src.ops.extract_audio import ExtractAudioOperation
 from src.ops.mute_audio import MuteAudioOperation
+from src.ops.audio_quality_check import AudioQualityCheckOperation
 from src.ops.remux import RemuxOperation
 
 # Create the main CLI app
@@ -45,6 +46,7 @@ def create_operation_registry() -> OperationRegistry:
     registry.register(ExportSidecarOperation())
     registry.register(ExtractAudioOperation())
     registry.register(MuteAudioOperation())
+    registry.register(AudioQualityCheckOperation())
     registry.register(RemuxOperation())
     
     return registry
@@ -81,6 +83,7 @@ AVAILABLE_OPERATIONS = [
     "export_sidecar",
     "extract_audio",
     "mute_audio",
+    "audio_quality_check",
     "remux"
 ]
 
@@ -91,6 +94,7 @@ OPERATION_DESCRIPTIONS = {
     "export_sidecar": "Create external subtitle/metadata files",
     "extract_audio": "Extract audio tracks from video files",
     "mute_audio": "Apply mute windows to audio tracks",
+    "audio_quality_check": "Verify audio muting effectiveness through energy analysis",
     "remux": "Combine processed tracks into final video"
 }
 
@@ -160,6 +164,10 @@ def process(
     continue_on_qc_fail: bool = typer.Option(
         False, "--continue-on-qc-fail",
         help="Continue pipeline execution despite QC failures (residual profane matches)"
+    ),
+    continue_on_audio_qc_fail: bool = typer.Option(
+        False, "--continue-on-audio-qc-fail",
+        help="Continue pipeline execution despite audio QC failures (insufficient muting)"
     ),
     subtitle_title_include: Optional[str] = typer.Option(
         None, "--subtitle-title-include",
@@ -295,6 +303,7 @@ def process(
             parallel=parallel,
             max_jobs=jobs,
             continue_on_qc_fail=continue_on_qc_fail,
+            continue_on_audio_qc_fail=continue_on_audio_qc_fail,
             profanity_list_file=profanity_list_file,
             fuzzy_threshold=fuzzy_threshold
         )
@@ -407,7 +416,11 @@ def explain():
     rprint("   • mute_audio: Apply mute windows to audio tracks")
     rprint("")
     
-    rprint("[bold magenta]3. Export Phase[/bold magenta]")
+    rprint("[bold cyan]3. Quality Control Phase[/bold cyan]")
+    rprint("   • audio_quality_check: Verify audio muting effectiveness through energy analysis")
+    rprint("")
+    
+    rprint("[bold magenta]4. Export Phase[/bold magenta]")
     rprint("   • export_sidecar: Create external subtitle/metadata files")
     rprint("   • remux: Combine all processed tracks into final video")
     rprint("")

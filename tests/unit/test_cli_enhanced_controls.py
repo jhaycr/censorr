@@ -6,6 +6,8 @@ from typer.testing import CliRunner
 
 from src.cli.main import app
 from src.models.artifacts import Artifact, ArtifactType
+from src.models.operations import OperationResult
+from src.planner.planner import ExecutionPlan
 
 
 class TestCLIEnhancedControls:
@@ -21,9 +23,14 @@ class TestCLIEnhancedControls:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = [
-            Artifact(type=ArtifactType.VIDEO, path="/tmp/output.mp4", metadata={})
+            OperationResult(
+                operation="extract_subtitles",
+                inputs=["/path/to/video.mp4"],
+                outputs=["/tmp/output.mp4"],
+                success=True
+            )
         ]
         
         runner = CliRunner()
@@ -39,7 +46,7 @@ class TestCLIEnhancedControls:
         # Verify executor was called with force=True
         if mock_executor.execute.called:
             call_args = mock_executor.execute.call_args
-            flags = call_args[0][2]  # Third argument should be flags
+            flags = call_args.kwargs['flags']  # Third argument should be flags
             assert flags.force is True
 
     @patch('src.cli.main.Path.exists')
@@ -53,7 +60,7 @@ class TestCLIEnhancedControls:
         mock_executor = mock_executor_class.return_value
         
         # Mock planner to return empty plan when skipping
-        mock_planner.plan.return_value = []
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         
         runner = CliRunner()
         result = runner.invoke(app, [
@@ -78,10 +85,7 @@ class TestCLIEnhancedControls:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [
-            ("extract_subtitles", []),
-            ("extract_audio", [])
-        ]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()
@@ -97,7 +101,7 @@ class TestCLIEnhancedControls:
         # Verify executor was called with parallel=True
         if mock_executor.execute.called:
             call_args = mock_executor.execute.call_args
-            flags = call_args[0][2]  # Third argument should be flags
+            flags = call_args.kwargs['flags']  # Third argument should be flags
             assert flags.parallel is True
 
     @patch('src.cli.main.Path.exists')
@@ -110,7 +114,7 @@ class TestCLIEnhancedControls:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()
@@ -126,7 +130,7 @@ class TestCLIEnhancedControls:
         # Verify executor was called with jobs=4
         if mock_executor.execute.called:
             call_args = mock_executor.execute.call_args
-            flags = call_args[0][2]  # Third argument should be flags
+            flags = call_args.kwargs['flags']  # Third argument should be flags
             assert flags.max_jobs == 4
 
     @patch('src.cli.main.Path.exists')
@@ -158,7 +162,7 @@ class TestCLIEnhancedControls:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()
@@ -174,7 +178,7 @@ class TestCLIEnhancedControls:
         # Verify both parallel and jobs are set
         if mock_executor.execute.called:
             call_args = mock_executor.execute.call_args
-            flags = call_args[0][2]
+            flags = call_args.kwargs['flags']
             assert flags.parallel is True
             assert flags.max_jobs == 2
 
@@ -199,7 +203,7 @@ class TestCLIEnhancedControls:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()

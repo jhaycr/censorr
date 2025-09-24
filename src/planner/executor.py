@@ -268,15 +268,34 @@ class Executor:
                 artifact for artifact in available_artifacts
                 if artifact.type == required_type
             ]
-            
+
             if not matching_artifacts:
                 continue
 
             # If the operation consumes subtitles, pass all subtitle artifacts
             if required_type == ArtifactType.SUBTITLE:
                 inputs.extend(matching_artifacts)
-            else:
-                # For non-subtitle types, pass the first match as before
-                inputs.append(matching_artifacts[0])
+                continue
+
+            # Prefer the most recently produced artifact for non-subtitle types
+            chosen = None
+
+            # Special handling for audio_quality_check: prefer AUDIO with mute window metadata
+            if operation.name == "audio_quality_check" and required_type == ArtifactType.AUDIO:
+                for candidate in reversed(matching_artifacts):
+                    meta = candidate.metadata or {}
+                    if (
+                        meta.get("mute_windows_file")
+                        or (isinstance(meta.get("mute_windows_applied"), int) and meta.get("mute_windows_applied", 0) > 0)
+                        or (isinstance(meta.get("mute_windows"), list) and len(meta.get("mute_windows")) > 0)
+                    ):
+                        chosen = candidate
+                        break
+
+            # Fallback: choose the first artifact of the required type (preserve historical behavior)
+            if chosen is None:
+                chosen = matching_artifacts[0]
+
+            inputs.append(chosen)
         
         return inputs

@@ -14,8 +14,8 @@ class TestRemuxOperation:
     def test_operation_creation(self):
         """Test operation can be created."""
         op = RemuxOperation()
-        assert op.consumes() == [ArtifactType.VIDEO, ArtifactType.AUDIO, ArtifactType.SUBTITLE]
-        assert op.produces() == [ArtifactType.VIDEO]
+        assert op.consumes == {ArtifactType.VIDEO, ArtifactType.AUDIO, ArtifactType.SUBTITLE}
+        assert op.produces == {ArtifactType.VIDEO}
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_with_all_track_types(self, mock_ffmpeg_class):

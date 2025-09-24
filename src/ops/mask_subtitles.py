@@ -23,6 +23,9 @@ class MaskSubtitlesOperation(Operation):
         super().__init__("mask_subtitles")
         self.description = "Apply profanity filtering to subtitle content using fuzzy matching"
         self.parser = SubtitleParser()
+
+        # Track whether profanity_list was explicitly provided
+        self._explicit_profanity_list = profanity_list is not None
         
         # Defer allow-list initialization; we'll read from file at run-time
         if profanity_list is None:
@@ -77,21 +80,25 @@ class MaskSubtitlesOperation(Operation):
             if flags.dry_run:
                 return self._handle_dry_run(input_artifact, workdir)
             
-            # Initialize profanity allow list: prefer CLI flag; else try default config/profanity_list.json
-            profanity_path: Optional[Path] = None
-            if flags.profanity_list_file:
-                profanity_path = Path(flags.profanity_list_file)
-            else:
-                profanity_path = self._resolve_default_profanity_file()
+            # Initialize profanity allow list: prefer explicit constructor list, then CLI flag, then default config
+            if not self._explicit_profanity_list:
+                profanity_path: Optional[Path] = None
+                if flags.profanity_list_file:
+                    profanity_path = Path(flags.profanity_list_file)
+                else:
+                    profanity_path = self._resolve_default_profanity_file()
 
-            if profanity_path is not None:
-                loaded_terms = self._load_profanity_list(profanity_path)
-                self.matcher.allow_list = loaded_terms
-                if flags.verbose:
-                    print(f"[mask_subtitles] Loaded {len(loaded_terms)} profanity terms from {profanity_path}")
+                if profanity_path is not None:
+                    loaded_terms = self._load_profanity_list(profanity_path)
+                    self.matcher.allow_list = loaded_terms
+                    if flags.verbose:
+                        print(f"[mask_subtitles] Loaded {len(loaded_terms)} profanity terms from {profanity_path}")
+                else:
+                    if flags.verbose:
+                        print("[mask_subtitles] No profanity list found; proceeding with empty allow_list")
             else:
                 if flags.verbose:
-                    print("[mask_subtitles] No profanity list found; proceeding with empty allow_list")
+                    print(f"[mask_subtitles] Using explicit profanity list with {len(self.matcher.allow_list)} terms")
 
             # Parse subtitle file
             try:

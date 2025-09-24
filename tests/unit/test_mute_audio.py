@@ -15,8 +15,9 @@ class TestMuteAudioOperation:
     def test_operation_creation(self):
         """Test operation can be created."""
         op = MuteAudioOperation()
-        assert op.consumes() == [ArtifactType.AUDIO]
-        assert op.produces() == [ArtifactType.AUDIO]
+        # Now consumes AUDIO, SUBTITLE, and VIDEO for deriving windows and external files
+        assert op.consumes == {ArtifactType.AUDIO, ArtifactType.SUBTITLE, ArtifactType.VIDEO}
+        assert op.produces == {ArtifactType.AUDIO}
 
     @patch('src.ops.mute_audio.FFmpegAdapter')
     def test_run_with_mute_windows(self, mock_ffmpeg_class):
@@ -51,9 +52,9 @@ class TestMuteAudioOperation:
         # Verify FFmpeg call
         mock_ffmpeg.apply_mute_windows.assert_called_once()
         call_args = mock_ffmpeg.apply_mute_windows.call_args
-        assert call_args[0][0] == "/path/to/audio.wav"
-        assert call_args[0][1] == "/tmp/test/muted_audio.wav"
-        mute_windows = call_args[0][2]
+        assert call_args.kwargs['input_path'] == "/path/to/audio.wav"
+        assert call_args.kwargs['output_path'] == "/tmp/test/muted_audio.wav"
+        mute_windows = call_args.kwargs['mute_windows']
         assert len(mute_windows) == 2
         assert mute_windows[0].start == 10.0
         assert mute_windows[0].end == 15.0
@@ -87,7 +88,7 @@ class TestMuteAudioOperation:
         # Verify FFmpeg call with empty mute windows
         mock_ffmpeg.apply_mute_windows.assert_called_once()
         call_args = mock_ffmpeg.apply_mute_windows.call_args
-        mute_windows = call_args[0][2]
+        mute_windows = call_args.kwargs['mute_windows']
         assert len(mute_windows) == 0
 
     @patch('src.ops.mute_audio.FFmpegAdapter')
@@ -236,7 +237,7 @@ class TestMuteAudioOperation:
                 
                 # Verify FFmpeg call contains both windows
                 call_args = mock_ffmpeg.apply_mute_windows.call_args
-                mute_windows = call_args[0][2]
+                mute_windows = call_args.kwargs['mute_windows']
                 assert len(mute_windows) == 2
 
     @patch('src.ops.mute_audio.FFmpegAdapter')

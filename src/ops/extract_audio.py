@@ -80,8 +80,11 @@ class ExtractAudioOperation(Operation):
             if flags.verbose:
                 print(f"Found {len(audio_tracks)} audio tracks in {video_artifact.path}")
             
-            # Filter audio tracks
-            audio_tracks = self._filter_audio_tracks(audio_tracks)
+            # Filter audio tracks: prefer selectors (CLI --language) if provided; fallback to ctor filter
+            filtered_tracks = self._filter_audio_tracks_by_selectors(audio_tracks, flags.selectors)
+            if not filtered_tracks:
+                filtered_tracks = self._filter_audio_tracks(audio_tracks)
+            audio_tracks = filtered_tracks
             
             if not audio_tracks:
                 if flags.verbose:
@@ -94,6 +97,10 @@ class ExtractAudioOperation(Operation):
             # Extract audio tracks
             extracted_artifacts = []
             
+            # Build mapping from ffprobe's global stream index -> audio-relative index for FFmpeg mapping
+            all_audio_tracks = media_info.get_audio_tracks()
+            audio_index_map = {t.index: idx for idx, t in enumerate(all_audio_tracks)}
+
             for track in audio_tracks:
                 if flags.verbose:
                     print(f"Extracting audio track {track.index} ({track.codec}, {track.language or 'und'})")
@@ -103,11 +110,17 @@ class ExtractAudioOperation(Operation):
                 output_path = workdir / output_filename
                 
                 # Extract audio track using enhanced error handling
+                ffmpeg_audio_idx = audio_index_map.get(track.index)
+                if ffmpeg_audio_idx is None:
+                    if flags.verbose:
+                        print(f"Skipping track {track.index}: unable to map to audio-relative index")
+                    continue
+
                 extract_result = tool_runner.run_ffmpeg_with_recovery(
                     self.ffmpeg, 'extract_audio', workdir,
                     input_path=video_artifact.path,
                     output_path=str(output_path),
-                    track_index=track.index,
+                    track_index=ffmpeg_audio_idx,
                     audio_format=self.audio_format
                 )
                 
@@ -119,6 +132,7 @@ class ExtractAudioOperation(Operation):
                         metadata={
                             "source_file": video_artifact.path,
                             "track": str(track.index),
+                            "audio_stream_index": ffmpeg_audio_idx,
                             "codec": track.codec,
                             "language": track.language or "und",
                             "format": self.audio_format,
@@ -164,6 +178,32 @@ class ExtractAudioOperation(Operation):
                 filtered_tracks.append(track)
         
         return filtered_tracks
+
+    def _filter_audio_tracks_by_selectors(self, tracks: List[TrackInfo], selectors) -> List[TrackInfo]:
+        """Filter audio tracks based on CLI selectors (language, etc.)."""
+        if not selectors:
+            return []
+
+        # Find audio selectors
+        audio_selectors = [s for s in selectors if s.type.value == "AUDIO"]
+        if not audio_selectors:
+            return []
+
+        filtered = []
+        for track in tracks:
+            # language check (normalize eng -> en like subtitles do)
+            for selector in audio_selectors:
+                if selector.language:
+                    track_lang = track.language
+                    if track_lang == "eng":
+                        track_lang = "en"
+                    if track_lang != selector.language:
+                        continue
+                # other audio selector fields can be extended here
+                filtered.append(track)
+                break
+
+        return filtered
     
     def _handle_dry_run(self, audio_tracks: List[TrackInfo], workdir: Path, video_artifact: Artifact) -> List[Artifact]:
         """Handle dry run execution.

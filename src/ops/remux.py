@@ -1,6 +1,6 @@
 """Video remuxing operation for combining processed tracks into final video."""
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from src.adapters.ffmpeg import FFmpegAdapter
 from src.models.artifacts import Artifact, ArtifactType
@@ -24,22 +24,22 @@ class RemuxOperation(Operation):
         self.ffmpeg = FFmpegAdapter()
     
     @property
-    def consumes(self) -> List[ArtifactType]:
+    def consumes(self) -> Set[ArtifactType]:
         """Return the artifact types this operation consumes.
         
         Returns:
-            List containing VIDEO, AUDIO, and SUBTITLE artifact types
+            Set containing VIDEO, AUDIO, and SUBTITLE artifact types
         """
-        return [ArtifactType.VIDEO, ArtifactType.AUDIO, ArtifactType.SUBTITLE]
+        return {ArtifactType.VIDEO, ArtifactType.AUDIO, ArtifactType.SUBTITLE}
     
     @property
-    def produces(self) -> List[ArtifactType]:
+    def produces(self) -> Set[ArtifactType]:
         """Return the artifact types this operation produces.
         
         Returns:
-            List containing VIDEO artifact type
+            Set containing VIDEO artifact type
         """
-        return [ArtifactType.VIDEO]
+        return {ArtifactType.VIDEO}
     
     def run(self, inputs: List[Artifact], workdir: Path, flags: OperationFlags) -> List[Artifact]:
         """Execute the operation.

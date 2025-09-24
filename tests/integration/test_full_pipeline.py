@@ -163,6 +163,52 @@ class TestFullPipelineFlow:
                 assert len(mute_results) == 1
                 assert len(remux_results) == 1
                 assert remux_results[0].type == ArtifactType.VIDEO
+
+            def test_subtitle_derived_mute_then_remux(self, tmp_path: Path):
+                """Generate audio + SRT, run mute from subtitles, then remux (mocked)."""
+                import shutil, subprocess
+                if not shutil.which("ffmpeg"):
+                    pytest.skip("ffmpeg not available")
+
+                # Files
+                tone = tmp_path / "tone.wav"
+                srt = tmp_path / "p.srt"
+                video = tmp_path / "v.mkv"
+                video.write_text("mock video")
+
+                subprocess.run([
+                    "ffmpeg", "-f", "lavfi", "-i", "sine=frequency=440:duration=5",
+                    "-y", str(tone)
+                ], check=True, capture_output=True)
+
+                srt.write_text("""1\n00:00:01,000 --> 00:00:02,500\nshit\n""", encoding="utf-8")
+                prof = tmp_path / "profanity.json"
+                prof.write_text('[{"word": "shit"}]', encoding="utf-8")
+
+                # Artifacts
+                audio_art = Artifact(type=ArtifactType.AUDIO, path=str(tone), metadata={})
+                sub_art = Artifact(type=ArtifactType.SUBTITLE, path=str(srt), metadata={})
+                vid_art = Artifact(type=ArtifactType.VIDEO, path=str(video), metadata={})
+
+                # Ops
+                mute = MuteAudioOperation()
+                remux = RemuxOperation()
+                flags = OperationFlags(profanity_list_file=str(prof), verbose=True)
+
+                # Mute
+                muted = mute.run([audio_art, sub_art], tmp_path, flags)
+                assert len(muted) == 1
+                assert muted[0].metadata.get("mute_windows_applied", 0) >= 1
+
+                # Remux (mock to avoid heavy work)
+                with patch.object(remux.ffmpeg, 'remux') as mock_remux:
+                    out_vid = tmp_path / "final.mkv"
+                    out_vid.write_text("mock out")
+                    mock_remux.return_value = str(out_vid)
+
+                    result = remux.run([vid_art] + muted + [sub_art], tmp_path, flags)
+                    assert len(result) == 1
+                    assert result[0].type == ArtifactType.VIDEO
     
     def test_pipeline_with_external_mute_windows(self):
         """Test pipeline with external mute windows file."""

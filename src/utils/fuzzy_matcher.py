@@ -34,7 +34,7 @@ class FuzzyMatcher:
     """Window-based fuzzy string matcher using RapidFuzz."""
     
     def __init__(self, 
-                 similarity_threshold: float = 85.0,
+                 similarity_threshold: float = 80.0,
                  allow_list: Optional[List[str]] = None,
                  normalization_enabled: bool = True,
                  strategy: str = "window"):
@@ -83,10 +83,14 @@ class FuzzyMatcher:
         
         # Convert to lowercase
         text = text.lower()
+
+        # Strip accents/diacritics (e.g., café -> cafe)
+        text = unicodedata.normalize('NFKD', text)
+        text = ''.join(ch for ch in text if not unicodedata.combining(ch))
         
-        # Replace hyphens and apostrophes with spaces to preserve token boundaries
+        # Replace underscores, hyphens and apostrophes with spaces to preserve token boundaries
         # This prevents "fuckin'" -> "fuckin" (still a token) and avoids merging across punctuation
-        text = re.sub(r"[-']", " ", text)
+        text = re.sub(r"[-_']", " ", text)
 
         # Replace other punctuation with spaces (do not delete) to avoid concatenating tokens
         # Example: "D...Fuck" -> "D   Fuck" -> "d fuck" after normalization, so "fuck" is matchable
@@ -140,15 +144,15 @@ class FuzzyMatcher:
             elif min(len(normalized_query), len(normalized_target)) <= 3:
                 score = 100.0 if normalized_query == normalized_target else 0.0
             else:
-                # For single-word targets, apply morphology rules
+                # For single-word targets, apply morphology rules; otherwise use fuzzy ratio
                 target_words = normalized_target.split()
                 query_words = normalized_query.split()
                 
                 if len(target_words) == 1 and len(query_words) == 1:
                     score = self._morphology_match_score(normalized_query, normalized_target)
                 else:
-                    # Multi-word or mixed: be strict — require exact normalized equality
-                    score = 100.0 if normalized_query == normalized_target else 0.0
+                    # Multi-word or mixed: use fuzzy ratio for leniency
+                    score = fuzz.ratio(normalized_query, normalized_target)
         
         # Determine if this is a match
         is_match = score >= self.similarity_threshold
@@ -179,10 +183,8 @@ class FuzzyMatcher:
             if suffix and target == query + suffix:
                 return 100.0
         
-        # No morphological match - require high fuzzy score to avoid false positives
-        fuzzy_score = fuzz.ratio(query, target)
-        # Be more restrictive: require 90%+ similarity for non-morphological matches
-        return fuzzy_score if fuzzy_score >= 90.0 else 0.0
+        # No morphological match - fall back to fuzzy ratio score
+        return fuzz.ratio(query, target)
     
     def find_matches_in_text(self, text: str) -> List[MatchResult]:
         """Find all matches in text using sliding window approach.

@@ -35,12 +35,12 @@ class ExportSidecarOperation(Operation):
     
     @property
     def consumes(self) -> Set[ArtifactType]:
-        """Return the set of artifact types this operation consumes."""
+        """Return the artifact types this operation consumes."""
         return {ArtifactType.SUBTITLE, ArtifactType.VIDEO}
     
     @property
     def produces(self) -> Set[ArtifactType]:
-        """Return the set of artifact types this operation produces."""
+        """Return the artifact types this operation produces."""
         return {ArtifactType.SIDECAR}
     
     def run(self, inputs: List[Artifact], workdir: Path, flags: OperationFlags) -> List[Artifact]:
@@ -71,25 +71,22 @@ class ExportSidecarOperation(Operation):
             if flags.dry_run:
                 return self._handle_dry_run(workdir, subtitle_artifacts, video_artifacts)
             
-            # Choose the best single subtitle artifact to export to avoid duplication
-            chosen_subtitle, choice_reason = self._choose_best_subtitle_artifact(subtitle_artifacts)
-            if not chosen_subtitle:
-                raise ValueError("No suitable subtitle artifact found for sidecar export")
+            all_subtitle_entries: List[SubtitleEntry] = []
+            source_artifacts: List[str] = []
             
-            # Parse the chosen subtitle file
-            all_subtitle_entries = []
-            source_artifacts = []
-            try:
-                entries = self.parser.parse_file(chosen_subtitle.path)
-                all_subtitle_entries.extend(entries)
-                source_artifacts.append(chosen_subtitle.path)
-                
-                if flags.verbose:
-                    print(f"Using {choice_reason}: {chosen_subtitle.path}")
-                    print(f"Parsed {len(entries)} subtitle entries from {chosen_subtitle.path}")
-                    
-            except SubtitleError as e:
-                raise RuntimeError(f"Failed to parse subtitle file {chosen_subtitle.path}: {e}")
+            if subtitle_artifacts:
+                # If multiple subtitles are provided, include all; else include chosen best
+                chosen_subtitle, choice_reason = self._choose_best_subtitle_artifact(subtitle_artifacts)
+                subs_to_export = subtitle_artifacts if len(subtitle_artifacts) > 1 else [chosen_subtitle]
+                for sub in subs_to_export:
+                    try:
+                        entries = self.parser.parse_file(sub.path)
+                        all_subtitle_entries.extend(entries)
+                        source_artifacts.append(sub.path)
+                        if flags.verbose:
+                            print(f"Parsed {len(entries)} subtitle entries from {sub.path}")
+                    except SubtitleError as e:
+                        raise RuntimeError(f"Failed to parse subtitle file {sub.path}: {e}")
             
             # Sort subtitle entries chronologically and renumber
             all_subtitle_entries.sort(key=lambda entry: (entry.start, entry.end))

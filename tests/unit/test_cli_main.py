@@ -6,6 +6,8 @@ from typer.testing import CliRunner
 
 from src.cli.main import app
 from src.models.artifacts import Artifact, ArtifactType
+from src.models.operations import OperationResult
+from src.planner.planner import ExecutionPlan
 
 
 class TestCLIMain:
@@ -44,12 +46,14 @@ class TestCLIMain:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [
-            ("extract_subtitles", []),
-            ("mask_subtitles", []),
-        ]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = [
-            Artifact(type=ArtifactType.VIDEO, path="/tmp/output.mp4", metadata={})
+            OperationResult(
+                operation="extract_subtitles",
+                inputs=["/path/to/video.mp4"],
+                outputs=["/tmp/test/subtitles.srt"],
+                success=True
+            )
         ]
         
         runner = CliRunner()
@@ -89,10 +93,7 @@ class TestCLIMain:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [
-            ("extract_subtitles", []),
-            ("mask_subtitles", []),
-        ]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         
         runner = CliRunner()
         result = runner.invoke(app, [
@@ -109,7 +110,7 @@ class TestCLIMain:
         mock_planner.plan.assert_called_once()
         if mock_executor.execute.called:
             call_args = mock_executor.execute.call_args
-            flags = call_args[0][2]  # Third argument should be flags
+            flags = call_args.kwargs['flags']  # Third argument should be flags
             assert flags.dry_run is True
 
     @patch('src.cli.main.Path.exists')
@@ -122,7 +123,7 @@ class TestCLIMain:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()
@@ -138,7 +139,7 @@ class TestCLIMain:
         # Should call executor with verbose=True
         if mock_executor.execute.called:
             call_args = mock_executor.execute.call_args
-            flags = call_args[0][2]  # Third argument should be flags
+            flags = call_args.kwargs['flags']  # flags passed as keyword argument
             assert flags.verbose is True
 
     def test_list_operations_command(self):
@@ -164,7 +165,7 @@ class TestCLIMain:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()
@@ -192,7 +193,7 @@ class TestCLIMain:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()
@@ -231,7 +232,7 @@ class TestCLIMain:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("extract_subtitles", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         # Use a temporary directory that actually exists
@@ -270,7 +271,7 @@ class TestCLIMain:
         mock_planner = mock_planner_class.return_value
         mock_executor = mock_executor_class.return_value
         
-        mock_planner.plan.return_value = [("mute_audio", [])]
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = []
         
         runner = CliRunner()
