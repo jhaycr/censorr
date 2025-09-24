@@ -78,8 +78,14 @@ class RemuxOperation(Operation):
                 if artifact.type == ArtifactType.SUBTITLE
             ]
             
+            # Prioritize muted audio over extracted audio
+            audio_artifacts = self._prioritize_audio_artifacts(audio_artifacts)
+            
             if flags.verbose:
                 print(f"Found {len(audio_artifacts)} audio tracks for remuxing")
+                for i, artifact in enumerate(audio_artifacts):
+                    artifact_type = "muted" if "muted_audio" in artifact.path else "extracted"
+                    print(f"  Audio track {i}: {artifact.path} ({artifact_type})")
                 print(f"Found {len(subtitle_artifacts)} subtitle tracks for remuxing")
             
             # Prepare track lists
@@ -142,6 +148,35 @@ class RemuxOperation(Operation):
             if flags.verbose:
                 print(f"Error in remux operation: {e}")
             raise
+    
+    def _prioritize_audio_artifacts(self, audio_artifacts: List[Artifact]) -> List[Artifact]:
+        """Prioritize audio artifacts, preferring muted over extracted audio.
+        
+        Args:
+            audio_artifacts: List of audio artifacts
+            
+        Returns:
+            Prioritized list of audio artifacts
+        """
+        if not audio_artifacts:
+            return audio_artifacts
+        
+        # Separate muted and extracted audio artifacts
+        muted_artifacts = []
+        extracted_artifacts = []
+        
+        for artifact in audio_artifacts:
+            if "muted_audio" in artifact.path:
+                muted_artifacts.append(artifact)
+            else:
+                extracted_artifacts.append(artifact)
+        
+        # If we have muted audio, use only muted audio (don't mix with extracted)
+        # This prevents using both muted and extracted versions of the same track
+        if muted_artifacts:
+            return muted_artifacts
+        else:
+            return extracted_artifacts
     
     def _generate_output_path(self, input_path: str, workdir: Path) -> str:
         """Generate output path for remuxed video.

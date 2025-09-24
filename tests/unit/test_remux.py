@@ -357,3 +357,81 @@ class TestRemuxOperation:
         assert results[0].metadata["original_format"] == "h264"
         assert results[0].metadata["duration"] == 3600.0
         assert results[0].metadata["resolution"] == "1920x1080"
+
+    def test_prioritize_audio_artifacts(self):
+        """Test audio artifact prioritization logic."""
+        op = RemuxOperation()
+        
+        # Create test artifacts
+        extracted_audio = Artifact(
+            type=ArtifactType.AUDIO,
+            path="output/test/extract_audio/123/audio_track_1.wav",
+            metadata={"source": "extracted"}
+        )
+        
+        muted_audio = Artifact(
+            type=ArtifactType.AUDIO,
+            path="output/test/mute_audio/456/muted_audio_track_1.wav",
+            metadata={"source": "muted"}
+        )
+        
+        # Test 1: Only extracted audio
+        result = op._prioritize_audio_artifacts([extracted_audio])
+        assert len(result) == 1
+        assert result[0].path == extracted_audio.path
+        
+        # Test 2: Only muted audio
+        result = op._prioritize_audio_artifacts([muted_audio])
+        assert len(result) == 1
+        assert result[0].path == muted_audio.path
+        
+        # Test 3: Both extracted and muted audio (should prefer muted)
+        result = op._prioritize_audio_artifacts([extracted_audio, muted_audio])
+        assert len(result) == 1
+        assert result[0].path == muted_audio.path
+        
+        # Test 4: Empty list
+        result = op._prioritize_audio_artifacts([])
+        assert len(result) == 0
+
+    @patch('src.ops.remux.FFmpegAdapter')
+    def test_run_prioritizes_muted_audio(self, mock_ffmpeg_class):
+        """Test that remux operation prioritizes muted audio over extracted audio."""
+        # Setup mocks
+        mock_ffmpeg = mock_ffmpeg_class.return_value
+        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
+        
+        # Test data
+        workdir = Path("/tmp/test")
+        video_artifact = Artifact(
+            type=ArtifactType.VIDEO,
+            path="/path/to/video.mp4",
+            metadata={}
+        )
+        
+        extracted_audio = Artifact(
+            type=ArtifactType.AUDIO,
+            path="output/test/extract_audio/123/audio_track_1.wav",
+            metadata={"source": "extracted"}
+        )
+        
+        muted_audio = Artifact(
+            type=ArtifactType.AUDIO,
+            path="output/test/mute_audio/456/muted_audio_track_1.wav",
+            metadata={"source": "muted"}
+        )
+        
+        flags = OperationFlags()
+        
+        # Execute operation with both extracted and muted audio
+        op = RemuxOperation()
+        results = op.run([video_artifact, extracted_audio, muted_audio], workdir, flags)
+        
+        # Verify remux was called with muted audio only
+        mock_ffmpeg.remux.assert_called_once()
+        call_args = mock_ffmpeg.remux.call_args
+        assert call_args[1]["audio_tracks"] == [muted_audio.path]
+        
+        # Verify result metadata
+        assert len(results) == 1
+        assert results[0].metadata["audio_tracks"] == 1
