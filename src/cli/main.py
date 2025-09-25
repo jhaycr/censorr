@@ -192,6 +192,14 @@ def process(
     fuzzy_threshold: Optional[float] = typer.Option(
         None, "--fuzzy-threshold",
         help="Similarity threshold (0-100) for fuzzy profanity matching"
+    ),
+    subtitle_mode: str = typer.Option(
+        "masked_only", "--subtitle-mode",
+        help="How to handle subtitles in remux: 'all', 'masked_only', or 'none'"
+    ),
+    create_subtitle_sidecar: bool = typer.Option(
+        False, "--create-subtitle-sidecar",
+        help="Create sidecar subtitle files alongside remuxed video"
     )
 ):
     """
@@ -305,7 +313,9 @@ def process(
             continue_on_qc_fail=continue_on_qc_fail,
             continue_on_audio_qc_fail=continue_on_audio_qc_fail,
             profanity_list_file=profanity_list_file,
-            fuzzy_threshold=fuzzy_threshold
+            fuzzy_threshold=fuzzy_threshold,
+            subtitle_mode=subtitle_mode,
+            create_subtitle_sidecar=create_subtitle_sidecar
         )
         
         # Plan operations

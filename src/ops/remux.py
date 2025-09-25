@@ -81,12 +81,18 @@ class RemuxOperation(Operation):
             # Prioritize muted audio over extracted audio
             audio_artifacts = self._prioritize_audio_artifacts(audio_artifacts)
             
+            # Process subtitle artifacts based on mode
+            subtitle_artifacts = self._process_subtitle_artifacts(subtitle_artifacts, workdir, flags)
+            
             if flags.verbose:
                 print(f"Found {len(audio_artifacts)} audio tracks for remuxing")
                 for i, artifact in enumerate(audio_artifacts):
                     artifact_type = "muted" if "muted_audio" in artifact.path else "extracted"
                     print(f"  Audio track {i}: {artifact.path} ({artifact_type})")
-                print(f"Found {len(subtitle_artifacts)} subtitle tracks for remuxing")
+                print(f"Using {len(subtitle_artifacts)} subtitle tracks for remuxing (mode: {flags.subtitle_mode})")
+                for i, artifact in enumerate(subtitle_artifacts):
+                    subtitle_type = self._get_subtitle_type(artifact)
+                    print(f"  Subtitle track {i}: {artifact.path} ({subtitle_type})")
             
             # Prepare track lists
             audio_tracks = [artifact.path for artifact in audio_artifacts]
@@ -177,6 +183,106 @@ class RemuxOperation(Operation):
             return muted_artifacts
         else:
             return extracted_artifacts
+    
+    def _process_subtitle_artifacts(self, subtitle_artifacts: List[Artifact], workdir: Path, flags: OperationFlags) -> List[Artifact]:
+        """Process subtitle artifacts based on the subtitle mode.
+        
+        Args:
+            subtitle_artifacts: List of subtitle artifacts
+            workdir: Working directory for sidecar files
+            flags: Operation flags
+            
+        Returns:
+            Processed list of subtitle artifacts for remuxing
+        """
+        if not subtitle_artifacts:
+            return subtitle_artifacts
+        
+        # Create sidecar files if requested
+        if flags.create_subtitle_sidecar:
+            self._create_subtitle_sidecars(subtitle_artifacts, workdir, flags)
+        
+        # Handle subtitle mode
+        if flags.subtitle_mode == "none":
+            return []
+        elif flags.subtitle_mode == "all":
+            return subtitle_artifacts
+        elif flags.subtitle_mode == "masked_only":
+            return self._get_masked_subtitles_only(subtitle_artifacts)
+        else:
+            # Default to masked_only for unknown modes
+            return self._get_masked_subtitles_only(subtitle_artifacts)
+    
+    def _get_masked_subtitles_only(self, subtitle_artifacts: List[Artifact]) -> List[Artifact]:
+        """Filter subtitle artifacts to include only masked subtitles.
+        
+        Args:
+            subtitle_artifacts: List of subtitle artifacts
+            
+        Returns:
+            List containing only masked subtitle artifacts
+        """
+        masked_subtitles = []
+        
+        for artifact in subtitle_artifacts:
+            # Check if this is a masked subtitle
+            if "masked_subtitles" in artifact.path or artifact.metadata.get("profanity_filtered"):
+                masked_subtitles.append(artifact)
+        
+        # If no masked subtitles found, fall back to merged or latest processed subtitles
+        if not masked_subtitles:
+            # Look for merged subtitles as fallback
+            for artifact in subtitle_artifacts:
+                if "merged_subtitles" in artifact.path or artifact.metadata.get("merged_from"):
+                    masked_subtitles.append(artifact)
+                    break
+        
+        return masked_subtitles
+    
+    def _create_subtitle_sidecars(self, subtitle_artifacts: List[Artifact], workdir: Path, flags: OperationFlags):
+        """Create sidecar subtitle files alongside the remuxed video.
+        
+        Args:
+            subtitle_artifacts: List of subtitle artifacts
+            workdir: Working directory
+            flags: Operation flags
+        """
+        # Get masked subtitles for sidecar creation
+        masked_subtitles = self._get_masked_subtitles_only(subtitle_artifacts)
+        
+        for artifact in masked_subtitles:
+            # Create sidecar filename based on video output
+            sidecar_path = workdir / f"remuxed_subtitles_{artifact.metadata.get('language', 'und')}.srt"
+            
+            try:
+                # Copy the masked subtitle to sidecar location
+                import shutil
+                shutil.copy2(artifact.path, sidecar_path)
+                
+                if flags.verbose:
+                    print(f"Created subtitle sidecar: {sidecar_path}")
+                    
+            except Exception as e:
+                if flags.verbose:
+                    print(f"Failed to create subtitle sidecar {sidecar_path}: {e}")
+    
+    def _get_subtitle_type(self, artifact: Artifact) -> str:
+        """Get a descriptive name for the subtitle type.
+        
+        Args:
+            artifact: Subtitle artifact
+            
+        Returns:
+            Description of subtitle type
+        """
+        if "masked_subtitles" in artifact.path or artifact.metadata.get("profanity_filtered"):
+            return "masked"
+        elif "merged_subtitles" in artifact.path or artifact.metadata.get("merged_from"):
+            return "merged"
+        elif artifact.metadata.get("forced"):
+            return "forced"
+        else:
+            return "extracted"
     
     def _generate_output_path(self, input_path: str, workdir: Path) -> str:
         """Generate output path for remuxed video.

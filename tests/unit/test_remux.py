@@ -41,7 +41,7 @@ class TestRemuxOperation:
             path="/path/to/subtitles.srt",
             metadata={"masked": True, "language": "en"}
         )
-        flags = OperationFlags()
+        flags = OperationFlags(subtitle_mode="all")
         
         # Execute operation
         op = RemuxOperation()
@@ -165,7 +165,7 @@ class TestRemuxOperation:
             path="/path/to/subtitles_es.srt",
             metadata={"language": "es"}
         )
-        flags = OperationFlags()
+        flags = OperationFlags(subtitle_mode="all")
         
         # Execute operation
         op = RemuxOperation()
@@ -435,3 +435,77 @@ class TestRemuxOperation:
         # Verify result metadata
         assert len(results) == 1
         assert results[0].metadata["audio_tracks"] == 1
+
+    def test_subtitle_mode_masked_only(self):
+        """Test subtitle filtering for masked_only mode."""
+        op = RemuxOperation()
+        
+        # Create test artifacts
+        extracted_subtitle = Artifact(
+            type=ArtifactType.SUBTITLE,
+            path="output/test/extract_subtitles/123/subtitle.srt",
+            metadata={"language": "en"}
+        )
+        
+        merged_subtitle = Artifact(
+            type=ArtifactType.SUBTITLE,
+            path="output/test/merge_subtitles/456/merged_subtitles.srt",
+            metadata={"language": "en", "merged_from": ["sub1.srt", "sub2.srt"]}
+        )
+        
+        masked_subtitle = Artifact(
+            type=ArtifactType.SUBTITLE,
+            path="output/test/mask_subtitles/789/masked_subtitles.srt",
+            metadata={"language": "en", "profanity_filtered": True}
+        )
+        
+        # Test 1: Only masked subtitle should be selected
+        result = op._get_masked_subtitles_only([extracted_subtitle, merged_subtitle, masked_subtitle])
+        assert len(result) == 1
+        assert result[0].path == masked_subtitle.path
+        
+        # Test 2: Fallback to merged when no masked available
+        result = op._get_masked_subtitles_only([extracted_subtitle, merged_subtitle])
+        assert len(result) == 1
+        assert result[0].path == merged_subtitle.path
+        
+        # Test 3: Empty when nothing matches
+        result = op._get_masked_subtitles_only([extracted_subtitle])
+        assert len(result) == 0
+
+    @patch('src.ops.remux.FFmpegAdapter')
+    def test_subtitle_modes(self, mock_ffmpeg_class):
+        """Test different subtitle modes in remux operation."""
+        # Setup mocks
+        mock_ffmpeg = mock_ffmpeg_class.return_value
+        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
+        
+        # Test data
+        workdir = Path("/tmp/test")
+        video_artifact = Artifact(
+            type=ArtifactType.VIDEO,
+            path="/path/to/video.mp4",
+            metadata={}
+        )
+        
+        masked_subtitle = Artifact(
+            type=ArtifactType.SUBTITLE,
+            path="output/test/mask_subtitles/789/masked_subtitles.srt",
+            metadata={"language": "en", "profanity_filtered": True}
+        )
+        
+        # Test mode: masked_only (default)
+        flags = OperationFlags(subtitle_mode="masked_only")
+        op = RemuxOperation()
+        results = op.run([video_artifact, masked_subtitle], workdir, flags)
+        assert results[0].metadata["subtitle_tracks"] == 1
+        
+        # Test mode: none
+        flags = OperationFlags(subtitle_mode="none")
+        results = op.run([video_artifact, masked_subtitle], workdir, flags)
+        assert results[0].metadata["subtitle_tracks"] == 0
+        
+        # Test mode: all
+        flags = OperationFlags(subtitle_mode="all")
+        results = op.run([video_artifact, masked_subtitle], workdir, flags)
+        assert results[0].metadata["subtitle_tracks"] == 1

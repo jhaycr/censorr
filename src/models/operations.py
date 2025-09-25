@@ -24,6 +24,8 @@ class OperationFlags(BaseModel):
     selectors: List['Selector'] = Field(default_factory=list, description="Track selectors for filtering operations")
     profanity_list_file: str | None = Field(None, description="Path to JSON profanity list file for subtitle masking")
     fuzzy_threshold: float | None = Field(None, description="Similarity threshold (0-100) for fuzzy profanity matching")
+    subtitle_mode: str = Field("masked_only", description="How to handle subtitles in remux: 'all', 'masked_only', or 'none'")
+    create_subtitle_sidecar: bool = Field(False, description="Create sidecar subtitle files alongside remuxed video")
     
     @model_validator(mode='after')
     def validate_flags(self):
