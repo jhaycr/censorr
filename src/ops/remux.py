@@ -1,8 +1,12 @@
-"""Video remuxing operation for combining processed tracks into final video."""
+"""
+Remux operation for combining video, audio, and subtitle streams.
+"""
+import logging
+import re
 from pathlib import Path
-from typing import List, Set
+from typing import List, Optional, Set
 
-from src.adapters.ffmpeg import FFmpegAdapter
+from ..adapters.ffmpeg import FFmpegAdapter
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import Operation, OperationFlags
 
@@ -68,7 +72,7 @@ class RemuxOperation(Operation):
             video_artifact = video_artifacts[0]
             
             # Find audio and subtitle artifacts
-            audio_artifacts = [
+            original_audio_artifacts = [
                 artifact for artifact in inputs
                 if artifact.type == ArtifactType.AUDIO
             ]
@@ -78,8 +82,8 @@ class RemuxOperation(Operation):
                 if artifact.type == ArtifactType.SUBTITLE
             ]
             
-            # Prioritize muted audio over extracted audio
-            audio_artifacts = self._prioritize_audio_artifacts(audio_artifacts)
+            # Prioritize muted audio over extracted audio (searches entire inputs list + output dir)
+            audio_artifacts = self._prioritize_audio_artifacts(inputs, workdir)
             
             # Process subtitle artifacts based on mode
             subtitle_artifacts = self._process_subtitle_artifacts(subtitle_artifacts, workdir, flags)
@@ -155,35 +159,95 @@ class RemuxOperation(Operation):
                 print(f"Error in remux operation: {e}")
             raise
     
-    def _prioritize_audio_artifacts(self, audio_artifacts: List[Artifact]) -> List[Artifact]:
-        """Prioritize audio artifacts, preferring muted over extracted audio.
+    def _find_muted_audio_in_output_dir(self, workdir: Path, track_num: int) -> Optional[Artifact]:
+        """Try to find muted audio files in the output directory."""
+        logger = logging.getLogger(f"{self.__class__.__name__}")
         
-        Args:
-            audio_artifacts: List of audio artifacts
-            
-        Returns:
-            Prioritized list of audio artifacts
-        """
+        # Search in the parent directory (output base) for mute_audio folders
+        logger.info(f"Remux workdir: {workdir}")
+        output_base = workdir.parent.parent if 'remux' in str(workdir) else workdir
+        logger.info(f"Searching for muted audio in: {output_base}")
+        
+        # Also try searching from workdir directly
+        mute_audio_dirs = list(output_base.glob("mute_audio/*/"))
+        if not mute_audio_dirs and output_base != workdir:
+            logger.info(f"No mute_audio dirs in {output_base}, trying {workdir}")
+            mute_audio_dirs = list(workdir.glob("mute_audio/*/"))
+        
+        logger.info(f"Found {len(mute_audio_dirs)} mute_audio directories")
+        
+        # Sort by modification time to get the most recent
+        mute_audio_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+        
+        for mute_dir in mute_audio_dirs:
+            muted_file = mute_dir / f"muted_audio_track_{track_num}.wav"
+            if muted_file.exists():
+                logger.info(f"✓ Found muted audio in output directory: {muted_file}")
+                import hashlib
+                def calculate_checksum(file_path):
+                    sha256_hash = hashlib.sha256()
+                    with open(file_path, "rb") as f:
+                        for chunk in iter(lambda: f.read(4096), b""):
+                            sha256_hash.update(chunk)
+                    return sha256_hash.hexdigest()
+                return Artifact(
+                    path=str(muted_file),
+                    type=ArtifactType.AUDIO,
+                    checksum=calculate_checksum(muted_file)
+                )
+        
+        logger.warning(f"No muted audio found for track {track_num}")
+        return None
+
+    def _prioritize_audio_artifacts(self, artifacts: List[Artifact], workdir: Path) -> List[Artifact]:
+        """Prioritize audio artifacts, preferring muted over extracted audio."""
+        logger = logging.getLogger(f"{self.__class__.__name__}")
+        
+        audio_artifacts = [a for a in artifacts if a.type == ArtifactType.AUDIO]
         if not audio_artifacts:
-            return audio_artifacts
+            logger.warning("No audio artifacts available for remux")
+            return []
         
-        # Separate muted and extracted audio artifacts
-        muted_artifacts = []
-        extracted_artifacts = []
-        
+        logger.info(f"Found {len(audio_artifacts)} audio artifacts:")
         for artifact in audio_artifacts:
-            if "muted_audio" in artifact.path:
-                muted_artifacts.append(artifact)
-            else:
-                extracted_artifacts.append(artifact)
+            logger.info(f"  Audio: {artifact.path}")
         
-        # If we have muted audio, use only muted audio (don't mix with extracted)
-        # This prevents using both muted and extracted versions of the same track
-        if muted_artifacts:
-            return muted_artifacts
-        else:
-            return extracted_artifacts
-    
+        # Group by track number
+        by_track = {}
+        for artifact in audio_artifacts:
+            # Extract track number from filename
+            path_name = artifact.path.name if hasattr(artifact.path, 'name') else str(artifact.path).split('/')[-1]
+            match = re.search(r'audio_track_(\d+)|muted_audio_track_(\d+)', path_name)
+            if match:
+                track_num = int(match.group(1) or match.group(2))
+                if track_num not in by_track:
+                    by_track[track_num] = []
+                by_track[track_num].append(artifact)
+        
+        prioritized = []
+        for track_num, track_artifacts in by_track.items():
+            # Sort by priority: muted > extracted
+            muted_artifacts = [a for a in track_artifacts if "muted_audio" in str(a.path)]
+            extracted_artifacts = [a for a in track_artifacts if "extract_audio" in str(a.path)]
+            
+            if muted_artifacts:
+                prioritized.extend(muted_artifacts)
+                logger.info(f"✓ Using muted audio for track {track_num}: {muted_artifacts[0].path}")
+            else:
+                # Try to find muted audio in output directory
+                logger.warning(f"⚠ Muted audio not provided as input for track {track_num}, searching output directory...")
+                found_muted = self._find_muted_audio_in_output_dir(workdir, track_num)
+                if found_muted:
+                    prioritized.append(found_muted)
+                    logger.info(f"✓ Found and using muted audio for track {track_num}: {found_muted.path}")
+                elif extracted_artifacts:
+                    prioritized.extend(extracted_artifacts)
+                    logger.warning(f"⚠ Using extracted audio for track {track_num} (muted audio not found): {extracted_artifacts[0].path}")
+                else:
+                    logger.error(f"✗ No audio found for track {track_num}")
+        
+        return prioritized
+
     def _process_subtitle_artifacts(self, subtitle_artifacts: List[Artifact], workdir: Path, flags: OperationFlags) -> List[Artifact]:
         """Process subtitle artifacts based on the subtitle mode.
         
