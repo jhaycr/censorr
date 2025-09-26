@@ -92,6 +92,26 @@ Structure Decision: Option 1 (single project).
 - [ ] Refine masking to only replace profane sub-part inside hyphenated/apostrophized tokens (Done)
 - [ ] Enhance QC to check base + stem variants to catch hyphenated/contracted forms (Done)
 
+## Naming Strategy Addendum (FR-054, FR-055)
+Rationale: Ensure Plex auto-discovers cleaned subtitles and distinguishes remuxed movie variant without polluting episode naming.
+
+Sidecar subtitles
+- Pattern: `<base>.<lang>.<tag>.srt`
+  - `<base>`: Derived from video filename minus any `{edition-*}` tag; preserve `Title (Year)` or episode pattern.
+  - Normalize: collapse multiple spaces, trim, preserve punctuation already Plex-compatible.
+  - `<lang>`: lowercase ISO 639-1.
+  - `<tag>`: `censorr` (default) or `clean` (alias via CLI/config).
+- Collision handling: If path exists and checksum differs, append incremental numeric suffix before extension.
+- Reuse: If identical checksum, skip write (log reuse).
+
+Edition tag (movies only)
+- Insert `{edition-Censorr}` after the canonical `Title (Year)` segment if no existing `{edition-*}` present.
+- Detection: regex for `{edition-[^}]+}`; idempotent and skip when any edition exists.
+- Episodes: Identified by `S\d{2}E\d{2}` pattern or explicit media type flag; never modified with edition tag.
+- Logging: differentiate added vs skipped; surface decision in structured log.
+
+Open Questions (deferred): Replacement of pre-existing edition tags or stacking multiple tags (out of scope now); forced/SDH sidecar variants (future extension).
+
 ## Phase 0: Outline & Research
 Create `research.md` to resolve:
 - FFmpeg strategies:

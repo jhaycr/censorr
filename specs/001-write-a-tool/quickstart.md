@@ -38,6 +38,14 @@ censorr --audio "/path/movie.en.dts" \
   --target audio --dry-run --explain
 ```
 
+## Naming Outputs (FR-054 / FR-055)
+- Movie remux output (if edition absent): `Movie Title (2024) {edition-Censorr}.mkv`
+- Sidecar masked subtitle (movie): `Movie Title (2024).en.censorr.srt`
+- Sidecar masked subtitle (episode): `Show Name - S01E03.en.censorr.srt` (no edition tag)
+- Alternate tag alias example (if configured to use clean): `Movie Title (2024).en.clean.srt`
+
+Idempotency: Re-running will not duplicate `{edition-Censorr}` nor rewrite identical sidecar files.
+
 ## Troubleshooting
 - FFmpeg not found: ensure `ffmpeg` command is available.
 - Selector schema errors: validate your JSON against `selector.schema.json`.
