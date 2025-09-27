@@ -166,7 +166,9 @@ class FFmpegAdapter:
             output_path
         ]
         
-        return self._run_ffmpeg_command(cmd, output_path)
+        # Use heartbeat for audio extraction (can be slow for large files)
+        heartbeat_context = f"extracting audio track {track_index} to {audio_format}"
+        return self._run_ffmpeg_command(cmd, output_path, heartbeat_interval=8.0, heartbeat_context=heartbeat_context)
     
     def extract_subtitles(self, input_path: str, output_path: str, track_index: int = 0) -> str:
         """Extract subtitle track from media file.
@@ -191,7 +193,9 @@ class FFmpegAdapter:
             output_path
         ]
         
-        return self._run_ffmpeg_command(cmd, output_path)
+        # Use heartbeat for subtitle extraction (usually quick, but good for large files)
+        heartbeat_context = f"extracting subtitle track {track_index}"
+        return self._run_ffmpeg_command(cmd, output_path, heartbeat_interval=12.0, heartbeat_context=heartbeat_context)
     
     def apply_mute_windows(self, input_path: str, output_path: str, mute_windows: List) -> str:
         """Apply mute windows to audio file.
@@ -289,7 +293,10 @@ class FFmpegAdapter:
         cmd.extend(["-c", "copy"])
         cmd.extend(["-y", output])
         
-        return self._run_ffmpeg_command(cmd, output)
+        # Use heartbeat for remuxing (can be slow for large files with multiple tracks)
+        track_count = len(audio_tracks or []) + len(subtitle_tracks or []) + 1  # +1 for video
+        heartbeat_context = f"remuxing {track_count} tracks"
+        return self._run_ffmpeg_command(cmd, output, heartbeat_interval=6.0, heartbeat_context=heartbeat_context)
     
     def _run_ffmpeg_command(self, cmd: List[str], expected_output: str, heartbeat_interval: float = 10.0, heartbeat_context: Optional[str] = None) -> str:
         """Run FFmpeg command and handle errors with periodic heartbeat logging.
@@ -309,7 +316,15 @@ class FFmpegAdapter:
         
         try:
             # For long-running operations, use Popen with heartbeat monitoring
-            if heartbeat_interval > 0 and any(filter_flag in ' '.join(cmd) for filter_flag in ['-af', '-vf', 'volume=']):
+            # Detect operations that might be slow: filters, remuxing, audio/video processing
+            is_long_operation = (
+                heartbeat_interval > 0 and (
+                    any(flag in ' '.join(cmd) for flag in ['-af', '-vf', 'volume=', '-acodec', '-map']) or
+                    heartbeat_context is not None  # Explicit heartbeat request
+                )
+            )
+            
+            if is_long_operation:
                 result = self._run_with_heartbeat(cmd, heartbeat_interval, start_time, heartbeat_context)
             else:
                 # Standard run for quick operations

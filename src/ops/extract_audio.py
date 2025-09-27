@@ -121,7 +121,9 @@ class ExtractAudioOperation(Operation):
                     input_path=video_artifact.path,
                     output_path=str(output_path),
                     track_index=ffmpeg_audio_idx,
-                    audio_format=self.audio_format
+                    audio_format=self.audio_format,
+                    heartbeat_interval=8.0,
+                    heartbeat_context=f"extracting audio track {track.index} ({track.codec}, {track.language or 'und'})"
                 )
                 
                 if extract_result.success:
