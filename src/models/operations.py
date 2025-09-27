@@ -26,6 +26,7 @@ class OperationFlags(BaseModel):
     fuzzy_threshold: float | None = Field(None, description="Similarity threshold (0-100) for fuzzy profanity matching")
     subtitle_mode: str = Field("masked_only", description="How to handle subtitles in remux: 'all', 'masked_only', or 'none'")
     create_subtitle_sidecar: bool = Field(False, description="Create sidecar subtitle files alongside remuxed video")
+    sidecar_tag: str = Field("censorr", description="Tag to use in sidecar subtitle filenames (censorr or clean)")
     
     @model_validator(mode='after')
     def validate_flags(self):

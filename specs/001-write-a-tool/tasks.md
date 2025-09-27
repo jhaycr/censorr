@@ -141,57 +141,57 @@ Dependencies & Ordering Notes
 	- Add CLI flags to pass subtitle title filters (e.g., `--subtitle-title-include`, `--subtitle-title-exclude`, `--subtitle-title-regex`, `--exclude-sdh`).
 	- Ensure flags integrate with existing `--language` behavior and selector construction.
 
-46. Tests: selection behavior
+46. ✅ Tests: selection behavior
 	- Unit tests for selector matching covering: null/empty title considered as main/full; include forced + full; exclude SDH/HI synonyms; regex include; exclude precedence.
 	- Integration test: a fixture with three English tracks (full, forced, SDH) → plan selects only full+forced → merge output contains only those cues.
 
-47. Docs & examples
+47. ✅ Docs & examples
 	- Update `quickstart.md` and `contracts/selectors.md` with examples for selecting English full + forced while excluding SDH.
 	- Add CLI help examples and a sample command in quickstart.
 
-48. Back-compat & defaults
+48. ✅ Back-compat & defaults
 	- Ensure existing usages continue to work with only `--language` specified. Title filters are optional and off by default. When both include and exclude match, exclude wins; document this behavior.
 
 ---
 
 ## New: Sidecar naming + Plex Edition tag (FR-054, FR-055)
 
-49. Filename parsing utility
+49. ✅ Filename parsing utility
 	- Implement helper to parse base title and detect existing edition tags `{edition-*}`.
 	- Provide function `ensure_movie_edition_tag(path, tag="Censorr") -> new_path` that is idempotent.
 
-50. Sidecar naming generator
+50. ✅ Sidecar naming generator
 	- Implement `build_sidecar_sub_path(video_path, lang, tag="censorr")` producing `<base>.<lang>.<tag>.srt`.
 	- Normalize `<base>` by stripping edition tag, trimming whitespace, collapsing multiple spaces, preserving year segment.
 
-51. Collision & reuse logic
+51. ✅ Collision & reuse logic
 	- If target exists: compare checksum; if identical, skip write; if different, append `-2`, `-3`, etc. before `.srt`.
 	- Unit tests covering identical vs differing content, numeric suffix increment.
 
-52. Episode vs movie handling
+52. ✅ Episode vs movie handling
 	- Add simple media type inference (parameter or heuristic: presence of `S\d{2}E\d{2}`) to suppress edition tag for episodes.
 	- Tests verifying no edition tag added for episodes; sidecar naming still applied.
 
-53. Integration into remux/export
+53. ✅ Integration into remux/export
 	- Wire edition tagging into remux operation for movie outputs only (pre-write rename step).
 	- Wire sidecar path generation into sidecar export/remux path logic; replace prior ad-hoc naming.
 
-54. CLI/config options
+54. ✅ CLI/config options
 	- Add config/CLI option to switch censorship tag between `censorr` (default) and `clean`.
 	- Document in help text and quickstart.
 
-55. Tests
+55. ✅ Tests
 	- Unit: edition tagging idempotency, existing edition pass-through, base normalization, sidecar naming variants.
 	- Integration: full pipeline producing movie remux with edition tag, sidecar reuse, rerun idempotency (no duplicate tag or rewritten identical sidecar).
 
-56. Docs
+56. ✅ Docs
 	- Update spec traceability (already appended FR-054/FR-055), quickstart examples, and contracts/naming section if present.
 	- Note episode exclusion from edition tagging.
 
-57. Logging & audit
+57. ✅ Logging & audit
 	- Add structured log entries for: edition tag added, edition tag skipped (pre-existing), sidecar reused, sidecar collision new name.
 
-58. Acceptance alignment
+58. ✅ Acceptance alignment
 	- Ensure Acceptance Scenario #16 passes with new logic; add fixture-based test naming accordingly.
 
 ---

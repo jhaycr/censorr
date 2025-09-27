@@ -3,12 +3,20 @@ Remux operation for combining video, audio, and subtitle streams.
 """
 import logging
 import re
+import shutil
+import hashlib
 from pathlib import Path
 from typing import List, Optional, Set
 
 from ..adapters.ffmpeg import FFmpegAdapter
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import Operation, OperationFlags
+from src.utils.filename_utils import (
+    ensure_movie_edition_tag,
+    is_episode_filename,
+    build_sidecar_subtitle_path,
+    handle_sidecar_collision
+)
 
 
 class RemuxOperation(Operation):
@@ -104,6 +112,14 @@ class RemuxOperation(Operation):
             
             # Generate output path
             output_path = self._generate_output_path(video_artifact.path, workdir)
+            
+            # Apply edition tagging for movies (not episodes)
+            if not is_episode_filename(output_path):
+                output_path = ensure_movie_edition_tag(output_path, "Censorr")
+                if flags.verbose:
+                    print(f"Applied Plex edition tag for movie: {Path(output_path).name}")
+            elif flags.verbose:
+                print(f"Skipped edition tag for episode: {Path(output_path).name}")
             
             if not flags.dry_run:
                 if flags.verbose:
@@ -262,11 +278,9 @@ class RemuxOperation(Operation):
         if not subtitle_artifacts:
             return subtitle_artifacts
         
-        # Create sidecar files if requested
-        if flags.create_subtitle_sidecar:
-            self._create_subtitle_sidecars(subtitle_artifacts, workdir, flags)
-        
-        # Handle subtitle mode
+            # Create sidecar files if requested
+            if flags.create_subtitle_sidecar:
+                self._create_subtitle_sidecars(subtitle_artifacts, workdir, output_path, flags)        # Handle subtitle mode
         if flags.subtitle_mode == "none":
             return []
         elif flags.subtitle_mode == "all":
@@ -303,29 +317,55 @@ class RemuxOperation(Operation):
         
         return masked_subtitles
     
-    def _create_subtitle_sidecars(self, subtitle_artifacts: List[Artifact], workdir: Path, flags: OperationFlags):
+    def _create_subtitle_sidecars(self, subtitle_artifacts: List[Artifact], workdir: Path, video_output_path: str, flags: OperationFlags):
         """Create sidecar subtitle files alongside the remuxed video.
         
         Args:
             subtitle_artifacts: List of subtitle artifacts
             workdir: Working directory
+            video_output_path: Path to the remuxed video file
             flags: Operation flags
         """
         # Get masked subtitles for sidecar creation
         masked_subtitles = self._get_masked_subtitles_only(subtitle_artifacts)
         
         for artifact in masked_subtitles:
-            # Create sidecar filename based on video output
-            sidecar_path = workdir / f"remuxed_subtitles_{artifact.metadata.get('language', 'und')}.srt"
+            language = artifact.metadata.get('language', 'und')
+            
+            # Use proper Plex-compatible sidecar naming
+            sidecar_path = build_sidecar_subtitle_path(
+                video_output_path, 
+                language, 
+                tag=flags.sidecar_tag
+            )
             
             try:
-                # Copy the masked subtitle to sidecar location
-                import shutil
-                shutil.copy2(artifact.path, sidecar_path)
+                # Read subtitle content and calculate checksum
+                with open(artifact.path, 'rb') as f:
+                    content = f.read()
+                    checksum = hashlib.md5(content).hexdigest()
                 
-                if flags.verbose:
-                    print(f"Created subtitle sidecar: {sidecar_path}")
-                    
+                # Handle collision/reuse
+                final_sidecar_path = handle_sidecar_collision(sidecar_path, checksum)
+                
+                if final_sidecar_path == sidecar_path:
+                    # No collision or reusing existing
+                    if Path(sidecar_path).exists():
+                        if flags.verbose:
+                            print(f"Reusing existing identical sidecar: {sidecar_path}")
+                    else:
+                        # Write new sidecar
+                        with open(sidecar_path, 'wb') as f:
+                            f.write(content)
+                        if flags.verbose:
+                            print(f"Created subtitle sidecar: {sidecar_path}")
+                else:
+                    # Using numbered collision path
+                    with open(final_sidecar_path, 'wb') as f:
+                        f.write(content)
+                    if flags.verbose:
+                        print(f"Created subtitle sidecar (collision handled): {final_sidecar_path}")
+                        
             except Exception as e:
                 if flags.verbose:
                     print(f"Failed to create subtitle sidecar {sidecar_path}: {e}")

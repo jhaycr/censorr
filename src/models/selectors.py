@@ -88,32 +88,34 @@ class Selector(BaseModel):
                 if exclude_pattern.lower() in normalized_title:
                     return False
         
-        # Check SDH exclusion
+        # Check SDH exclusion - this also takes precedence
         if self.exclude_sdh and self._is_sdh_title(title):
             return False
+        
+        # If we have any include filters, at least one must match
+        has_include_filters = bool(self.title_include or self.title_regex)
+        include_match = False
         
         # Apply inclusions
         if self.title_include:
             for include_pattern in self.title_include:
                 if include_pattern.lower() in normalized_title:
-                    return True
-            # If includes are specified but none match, reject
-            return False
+                    include_match = True
+                    break
         
         # Apply regex inclusions
         if self.title_regex:
             for regex_pattern in self.title_regex:
                 try:
                     if re.search(regex_pattern, title or "", re.IGNORECASE):
-                        return True
+                        include_match = True
+                        break
                 except re.error:
                     # Invalid regex, skip
                     continue
-            # If regex patterns are specified but none match, reject
-            return False
         
-        # If no title filters specified, accept (but may still be excluded by SDH)
-        return True
+        # If we have include filters, we need a match; otherwise accept all
+        return include_match if has_include_filters else True
     
     def matches(self, artifact) -> bool:
         """Check if this selector matches the given artifact."""

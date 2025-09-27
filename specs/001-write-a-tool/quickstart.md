@@ -27,15 +27,29 @@ pip install rapidfuzz pysubs2 pydantic typer PyYAML
 ## CLI examples (conceptual)
 ```
 # Subtitle-only
-censorr --video "/path/movie.mkv" \
-  --target subtitle --language en \
-  --masking partial --export-sidecar \
-  --dry-run --explain
+censorr process "/path/movie.mkv" \
+  --output /work/output --language en \
+  --create-subtitle-sidecar \
+  --dry-run
 
 # Audio-only with external mute windows
-censorr --audio "/path/movie.en.dts" \
+censorr process "/path/movie.mkv" \
   --mute-windows windows.json \
-  --target audio --dry-run --explain
+  --operations extract_audio,mute_audio \
+  --dry-run
+
+# Select English full + forced tracks while excluding SDH
+censorr process "/path/movie.mkv" \
+  --language en --exclude-sdh \
+  --subtitle-title-include "forced" \
+  --operations extract_subtitles,merge_subtitles,mask_subtitles \
+  --dry-run
+
+# Using regex to select specific subtitle tracks
+censorr process "/path/movie.mkv" \
+  --language en \
+  --subtitle-title-regex "English.*(Forced|Full)" \
+  --dry-run
 ```
 
 ## Naming Outputs (FR-054 / FR-055)

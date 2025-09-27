@@ -200,6 +200,10 @@ def process(
     create_subtitle_sidecar: bool = typer.Option(
         False, "--create-subtitle-sidecar",
         help="Create sidecar subtitle files alongside remuxed video"
+    ),
+    sidecar_tag: str = typer.Option(
+        "censorr", "--sidecar-tag",
+        help="Tag to use in sidecar subtitle filenames (censorr or clean)"
     )
 ):
     """
@@ -315,7 +319,8 @@ def process(
             profanity_list_file=profanity_list_file,
             fuzzy_threshold=fuzzy_threshold,
             subtitle_mode=subtitle_mode,
-            create_subtitle_sidecar=create_subtitle_sidecar
+            create_subtitle_sidecar=create_subtitle_sidecar,
+            sidecar_tag=sidecar_tag
         )
         
         # Plan operations

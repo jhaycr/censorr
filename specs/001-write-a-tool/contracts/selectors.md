@@ -49,6 +49,45 @@ Selectors filter and prioritize tracks across VIDEO, AUDIO, and SUBTITLE types.
 {
   "type": "SUBTITLE",
   "language": "en",
+  "title_include": ["Forced"],
+  "priority": 0
+}
+
+// Use regex to match specific patterns
+{
+  "type": "SUBTITLE", 
+  "language": "en",
+  "title_regex": ["English.*(Forced|Full)"],
+  "exclude_sdh": true,
+  "priority": 0
+}
+
+// Exclude specific subtitle types
+{
+  "type": "SUBTITLE",
+  "language": "en",
+  "title_exclude": ["Commentary", "Director"],
+  "priority": 0
+}
+```
+
+### Precedence Rules
+1. Exclusions (title_exclude, exclude_sdh) are applied first and take precedence
+2. If any exclusion pattern matches, the track is rejected
+3. If title_include patterns are specified, at least one must match
+4. If title_regex patterns are specified, at least one must match  
+5. Case-insensitive matching with title normalization (strip brackets/parens, collapse whitespace)
+
+### CLI Integration
+The following CLI flags automatically create subtitle selectors:
+- `--language en` creates basic language filter
+- `--exclude-sdh` adds SDH exclusion 
+- `--subtitle-title-include "forced,full"` adds inclusion patterns
+- `--subtitle-title-exclude "commentary"` adds exclusion patterns
+- `--subtitle-title-regex "English.*Forced"` adds regex patterns
+
+When both CLI flags and `--selectors-json` are provided, structured selectors take precedence.
+  "language": "en",
   "forced": true,
   "title_include": ["forced"],
   "priority": 0
