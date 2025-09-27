@@ -10,6 +10,7 @@ from src.models.common import MuteWindow
 from src.models.operations import Operation, OperationFlags
 from src.utils.subtitle_parser import SubtitleParser, SubtitleEntry
 from src.utils.fuzzy_matcher import FuzzyMatcher
+from src.utils.time_logging import tprint
 
 
 class MuteAudioOperation(Operation):
@@ -75,7 +76,9 @@ class MuteAudioOperation(Operation):
             
             results = []
             
-            for audio_artifact in audio_artifacts:
+            tprint(f"Begin processing {len(audio_artifacts)} audio artifact(s)", prefix="mute_audio")
+            for idx, audio_artifact in enumerate(audio_artifacts, start=1):
+                tprint(f"Audio {idx}/{len(audio_artifacts)}: collecting mute windows", prefix="mute_audio")
                 # Collect mute windows from various sources
                 external_file: Optional[str] = None
                 if video_artifacts and "mute_windows_file" in video_artifacts[0].metadata:
@@ -86,7 +89,10 @@ class MuteAudioOperation(Operation):
                     external_file=external_file,
                     flags=flags,
                 )
-                
+                # Maintain backward-compatible phrase for tests while adding richer context
+                # New structured log
+                tprint(f"Derived {len(mute_windows)} merged mute windows", prefix="mute_audio")
+                # Legacy verbose line for backward compatibility with existing tests
                 if flags.verbose:
                     print(f"Found {len(mute_windows)} mute windows for {audio_artifact.path}")
 
@@ -104,16 +110,15 @@ class MuteAudioOperation(Operation):
                         for w in mute_windows
                     ]
                     windows_path.write_text(json.dumps(windows_payload, indent=2), encoding="utf-8")
-                    if flags.verbose:
-                        print(f"[mute_audio] Wrote mute windows sidecar: {windows_path}")
+                    tprint(f"Wrote mute windows sidecar: {windows_path}", prefix="mute_audio")
                 except Exception as e:
-                    if flags.verbose:
-                        print(f"[mute_audio] Warning: failed to write mute windows sidecar: {e}")
+                    tprint(f"Warning: failed to write mute windows sidecar: {e}", prefix="mute_audio")
                 
                 # Generate output path
                 output_path = self._generate_output_path(audio_artifact.path, workdir)
                 
                 if not flags.dry_run:
+                    tprint(f"Applying {len(mute_windows)} mute windows via ffmpeg to {audio_artifact.path}", prefix="mute_audio")
                     if flags.verbose:
                         print(f"Applying mute windows to {audio_artifact.path}")
                     
@@ -124,6 +129,11 @@ class MuteAudioOperation(Operation):
                         output_path=output_path,
                         mute_windows=mute_windows
                     )
+
+                    if not mute_result.success:
+                        tprint(f"ffmpeg apply_mute_windows failed after {mute_result.duration_ms:.1f}ms: {mute_result.error}", prefix="mute_audio")
+                    else:
+                        tprint(f"ffmpeg apply_mute_windows succeeded in {mute_result.duration_ms:.1f}ms -> {mute_result.result}", prefix="mute_audio")
                     
                     if not mute_result.success:
                         raise RuntimeError(f"Failed to apply mute windows to {audio_artifact.path}: {mute_result.error}")
@@ -150,14 +160,14 @@ class MuteAudioOperation(Operation):
                     path=processed_path,
                     metadata=result_metadata
                 )
-                
+                tprint(f"Completed audio {idx}/{len(audio_artifacts)} -> {processed_path}", prefix="mute_audio")
                 results.append(result_artifact)
             
+            tprint("All audio artifacts processed", prefix="mute_audio")
             return results
             
         except Exception as e:
-            if flags.verbose:
-                print(f"Error in mute_audio operation: {e}")
+            tprint(f"Error in mute_audio operation: {e}", prefix="mute_audio")
             raise
     
     def _collect_mute_windows(self, artifact: Artifact, subtitle_artifacts: List[Artifact], external_file: Optional[str], flags: OperationFlags) -> List[MuteWindow]:
@@ -300,12 +310,19 @@ class MuteAudioOperation(Operation):
 
         padding = 0.2  # seconds of padding around each window
         windows: List[MuteWindow] = []
+        if flags.verbose:
+            tprint(f"Scanning {len(entries)} subtitle entries for profanity windows", prefix="mute_audio")
+        matched_entries = 0
         for entry in entries:
             matches = matcher.find_matches_in_text(entry.text)
             if matches:
                 start_time = max(0.0, entry.start - padding)
                 end_time = entry.end + padding
                 windows.append(MuteWindow(start=start_time, end=end_time, reason='profanity', source='SUBTITLE'))
+                matched_entries += 1
+
+        if flags.verbose:
+            tprint(f"Derived {len(windows)} raw windows from {matched_entries} matched subtitle entries", prefix="mute_audio")
 
         return windows
 
