@@ -9,9 +9,11 @@ Provides FFmpeg integration for:
 import json
 import subprocess
 import time
+import threading
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
+from src.utils.time_logging import tprint
 
 
 class FFmpegError(Exception):
@@ -289,12 +291,13 @@ class FFmpegAdapter:
         
         return self._run_ffmpeg_command(cmd, output)
     
-    def _run_ffmpeg_command(self, cmd: List[str], expected_output: str) -> str:
-        """Run FFmpeg command and handle errors.
+    def _run_ffmpeg_command(self, cmd: List[str], expected_output: str, heartbeat_interval: float = 10.0, heartbeat_context: Optional[str] = None) -> str:
+        """Run FFmpeg command and handle errors with periodic heartbeat logging.
         
         Args:
             cmd: FFmpeg command arguments
             expected_output: Expected output file path
+            heartbeat_interval: Seconds between heartbeat messages (0 to disable)
             
         Returns:
             Path to output file
@@ -305,12 +308,17 @@ class FFmpegAdapter:
         start_time = time.time()
         
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=False
-            )
+            # For long-running operations, use Popen with heartbeat monitoring
+            if heartbeat_interval > 0 and any(filter_flag in ' '.join(cmd) for filter_flag in ['-af', '-vf', 'volume=']):
+                result = self._run_with_heartbeat(cmd, heartbeat_interval, start_time, heartbeat_context)
+            else:
+                # Standard run for quick operations
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
             
             duration_ms = (time.time() - start_time) * 1000
             
@@ -362,3 +370,76 @@ class FFmpegAdapter:
                 self._execution_logger.add_operation_log(self._log_entry, error_msg)
             
             raise FFmpegError(error_msg)
+    
+    def _run_with_heartbeat(self, cmd: List[str], heartbeat_interval: float, start_time: float, heartbeat_context: Optional[str] = None):
+        """Run FFmpeg with periodic heartbeat logging for long operations.
+        
+        Args:
+            cmd: FFmpeg command arguments
+            heartbeat_interval: Seconds between heartbeat messages
+            start_time: Start time for duration calculation
+            heartbeat_context: Optional context description for heartbeat messages
+            
+        Returns:
+            CompletedProcess-like object with returncode, stdout, stderr
+        """
+        class HeartbeatResult:
+            def __init__(self):
+                self.returncode = None
+                self.stdout = ""
+                self.stderr = ""
+        
+        result = HeartbeatResult()
+        
+        # Start the process
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        # Heartbeat monitoring thread
+        def heartbeat_monitor():
+            last_heartbeat = time.time()
+            while process.poll() is None:  # Process still running
+                current_time = time.time()
+                if current_time - last_heartbeat >= heartbeat_interval:
+                    elapsed = current_time - start_time
+                    context_msg = f" ({heartbeat_context})" if heartbeat_context else ""
+                    tprint(f"FFmpeg still running... {elapsed:.1f}s elapsed{context_msg} (cmd: {cmd[0]} {cmd[1] if len(cmd) > 1 else ''})", prefix="ffmpeg")
+                    last_heartbeat = current_time
+                time.sleep(1.0)  # Check every second
+        
+        # Start heartbeat thread
+        heartbeat_thread = threading.Thread(target=heartbeat_monitor, daemon=True)
+        heartbeat_thread.start()
+        
+        try:
+            # Wait for process completion and capture output
+            stdout, stderr = process.communicate()
+            result.returncode = process.returncode
+            result.stdout = stdout
+            result.stderr = stderr
+            
+            # Log completion
+            elapsed = time.time() - start_time
+            if elapsed > heartbeat_interval:  # Only log if it was actually a long operation
+                tprint(f"FFmpeg completed after {elapsed:.1f}s", prefix="ffmpeg")
+            
+            return result
+            
+        except Exception as e:
+            # Ensure process is terminated
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+            raise FFmpegError(f"FFmpeg execution failed: {e}")
+        
+        finally:
+            # Ensure heartbeat thread completes
+            if heartbeat_thread.is_alive():
+                heartbeat_thread.join(timeout=1.0)

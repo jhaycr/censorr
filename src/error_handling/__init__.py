@@ -168,7 +168,7 @@ class ExternalToolRunner:
             method_name: Name of the method to call
             workdir: Working directory
             *args: Arguments to pass to the method
-            **kwargs: Keyword arguments to pass to the method
+            **kwargs: Keyword arguments to pass to the method (including heartbeat_interval)
             
         Returns:
             ExternalToolResult with success status and details
@@ -177,14 +177,36 @@ class ExternalToolRunner:
         if hasattr(ffmpeg_adapter, 'set_execution_logger'):
             ffmpeg_adapter.set_execution_logger(self.execution_logger, self.log_entry)
         
+        # Extract heartbeat parameters from kwargs if present
+        heartbeat_interval = kwargs.pop('heartbeat_interval', 10.0)
+        heartbeat_context = kwargs.pop('heartbeat_context', None)
+        
         # Get the method to call
         method = getattr(ffmpeg_adapter, method_name)
         
         # Define artifact patterns based on method
         artifact_patterns = self._get_artifact_patterns_for_method(method_name)
         
+        # Create a wrapper that passes heartbeat_interval to _run_ffmpeg_command
+        def method_with_heartbeat(*method_args, **method_kwargs):
+            # Store original _run_ffmpeg_command
+            original_run_command = ffmpeg_adapter._run_ffmpeg_command
+            
+            # Create wrapper that injects heartbeat parameters
+            def run_command_with_heartbeat(cmd, expected_output):
+                return original_run_command(cmd, expected_output, heartbeat_interval=heartbeat_interval, heartbeat_context=heartbeat_context)
+            
+            # Temporarily replace the method
+            ffmpeg_adapter._run_ffmpeg_command = run_command_with_heartbeat
+            
+            try:
+                return method(*method_args, **method_kwargs)
+            finally:
+                # Restore original method
+                ffmpeg_adapter._run_ffmpeg_command = original_run_command
+        
         return self.run_with_error_handling(
-            method,
+            method_with_heartbeat,
             *args,
             preserve_artifacts_on_error=True,
             artifact_patterns=artifact_patterns,

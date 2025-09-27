@@ -122,12 +122,18 @@ class MuteAudioOperation(Operation):
                     if flags.verbose:
                         print(f"Applying mute windows to {audio_artifact.path}")
                     
+                    # Set shorter heartbeat interval for mute operations (they can be very slow with many windows)
+                    heartbeat_interval = 5.0 if len(mute_windows) > 50 else 10.0
+                    heartbeat_context = f"applying {len(mute_windows)} mute windows"
+                    
                     # Apply mute windows using enhanced error handling
                     mute_result = tool_runner.run_ffmpeg_with_recovery(
                         self.ffmpeg, 'apply_mute_windows', workdir,
                         input_path=audio_artifact.path,
                         output_path=output_path,
-                        mute_windows=mute_windows
+                        mute_windows=mute_windows,
+                        heartbeat_interval=heartbeat_interval,
+                        heartbeat_context=heartbeat_context
                     )
 
                     if not mute_result.success:
