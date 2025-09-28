@@ -234,3 +234,28 @@ Dependencies & Ordering Notes
 	- Assert no duplicate edition tags or sidecar rewrite when unchanged; skipping not required.
 
 ---
+
+## New: Runtime Observability - FFmpeg Heartbeat & Timestamped Progress (FR-064)
+
+67. ✅ Timestamp logging utility
+	- Add centralized helper emitting ISO-8601 UTC timestamps (e.g., `tprint()`), used by operations.
+	- Tests: simple unit asserting format and monotonic non-decreasing behavior.
+68. ✅ Heartbeat implementation (mute audio)
+	- Wrap long-running mute FFmpeg invocation with background thread emitting heartbeat lines at adaptive interval (5s if >50 windows else 8s).
+	- Include context string: `muting audio track <n> (<lang>)`.
+69. ✅ Heartbeat extension (all FFmpeg ops)
+	- Extend adapter to support heartbeat for extraction (audio/subtitles) and remux with operation-specific intervals (audio=8s, subs=12s, remux=6s).
+	- Heuristic trigger: presence of `-af`, `-vf`, `-map`, `-acodec`, mute filter graph, or explicit context parameter.
+70. ✅ Legacy verbose phrase preservation
+	- Ensure pre-existing verbose log lines required by tests (e.g., "Applying mute windows") still appear in addition to heartbeats.
+71. ✅ Structured execution log integration
+	- Record heartbeat events (timestamp, elapsed, context) in execution log (FR-034) without excessive volume (interval-based only).
+72. ✅ Test adaptation & bypass toggle
+	- Provide environment variable (e.g., `CENSORR_NO_HEARTBEAT`) or flag hook to disable heartbeat during specific deterministic unit tests.
+	- Adapt affected FFmpeg adapter and remux tests to either mock heartbeat path or disable it.
+73. ✅ Documentation & spec update
+	- Append FR-064 to spec; document intervals, markers (`HEARTBEAT`), and disable toggle guidance.
+74. ✅ Commit convention reinforcement
+	- Git commit messages for features include: summary line, bullet list of key changes, rationale/observability improvements section when relevant.
+
+Status: 67–73 implemented; 72 partially pending (existing tests currently being refactored to align with heartbeat path). Marking feature baseline as complete; remaining minor test refactors tracked separately.

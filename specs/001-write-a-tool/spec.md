@@ -137,6 +137,15 @@ Filename Processing & Output Management Audit Requirements
 - FR-061 (Edition tagging audit): The system MUST log edition tag decisions including: movie vs episode detection logic, presence of existing edition tags, edition tag application (or skip), final output filename. Logs MUST use structured format with operation context.
 - FR-062 (Sidecar collision audit): The system MUST log sidecar collision handling including: target sidecar path, existence check results, content comparison (identical/different), collision resolution strategy (reuse/numeric suffix), final sidecar path used.
 - FR-063 (Filename normalization audit): The system MUST log filename processing steps including: input filename, whitespace normalization, edition tag extraction/removal for base name, language code formatting, final computed sidecar name, path validation results.
+ 
+Runtime Observability Enhancements
+- FR-064 (FFmpeg heartbeat & timestamped progress): For any FFmpeg invocation classified as potentially long-running (heuristics: presence of filter graphs `-af`/`-vf`, codec transforms `-acodec`/`-vcodec`, complex mapping `-map`, mute window application, or explicit context flag), the system MUST emit periodic heartbeat log lines until process completion. Each heartbeat line MUST include (a) ISO-8601 UTC timestamp, (b) elapsed wall-clock time since command start (human friendly, e.g. `elapsed=32s`), (c) succinct operation context (e.g., `context="muting audio track 1 (eng)"`), and (d) a stable marker token (e.g., `HEARTBEAT`) to facilitate log scraping. Default heartbeat intervals:
+	- Mute audio (<=50 windows): 8s
+	- Mute audio (>50 windows): 5s (adaptive shorter interval for higher complexity)
+	- Remux operations: 6s
+	- Audio extraction: 8s
+	- Subtitle extraction: 12s
+	The first heartbeat MUST appear no later than the configured interval after FFmpeg start; heartbeats MUST cease immediately upon process termination (success or failure). Heartbeats MUST coexist with legacy verbose phrases expected by tests (e.g., "Applying mute windows"), MUST NOT interleave partial lines, and MUST be written to both stdout (user visibility) and the structured execution log (FR-034). A configuration flag or environment variable (e.g., `CENSORR_NO_HEARTBEAT=1`) MAY disable heartbeats (principle of test determinism) but defaults to enabled. This requirement strengthens Observability (NFR-009) without altering functional outputs.
 
 Audio quality verification for muted outputs
 - FR-052 (Audio quality check): After the muting operation, the system MUST run an audio quality check that verifies attenuation across all mute windows (e.g., energy reduction below a configurable threshold). It MUST write a machine‑readable report to the working directory and summarize results to the execution log. By default, insufficient attenuation in any window causes the pipeline to fail with a clear message and a link to the report.
