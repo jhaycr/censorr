@@ -51,3 +51,4 @@ Thumbs.db
 *.log
 /fixtures/
 /output/
+/test-output/

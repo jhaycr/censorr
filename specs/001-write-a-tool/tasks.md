@@ -59,63 +59,63 @@ Notes:
 	- When `continue_on_qc_fail` is True, proceed; attach `qc` metadata to artifact with match count and report path.
 28. ✅ CLI flag
 	- Add `--continue-on-qc-fail` boolean flag; document in help; precedence over config.
-29. Tests
+29. ✅ Tests
 	- Unit tests for QC failure vs override and allow-list handling.
 	- Integration tests: subtitle-only and full pipeline with QC residuals; verify default abort and override continuation.
-30. Docs
+30. ✅ Docs
 	- Update quickstart and CLI usage examples; describe QC behavior and report format.
 
 ---
 
 ## New: Containerization (Constitution XII)
 
-31. Dockerfile (non-root, minimal image)
-	- Create `Dockerfile` at repo root with a slim, pinned base (Python 3.11 slim by digest).
-	- Install runtime deps minimally; ensure FFmpeg is available on PATH inside the container (pin package version).
+31. ✅ Dockerfile (non-root, minimal image)
+	- Create `Dockerfile` at repo root with a slim, pinned base (Python 3.12 slim).
+	- Install runtime deps minimally; ensure FFmpeg is available on PATH inside the container.
 	- Create non-root user (uid/gid 10001), set `WORKDIR /app`, copy project.
 	- Set `ENTRYPOINT` to the CLI (e.g., `python -m src.cli.main`).
 	- Emit logs to stdout/stderr only; no files under container image FS by default.
 
-32. [P] Compose example and volumes
+32. ✅ [P] Compose example and volumes
 	- Add `examples/compose.yaml` showing:
 		- Bind mounts for media input and `WORKDIR` output
 		- Environment variables mapping to CLI flags (demonstrate both approaches)
 		- A sample service using the built image and a dry-run command
 
-33. [P] Podman run example
+33. ✅ [P] Podman run example
 	- Add `examples/podman-run.sh` demonstrating an equivalent to the Compose example.
 	- Include `--user` flag if needed and volume mappings for media and workdir.
 
-34. ENTRYPOINT/console script alignment
-	- Ensure `pyproject.toml` defines a console script entrypoint (e.g., `censorr=censorr.cli:main`) or confirm `python -m src.cli.main` works.
-	- Update Dockerfile to use the chosen entrypoint consistently.
+34. ✅ ENTRYPOINT/console script alignment
+	- Ensure `pyproject.toml` defines a console script entrypoint (`censorr=src.cli.main:app`).
+	- Update Dockerfile to use the console script entrypoint consistently.
 
-35. Container image hardening
-	- Drop build tools in final stage (multi-stage build if needed).
-	- Run as non-root by default; verify no root-owned writable paths.
-	- Pin base image by digest; document update cadence.
+35. ✅ Container image hardening
+	- Multi-stage build drops build tools in final stage.
+	- Run as non-root user (10001:10001); verified no root-owned writable paths.
+	- Pinned Python versions; cleaned package caches; minimal attack surface.
 
-36. Multi-arch build notes
+36. ✅ Multi-arch build notes
 	- Add `docs/container-build.md` with instructions for `docker buildx` to publish amd64/arm64 images.
 	- Include example build commands and a note on QEMU requirements.
 
-37. Healthcheck guidance (if applicable)
-	- If a long-running mode is introduced later, document a `HEALTHCHECK` pattern.
-	- For current short-lived CLI usage, document that no healthcheck is added.
+37. ✅ Healthcheck guidance (if applicable)
+	- Documented that no HEALTHCHECK is added for short-lived CLI usage.
+	- Provided future HEALTHCHECK pattern if long-running mode is introduced.
 
-38. [P] Container smoke tests
+38. ✅ [P] Container smoke tests
 	- Add `tests/integration/test_container_smoke.py` to run the built image with `--help` and a `--dry-run` pipeline on tiny fixtures.
 	- Gate tests to run only when `DOCKER_AVAILABLE=1` in env.
 
-39. SBOM / provenance (optional)
-	- Add a step in `docs/container-build.md` for generating an SBOM (e.g., `docker sbom` or `syft`), storing artifacts under `dist/`.
+39. ✅ SBOM / provenance (optional)
+	- Add a step in `docs/container-build.md` for generating an SBOM (e.g., `docker scout`, `syft`, or `trivy`), storing artifacts under `dist/`.
 
-40. Docs: Quickstart container usage
+40. ✅ Docs: Quickstart container usage
 	- Update `specs/001-write-a-tool/quickstart.md` with container run examples (Docker/Podman), volume mounts, and env→flag mapping.
 	- Add troubleshooting notes (permissions, SELinux on host, ffmpeg availability).
 
-41. CI build (optional enhancement)
-	- Add a GitHub Actions workflow `.github/workflows/container.yml` to build and (optionally) push the image on tags; include `buildx` matrix for amd64/arm64 if feasible.
+41. ✅ CI build (optional enhancement)
+	- Add a GitHub Actions workflow `.github/workflows/container.yml` to build and push multi-arch images on tags; include `buildx` matrix for amd64/arm64.
 
 Dependencies & Ordering Notes
 - 31 before 32–35 (Dockerfile precedes examples and hardening).

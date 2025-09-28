@@ -1,0 +1,123 @@
+# Docker Compose example for Censorr
+# Demonstrates container deployment with volume mounts and environment configuration
+
+services:
+  censorr:
+    # Build from local Dockerfile
+    build: 
+      context: ..
+      dockerfile: Dockerfile
+    
+    # Alternative: use pre-built image
+    # image: censorr:latest
+    
+    # Container name
+    container_name: censorr
+    
+    # Run as non-root user (matches Dockerfile UID/GID)
+    user: "10001:10001"
+    
+    # Environment variables (mapped to CLI flags)
+    environment:
+      # Logging configuration
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      
+      # Optional: Default configuration via environment
+      # These can be overridden by CLI flags
+      - CENSORR_WORKDIR=/app/workdir
+      - CENSORR_VERBOSE=false
+      - CENSORR_DRY_RUN=false
+      
+      # Optional: Disable heartbeat for deterministic testing
+      # - CENSORR_NO_HEARTBEAT=1
+    
+    # Volume mounts
+    volumes:
+      # Media input directory (read-only recommended)
+      - /home/josh/Videos:/media:ro
+      
+      # Working directory for outputs and intermediate files
+      - ./workdir:/app/workdir
+      
+      # Configuration directory for profanity lists, selectors, etc.
+      - ./config:/app/config:ro
+      
+      # Optional: Custom profanity lists and configuration
+      - ./profanity.json:/app/config/profanity.json:ro
+      - ./selectors.json:/app/config/selectors.json:ro
+    
+    # Command to run (example dry-run)
+    command: >
+      process "/media/bullet_train_backup.mkv"
+      --output /app/workdir
+      --language en
+      --create-subtitle-sidecar
+      --continue-on-qc-fail
+      --dry-run
+      --verbose
+    
+    # Optional: resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Restart policy
+    restart: "no"  # Since this is typically a one-shot operation
+    
+    # Optional: network mode
+    network_mode: none  # No network access needed for media processing
+
+---
+# Example with actual processing (not dry-run)
+services:
+  censorr-process:
+    extends:
+      service: censorr
+    
+    container_name: censorr-process
+    
+    # Different command for actual processing
+    command: >
+      process "/media/bullet_train_backup.mkv"
+      --output /app/workdir
+      --language en
+      --exclude-sdh
+      --create-subtitle-sidecar
+      --sidecar-tag clean
+      --final-dest /app/workdir/final
+      --operations extract_subtitles,merge_subtitles,mask_subtitles,extract_audio,mute_audio,remux
+      --verbose
+      
+    # Additional volumes for final output
+    volumes:
+      - /home/josh/Videos:/media:ro
+      - ./workdir:/app/workdir
+      - ./config:/app/config:ro
+      - ./final:/app/workdir/final
+      
+    # Different restart policy for actual processing
+    restart: "on-failure"
+
+---
+# Example for subtitle-only processing
+services:
+  censorr-subtitles:
+    extends:
+      service: censorr
+      
+    container_name: censorr-subtitles
+    
+    command: >
+      process "/media/bullet_train_backup.mkv"
+      --output /app/workdir
+      --language en
+      --operations extract_subtitles,mask_subtitles,export_sidecar
+      --create-subtitle-sidecar
+      --sidecar-tag censorr
+      --dry-run

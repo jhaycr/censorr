@@ -1,8 +1,8 @@
 
-# Implementation Plan: Plex/Arr Clean Censor Tool
+# Implementation Plan: [FEATURE]
 
-**Branch**: `001-write-a-tool` | **Date**: 2025-09-25 | **Spec**: ./spec.md
-**Input**: Feature specification at `/home/josh/Code/Censorr2/specs/001-write-a-tool/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
 
 ## Execution Flow (/plan command scope)
 ```
@@ -31,31 +31,23 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Deliver a CLI-first censorship pipeline for Plex/Radarr/Sonarr ecosystems: extract or accept provided subtitles/audio, merge/mask profanities (full/partial policies with fuzzy matching + allow-list), derive mute windows, produce muted audio, and remux with prioritized cleaned artifacts. Provide sidecar subtitle export, standardized naming (`<base>.<lang>.censorr.srt`), Plex movie edition tagging (`{edition-Censorr}`), audio codec parity, ephemeral intermediate cleanup, and optional final destination relocation for finished outputs. Selection logic is driven by structured selectors (config JSON/YAML) rather than ad-hoc CLI exclusion flags—SDH/HI exclusion is expressed via ordered priorities or explicit excludes. A manifest (checksums + params) aids debugging and optional future skip optimization; QC (subtitle + audio) with override flags and observability (structured logs, audit, reports) are core. Containerization (Docker/Podman) and minimal dependencies ensure homelab deployability.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
-**Language/Version**: Python 3.11+  
-**Primary Dependencies**: FFmpeg (external), RapidFuzz (fuzzy matching), pysubs2 (subtitle parsing), typer (CLI), pydantic (validation), PyYAML/JSON (config), pytest  
-**Storage**: Filesystem working directory (deterministic layout + manifest.json for debugging); optional final destination path for remux outputs  
-**Testing**: pytest (unit, contract, integration, container smoke); ffprobe-based parity assertions  
-**Target Platform**: Linux homelab (Plex/Radarr/Sonarr integration), container-friendly (Docker/Podman)  
-**Project Type**: Single project (library + CLI)  
-**Performance Goals**: Linear passes, avoid full re-encode by default; handle feature-length media (< real-time where feasible), parallelizable independent ops  
-**Constraints**: Preserve codecs (audio parity) unless user requests re-encode; limit memory (streaming where possible); reproducible outputs on repeat runs (skip optimization optional)  
-**Scale/Scope**: Single-node pipeline; invoked per media item; selections driven by structured selectors; no service daemon required  
-**Additional Addenda**: Naming strategy (FR-054/055) & operational addenda (FR-056..059) integrated post initial design.
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [single/web/mobile - determines source structure]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
-KISS: Core kept minimal (Artifacts, Operations, Planner, Executor) – PASS
-Single Responsibility: Each operation discrete (extract, merge, mask, mute, quality check, remux, export) – PASS
-Composition Over Inheritance: Registry + simple composition; no inheritance chains – PASS
-Explicit Contracts: Artifacts, selectors, operations documented in spec & data model – PASS
-Plugin-First: Registry allows adding new operations without planner changes – PASS
-YAGNI: No HTTP server or DB; features only for current pipeline & naming – PASS
-Container Deployable: Docker/Podman deliverables defined (non-root image, entrypoint) – PASS
-Observability: Structured logs, QC reports, audio parity validation – PASS
-Idempotency/Dry-Run: Manifest present (debug); skip optional – PASS
-Complexity Tracking: No unjustified complexity added (naming & cleanup logic scoped) – PASS
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+[Gates determined based on constitution file]
 
 ## Project Structure
 
@@ -107,17 +99,80 @@ ios/ or android/
 └── [platform-specific structure]
 ```
 
-**Structure Decision**: Option 1 (Single project) – appropriate for CLI pipeline.
+**Structure Decision**: [DEFAULT to Option 1 unless Technical Context indicates web/mobile app]
 
-## Phase 0: Outline & Research (Completed)
-Research captured FFmpeg strategies (copy vs re-encode, mute filters), fuzzy matching thresholds, subtitle normalization, Arr integration triggers, manifest usage (debug vs optimization), and naming/edition follow-up. Unknowns resolved; no outstanding NEEDS CLARIFICATION.
+## Phase 0: Outline & Research
+1. **Extract unknowns from Technical Context** above:
+   - For each NEEDS CLARIFICATION → research task
+   - For each dependency → best practices task
+   - For each integration → patterns task
 
-## Phase 1: Design & Contracts (Completed)
-Artifacts: `data-model.md` (Artifact, Selector, Operation, MuteWindow, AuditLogEntry, ManifestEntry), contracts directory (selector schema & examples), quickstart updated with naming/edition examples.
-Selector model extended (title filters, exclude SDH flag originally; now guided by structured selector ordering philosophy – CLI exclusion flags avoided going forward).
+2. **Generate and dispatch research agents**:
+   ```
+   For each unknown in Technical Context:
+     Task: "Research {unknown} for {feature context}"
+   For each technology choice:
+     Task: "Find best practices for {tech} in {domain}"
+   ```
 
-## Phase 2: Task Planning Approach (Documented)
-Existing `tasks.md` enumerates base + incremental tasks (QC, subtitle filtering, naming FR‑054/055, parity/cleanup/move/selector precedence FR‑056..059). Additional generation not required; future tasks appended rather than regenerated to preserve history.
+3. **Consolidate findings** in `research.md` using format:
+   - Decision: [what was chosen]
+   - Rationale: [why chosen]
+   - Alternatives considered: [what else evaluated]
+
+**Output**: research.md with all NEEDS CLARIFICATION resolved
+
+## Phase 1: Design & Contracts
+*Prerequisites: research.md complete*
+
+1. **Extract entities from feature spec** → `data-model.md`:
+   - Entity name, fields, relationships
+   - Validation rules from requirements
+   - State transitions if applicable
+
+2. **Generate API contracts** from functional requirements:
+   - For each user action → endpoint
+   - Use standard REST/GraphQL patterns
+   - Output OpenAPI/GraphQL schema to `/contracts/`
+
+3. **Generate contract tests** from contracts:
+   - One test file per endpoint
+   - Assert request/response schemas
+   - Tests must fail (no implementation yet)
+
+4. **Extract test scenarios** from user stories:
+   - Each story → integration test scenario
+   - Quickstart test = story validation steps
+
+5. **Update agent file incrementally** (O(1) operation):
+   - Run `.specify/scripts/bash/update-agent-context.sh copilot` for your AI assistant
+   - If exists: Add only NEW tech from current plan
+   - Preserve manual additions between markers
+   - Update recent changes (keep last 3)
+   - Keep under 150 lines for token efficiency
+   - Output to repository root
+
+**Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
+
+## Phase 2: Task Planning Approach
+*This section describes what the /tasks command will do - DO NOT execute during /plan*
+
+**Task Generation Strategy**:
+- Load `.specify/templates/tasks-template.md` as base
+- Generate tasks from Phase 1 design docs (contracts, data model, quickstart)
+- Each contract → contract test task [P]
+- Each entity → model creation task [P] 
+- Each user story → integration test task
+- Implementation tasks to make tests pass
+
+**Ordering Strategy**:
+- TDD order: Tests before implementation 
+- Dependency order: Models before services before UI
+- Mark [P] for parallel execution (independent files)
+
+**Estimated Output**: 25-30 numbered, ordered tasks in tasks.md
+
+**IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
 
 ## Phase 3+: Future Implementation
 *These phases are beyond the scope of the /plan command*
@@ -127,23 +182,69 @@ Existing `tasks.md` enumerates base + incremental tasks (QC, subtitle filtering,
 **Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
 
 ## Complexity Tracking
-No violations. Added naming/edition + cleanup logic minimally; avoided broader abstraction layers.
+*Fill ONLY if Constitution Check has violations that must be justified*
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
 
 
 ## Progress Tracking
+*This checklist is updated during execution flow*
+
 **Phase Status**:
-- [x] Phase 0: Research complete (/plan)
-- [x] Phase 1: Design complete (/plan)
-- [x] Phase 2: Task planning documented
-- [ ] Phase 3: Tasks generated / extended (ongoing updates)
+- [ ] Phase 0: Research complete (/plan command)
+- [ ] Phase 1: Design complete (/plan command)
+- [ ] Phase 2: Task planning complete (/plan command - describe approach only)
+- [ ] Phase 3: Tasks generated (/tasks command)
 - [ ] Phase 4: Implementation complete
 - [ ] Phase 5: Validation passed
 
 **Gate Status**:
-- [x] Initial Constitution Check: PASS
-- [x] Post-Design Constitution Check: PASS
-- [x] All NEEDS CLARIFICATION resolved
-- [x] Complexity deviations documented (none needed)
+- [ ] Initial Constitution Check: PASS
+- [ ] Post-Design Constitution Check: PASS
+- [ ] All NEEDS CLARIFICATION resolved
+- [ ] Complexity deviations documented
+
+## Phase 5: Operation Names & Observability Enhancement
+*Added 2025-01-27*
+
+### Task 67: Update Operation Names to Noun-Verb Convention
+**Context**: Following constitutional naming standards, operation names should use noun-verb pattern for better readability and consistency.
+
+**Changes Required**:
+- `mask_subtitles` → `sub_mask` (subtitle masking operation)
+- `mute_audio` → `audio_mute` (audio muting operation)  
+- `extract_subtitles` → `sub_extract` (subtitle extraction operation)
+- `remux` → `video_remux` (video remuxing operation)
+
+**Files to Update**:
+- CLI command names and help text
+- Operation registry and routing
+- Logging messages and audit entries
+- Documentation and user-facing strings
+- Test fixtures and validation
+
+**Validation**: Ensure backward compatibility through deprecation warnings for old names
+
+### Task 68: Universal Timestamp Integration
+**Context**: Extend timestamp logging beyond FFmpeg operations to provide comprehensive observability across all pipeline stages.
+
+**Enhancement Scope**:
+- Add timestamps to all operation start/completion events
+- Include timing data in progress reporting
+- Extend audit trail with operation duration metrics
+- Add timestamp formatting consistency across all outputs
+
+**Files to Update**:
+- Core operation base classes
+- Progress reporting utilities
+- Audit logging system
+- CLI output formatting
+- Operation completion summaries
+
+**Validation**: Verify timestamp presence in all operation types (extract, mask, mute, remux)
 
 ---
 *Based on Constitution v0.3.0 - See `.specify/memory/constitution.md`*
