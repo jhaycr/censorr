@@ -204,6 +204,18 @@ def process(
     sidecar_tag: str = typer.Option(
         "censorr", "--sidecar-tag",
         help="Tag to use in sidecar subtitle filenames (censorr or clean)"
+    ),
+    strict_audio_parity: bool = typer.Option(
+        False, "--strict-audio-parity",
+        help="Fail on audio codec/format mismatches in remux; default warn only"
+    ),
+    persist_intermediate: bool = typer.Option(
+        False, "--persist-intermediate",
+        help="Keep intermediate artifacts after successful completion"
+    ),
+    final_dest: Optional[str] = typer.Option(
+        None, "--final-dest",
+        help="Final destination directory to move completed outputs"
     )
 ):
     """
@@ -252,6 +264,10 @@ def process(
         title_regex_list = []
         if subtitle_title_regex:
             title_regex_list = [s.strip() for s in subtitle_title_regex.split(",")]
+        
+        # Selector precedence: warn about deprecated individual flags if structured selectors exist
+        if exclude_sdh and verbose:
+            rprint("[yellow]WARNING: --exclude-sdh is deprecated. Use structured selectors JSON for complex filtering.[/yellow]")
         
         # Check if any subtitle filtering is requested
         has_subtitle_filters = (language or title_include_list or title_exclude_list or 
@@ -320,7 +336,10 @@ def process(
             fuzzy_threshold=fuzzy_threshold,
             subtitle_mode=subtitle_mode,
             create_subtitle_sidecar=create_subtitle_sidecar,
-            sidecar_tag=sidecar_tag
+            sidecar_tag=sidecar_tag,
+            strict_audio_parity=strict_audio_parity,
+            persist_intermediate=persist_intermediate,
+            final_dest=final_dest
         )
         
         # Plan operations
@@ -371,6 +390,50 @@ def process(
         executor = Executor()
         results = executor.execute(plan, output_path, artifacts=[input_artifact], flags=flags)
         
+        # Post-processing: cleanup and final destination
+        from src.utils.cleanup_manager import CleanupManager
+        from src.utils.final_destination import FinalDestinationManager
+        
+        # Handle cleanup and final destination
+        if results and any(result.success for result in results):
+            # Collect final output files
+            final_output_files = []
+            for result in results:
+                if result.success and hasattr(result, 'output_files'):
+                    final_output_files.extend(result.output_files)
+            
+            # Find remuxed video files in output directory (fallback)
+            if not final_output_files:
+                final_output_files = list(output_path.glob("remuxed_*.mkv")) + list(output_path.glob("remuxed_*.mp4"))
+                final_output_files = [str(f) for f in final_output_files]
+            
+            # Cleanup intermediate files
+            cleanup_manager = CleanupManager()
+            # Register common intermediate patterns
+            for pattern in ["extract_audio/*/*", "mute_audio/*/*", "extract_subtitles/*/*", "merge_subtitles/*/*", "mask_subtitles/*/*"]:
+                for intermediate_file in output_path.glob(pattern):
+                    cleanup_manager.register_intermediate(str(intermediate_file))
+            
+            # Register final outputs as preserved
+            for final_file in final_output_files:
+                cleanup_manager.register_preserved(final_file)
+            
+            cleanup_result = cleanup_manager.cleanup_intermediates(flags.persist_intermediate)
+            if verbose and cleanup_result["status"] != "skipped":
+                rprint(f"[blue]Cleanup: {cleanup_result['cleaned_count']} intermediate files removed[/blue]")
+            elif verbose:
+                rprint(f"[blue]Cleanup: Skipped ({cleanup_result['reason']})[/blue]")
+            
+            # Move to final destination
+            if flags.final_dest and final_output_files:
+                dest_manager = FinalDestinationManager()
+                move_result = dest_manager.move_to_final_destination(final_output_files, flags.final_dest)
+                if verbose:
+                    if move_result["status"] == "completed":
+                        rprint(f"[blue]Final destination: {move_result['moved_count']} files moved to {flags.final_dest}[/blue]")
+                    else:
+                        rprint(f"[yellow]Final destination: {move_result.get('message', 'Failed')}[/yellow]")
+
         # Report results
         if results:
             rprint(f"[green]✓ Processing complete! Generated {len(results)} operation results[/green]")

@@ -137,6 +137,11 @@ class RemuxOperation(Operation):
                         audio_tracks=audio_tracks,
                         subtitle_tracks=subtitle_tracks
                     )
+                    
+                    # Verify audio parity if audio tracks were provided
+                    if audio_tracks:
+                        self._verify_audio_parity(audio_artifacts, remuxed_path, flags)
+                        
                 except Exception as e:
                     raise RuntimeError(f"Failed to remux video {video_artifact.path}: {e}")
             else:
@@ -405,3 +410,41 @@ class RemuxOperation(Operation):
         output_path = workdir / output_filename
         
         return str(output_path)
+    
+    def _verify_audio_parity(self, audio_artifacts: List[Artifact], remuxed_path: str, flags: OperationFlags):
+        """Verify audio parity between source and remuxed files.
+        
+        Args:
+            audio_artifacts: List of audio artifacts used in remux
+            remuxed_path: Path to remuxed video file
+            flags: Operation flags
+        """
+        logger = logging.getLogger(f"{self.__class__.__name__}")
+        
+        for i, audio_artifact in enumerate(audio_artifacts):
+            parity_result = self.ffmpeg.verify_audio_parity(audio_artifact.path, remuxed_path, i)
+            
+            if parity_result["status"] == "match":
+                logger.info(f"✓ Audio parity verified for track {i}: {audio_artifact.path}")
+                if flags.verbose:
+                    print(f"✓ Audio parity verified for track {i}")
+            elif parity_result["status"] == "mismatch":
+                mismatches = ", ".join(parity_result["mismatches"])
+                message = f"Audio parity mismatch for track {i}: {mismatches}"
+                logger.warning(f"⚠ {message}")
+                
+                if flags.verbose:
+                    print(f"⚠ {message}")
+                    print(f"  Original: {parity_result['original']}")
+                    print(f"  Remuxed:  {parity_result['remuxed']}")
+                
+                if flags.strict_audio_parity:
+                    raise RuntimeError(f"Audio parity check failed in strict mode: {message}")
+            else:
+                error_message = f"Audio parity check error for track {i}: {parity_result['message']}"
+                logger.error(f"✗ {error_message}")
+                if flags.verbose:
+                    print(f"✗ {error_message}")
+                
+                if flags.strict_audio_parity:
+                    raise RuntimeError(f"Audio parity check failed: {error_message}")

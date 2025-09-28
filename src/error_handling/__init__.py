@@ -193,7 +193,7 @@ class ExternalToolRunner:
             original_run_command = ffmpeg_adapter._run_ffmpeg_command
             
             # Create wrapper that injects heartbeat parameters
-            def run_command_with_heartbeat(cmd, expected_output):
+            def run_command_with_heartbeat(cmd, expected_output, heartbeat_interval=10.0, heartbeat_context=None):
                 return original_run_command(cmd, expected_output, heartbeat_interval=heartbeat_interval, heartbeat_context=heartbeat_context)
             
             # Temporarily replace the method

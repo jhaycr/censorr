@@ -27,6 +27,9 @@ class OperationFlags(BaseModel):
     subtitle_mode: str = Field("masked_only", description="How to handle subtitles in remux: 'all', 'masked_only', or 'none'")
     create_subtitle_sidecar: bool = Field(False, description="Create sidecar subtitle files alongside remuxed video")
     sidecar_tag: str = Field("censorr", description="Tag to use in sidecar subtitle filenames (censorr or clean)")
+    strict_audio_parity: bool = Field(False, description="Fail on audio codec/format mismatches; default warn only")
+    persist_intermediate: bool = Field(False, description="Keep intermediate artifacts after successful completion")
+    final_dest: str | None = Field(None, description="Final destination directory to move completed outputs")
     
     @model_validator(mode='after')
     def validate_flags(self):

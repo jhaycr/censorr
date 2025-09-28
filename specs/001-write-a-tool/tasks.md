@@ -198,38 +198,38 @@ Dependencies & Ordering Notes
 
 ## New: Audio parity, cleanup, final destination, selector precedence (FR-056..FR-059)
 
-59. Audio codec parity enforcement
+59. ✅ Audio codec parity enforcement
 	- Extend remux op to probe source audio (codec, channels, sample rate) and verify post-remux track matches.
 	- Add strict mode option to fail on mismatch; default warn.
 	- Tests: mutated fixture forcing mismatch (simulate) → warning/failure.
 
-60. Intermediate cleanup utility
+60. ✅ Intermediate cleanup utility
 	- Implement cleanup manager recording produced intermediate artifacts and dependencies.
 	- After downstream success, delete unless `persist_intermediate` flag set.
 	- Tests: ensure deletion vs persistence path.
 
-61. Final destination move
+61. ✅ Final destination move
 	- Add CLI/config `--final-dest` path.
 	- Implement atomic rename or copy+checksum fallback; log actions.
 	- Tests: same filesystem (rename) and simulated cross-filesystem (force copy path via monkeypatch).
 
-62. Move ordering & failure behavior
+62. ✅ Move ordering & failure behavior
 	- Ensure move happens after QC steps and edition/sidecar naming.
 	- Simulate move failure (permission denied) → retain originals, error surfaced.
 
-63. Selector precedence enforcement
+63. ✅ Selector precedence enforcement
 	- Remove/avoid CLI SDH exclusion flag; map any legacy input to deprecation warning if present.
 	- Precedence rule: if selectors config provided, ignore individual CLI language/forced toggles except for base language; log decision.
 	- Tests: config vs CLI conflict scenario logs precedence.
 
-64. Docs & spec alignment
+64. ✅ Docs & spec alignment
 	- Update quickstart and contracts docs to reflect: no `--exclude-sdh`; use selectors JSON.
 	- Document `--persist-intermediate`, `--final-dest`, strict parity mode flag.
 
-65. Logging & audit entries
+65. ✅ Logging & audit entries
 	- Add entries: audio_parity_validated, audio_parity_mismatch, intermediate_cleaned, intermediate_retained, final_move_success, final_move_failure, selector_cli_overridden.
 
-66. Manifest reproducibility tests
+66. ✅ Manifest reproducibility tests
 	- Re-run pipeline; verify manifest entries append (or overwrite deterministically) with consistent checksums for unchanged inputs.
 	- Assert no duplicate edition tags or sidecar rewrite when unchanged; skipping not required.
 

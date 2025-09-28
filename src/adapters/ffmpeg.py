@@ -29,6 +29,8 @@ class TrackInfo(BaseModel):
     language: Optional[str] = Field(None, description="Language code")
     title: Optional[str] = Field(None, description="Track title")
     forced: Optional[bool] = Field(None, description="Forced flag (subtitle disposition)")
+    channels: Optional[int] = Field(None, description="Number of audio channels")
+    sample_rate: Optional[str] = Field(None, description="Audio sample rate")
 
 
 class MediaInfo(BaseModel):
@@ -118,7 +120,9 @@ class FFmpegAdapter:
                     codec=stream.get("codec_name", "unknown"),
                     language=stream.get("tags", {}).get("language"),
                     title=stream.get("tags", {}).get("title"),
-                    forced=forced
+                    forced=forced,
+                    channels=stream.get("channels") if stream.get("codec_type") == "audio" else None,
+                    sample_rate=stream.get("sample_rate") if stream.get("codec_type") == "audio" else None
                 )
                 tracks.append(track)
             
@@ -241,6 +245,56 @@ class FFmpegAdapter:
         
         return self._run_ffmpeg_command(cmd, output_path)
     
+    def verify_audio_parity(self, original_audio_path: str, remuxed_video_path: str, track_index: int = 0) -> Dict[str, Any]:
+        """Verify audio track parity between original and remuxed files.
+        
+        Args:
+            original_audio_path: Path to original audio file
+            remuxed_video_path: Path to remuxed video file
+            track_index: Audio track index in remuxed file to verify
+            
+        Returns:
+            Dictionary with parity check results
+        """
+        try:
+            # Probe original audio
+            original_info = self.probe(original_audio_path)
+            original_tracks = original_info.get_audio_tracks()
+            if not original_tracks:
+                return {"status": "error", "message": "No audio tracks found in original file"}
+            
+            original_track = original_tracks[0]  # Use first track from extracted audio
+            
+            # Probe remuxed video
+            remuxed_info = self.probe(remuxed_video_path)
+            remuxed_tracks = remuxed_info.get_audio_tracks()
+            if len(remuxed_tracks) <= track_index:
+                return {"status": "error", "message": f"Track index {track_index} not found in remuxed file"}
+            
+            remuxed_track = remuxed_tracks[track_index]
+            
+            # Compare codec, channels, sample rate
+            mismatches = []
+            if original_track.codec != remuxed_track.codec:
+                mismatches.append(f"codec: {original_track.codec} != {remuxed_track.codec}")
+            if original_track.channels != remuxed_track.channels:
+                mismatches.append(f"channels: {original_track.channels} != {remuxed_track.channels}")
+            if original_track.sample_rate != remuxed_track.sample_rate:
+                mismatches.append(f"sample_rate: {original_track.sample_rate} != {remuxed_track.sample_rate}")
+            
+            if mismatches:
+                return {
+                    "status": "mismatch", 
+                    "mismatches": mismatches,
+                    "original": {"codec": original_track.codec, "channels": original_track.channels, "sample_rate": original_track.sample_rate},
+                    "remuxed": {"codec": remuxed_track.codec, "channels": remuxed_track.channels, "sample_rate": remuxed_track.sample_rate}
+                }
+            else:
+                return {"status": "match", "message": "Audio parity verified"}
+                
+        except Exception as e:
+            return {"status": "error", "message": f"Parity check failed: {e}"}
+
     def remux(self, video_input: str, output: str, 
               audio_tracks: Optional[List[str]] = None,
               subtitle_tracks: Optional[List[str]] = None) -> str:
