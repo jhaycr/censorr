@@ -12,6 +12,7 @@ from rich import print as rprint
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 from src.models.selectors import Selector
+from src.models.config import Config
 from src.planner.planner import Planner
 from src.planner.registry import OperationRegistry
 from src.planner.executor import Executor
@@ -117,6 +118,10 @@ def main(
 @app.command()
 def process(
     input_file: str = typer.Argument(..., help="Input media file to process"),
+    config: Optional[str] = typer.Option(
+        None, "--config",
+        help="Path to configuration file (default: config/censorr.json or ~/.config/censorr/config.json)"
+    ),
     output: str = typer.Option(
         "./output", "--output", "-o",
         help="Output directory for processed files"
@@ -221,6 +226,58 @@ def process(
     to create a censored version of the input media file.
     """
     try:
+        # Load configuration with fallback hierarchy
+        try:
+            app_config = Config.load_with_fallback(config)
+            if verbose and config:
+                rprint(f"[green]Loaded configuration from: {config}[/green]")
+        except Exception as e:
+            rprint(f"[yellow]Warning: Failed to load config: {e}[/yellow]")
+            rprint("[yellow]Using default configuration[/yellow]")
+            app_config = Config()
+        
+        # Merge config with CLI arguments (CLI args take precedence)
+        # For boolean flags, we need to detect if they were explicitly set or using default
+        merged_args = app_config.merge_with_args(
+            output=output if output != "./output" else None,  # Only override if not default
+            dry_run=dry_run if dry_run else None,  # Only override if True
+            verbose=verbose if verbose else None,  # Only override if True
+            force=force if force else None,  # Only override if True
+            skip_existing=skip_existing if skip_existing else None,  # Only override if True
+            parallel=parallel if parallel else None,  # Only override if True
+            jobs=jobs if jobs != 1 else None,  # Only override if not default
+            continue_on_qc_fail=continue_on_qc_fail if continue_on_qc_fail else None,
+            continue_on_audio_qc_fail=continue_on_audio_qc_fail if continue_on_audio_qc_fail else None,
+            subtitle_title_include=subtitle_title_include,
+            subtitle_title_exclude=subtitle_title_exclude,
+            subtitle_title_regex=subtitle_title_regex,
+            language=language,
+            fuzzy_threshold=fuzzy_threshold,
+            subtitle_mode=subtitle_mode if subtitle_mode != "masked_only" else None,
+            sidecar_tag=sidecar_tag if sidecar_tag != "censorr" else None,
+            strict_audio_parity=strict_audio_parity if strict_audio_parity else None,
+            profanity_list_file=profanity_list_file
+        )
+        
+        # Use merged values for the rest of the function
+        output = merged_args['output']
+        dry_run = merged_args['dry_run']
+        verbose = merged_args['verbose']
+        force = merged_args['force']
+        skip_existing = merged_args['skip_existing']
+        parallel = merged_args['parallel']
+        jobs = merged_args['jobs']
+        continue_on_qc_fail = merged_args['continue_on_qc_fail']
+        continue_on_audio_qc_fail = merged_args['continue_on_audio_qc_fail']
+        subtitle_title_include = ','.join(merged_args['subtitle_title_include']) if merged_args['subtitle_title_include'] else None
+        subtitle_title_exclude = ','.join(merged_args['subtitle_title_exclude']) if merged_args['subtitle_title_exclude'] else None
+        subtitle_title_regex = ','.join(merged_args['subtitle_title_regex']) if merged_args['subtitle_title_regex'] else None
+        language = merged_args['language']
+        fuzzy_threshold = merged_args['fuzzy_threshold']
+        subtitle_mode = merged_args['subtitle_mode']
+        sidecar_tag = merged_args['sidecar_tag']
+        strict_audio_parity = merged_args['strict_audio_parity']
+        profanity_list_file = merged_args['profanity_list_file']
         # Validate input file
         input_path = Path(input_file)
         if not input_path.exists():
@@ -312,23 +369,23 @@ def process(
             rprint(f"[red]Error: --jobs must be a positive integer, got {jobs}[/red]")
             raise typer.Exit(1)
         
-        # Create operation flags
+        # Create operation flags using merged values
         flags = OperationFlags(
-            dry_run=dry_run,
-            verbose=verbose,
+            dry_run=merged_args['dry_run'],
+            verbose=merged_args['verbose'],
             strategy="default",
-            force=force,
-            skip_existing=skip_existing,
-            parallel=parallel,
-            max_jobs=jobs,
-            continue_on_qc_fail=continue_on_qc_fail,
-            continue_on_audio_qc_fail=continue_on_audio_qc_fail,
-            profanity_list_file=profanity_list_file,
-            fuzzy_threshold=fuzzy_threshold,
-            subtitle_mode=subtitle_mode,
+            force=merged_args['force'],
+            skip_existing=merged_args['skip_existing'],
+            parallel=merged_args['parallel'],
+            max_jobs=merged_args['jobs'],
+            continue_on_qc_fail=merged_args['continue_on_qc_fail'],
+            continue_on_audio_qc_fail=merged_args['continue_on_audio_qc_fail'],
+            profanity_list_file=merged_args['profanity_list_file'],
+            fuzzy_threshold=merged_args['fuzzy_threshold'],
+            subtitle_mode=merged_args['subtitle_mode'],
             create_subtitle_sidecar=create_subtitle_sidecar,
-            sidecar_tag=sidecar_tag,
-            strict_audio_parity=strict_audio_parity,
+            sidecar_tag=merged_args['sidecar_tag'],
+            strict_audio_parity=merged_args['strict_audio_parity'],
             persist_intermediate=persist_intermediate,
             final_dest=final_dest
         )

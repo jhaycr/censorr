@@ -1,0 +1,20 @@
+{
+  "output": "./output",
+  "dry_run": false,
+  "verbose": false,
+  "force": false,
+  "skip_existing": false,
+  "parallel": false,
+  "jobs": 1,
+  "subtitle_title_include": [],
+  "subtitle_title_exclude": ["sdh", "hi", "cc"],
+  "subtitle_title_regex": [],
+  "language": null,
+  "fuzzy_threshold": null,
+  "subtitle_mode": "masked_only",
+  "sidecar_tag": "censorr",
+  "continue_on_qc_fail": false,
+  "continue_on_audio_qc_fail": false,
+  "strict_audio_parity": false,
+  "profanity_list_file": null
+}

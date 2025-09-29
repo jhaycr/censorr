@@ -312,3 +312,19 @@ Notes:
 	- Update tests to use structured selectors with `title_exclude` patterns for SDH filtering instead.
 	- Update quickstart.md examples to show selector-based SDH exclusion approach.
 	- Rationale: Simplify CLI interface by enforcing selector-only architecture; removes redundant flag in favor of flexible JSON selectors.
+
+---
+
+## New: Config System with Default Subtitle Title Exclusions
+
+79. ✅ Add optional config file system with default subtitle-title-exclude values
+	- Create `Config` model in `src/models/config.py` with default values and validation
+	- Implement config loading logic: `config/censorr.json` → `~/.config/censorr/config.json` → defaults
+	- Update CLI (`src/cli/main.py`) to load config and apply defaults before CLI arguments
+	- Set default `subtitle_title_exclude` to `["sdh", "hi", "cc"]` in config system
+	- Add `--config` CLI option to specify custom config file path
+	- Create example config file `config/censorr.json.example` with all available options
+	- Update tests in `tests/unit/test_config.py` for config loading, merging, and validation
+	- Update CLI integration tests to verify config defaults are applied correctly
+	- Update documentation to describe config file format and precedence rules
+	- Rationale: Provide convenient defaults for common use cases while maintaining CLI flexibility; users no longer need to specify --subtitle-title-exclude for basic SDH filtering.

@@ -127,6 +127,64 @@ The QC process respects the same allow-list as the masking operation:
 
 Censorr can be run in a container (Docker/Podman) for isolated execution:
 
+## Configuration System
+
+Censorr supports configuration files to set defaults for common options. The configuration hierarchy is:
+
+1. Custom config file (via `--config` option)
+2. Project-local config: `config/censorr.json`
+3. User-global config: `~/.config/censorr/config.json`
+4. Built-in defaults
+
+### Default Configuration
+
+By default, Censorr automatically excludes SDH/hearing-impaired subtitles using the following patterns:
+- `["sdh", "hi", "cc"]`
+
+This means you no longer need to specify `--subtitle-title-exclude "sdh,hi,cc"` for basic SDH filtering.
+
+### Example Configuration File
+
+Create `config/censorr.json` in your project:
+
+```json
+{
+  "output": "./output",
+  "verbose": true,
+  "subtitle_title_exclude": ["sdh", "hi", "cc", "commentary"],
+  "language": "en",
+  "subtitle_mode": "masked_only",
+  "sidecar_tag": "clean",
+  "jobs": 4
+}
+```
+
+### Configuration Options
+
+All CLI options can be set in the config file:
+- `output`: Default output directory
+- `verbose`: Enable verbose output by default
+- `subtitle_title_exclude`: Default subtitle exclusion patterns
+- `language`: Default language filter
+- `jobs`: Default number of parallel jobs
+- `subtitle_mode`: How to handle subtitles in remux (`all`, `masked_only`, `none`)
+- `sidecar_tag`: Tag for sidecar filenames (`censorr` or `clean`)
+
+CLI arguments always override config file values.
+
+### Using Configuration
+
+```bash
+# Uses config defaults (including SDH exclusion)
+censorr process movie.mkv --language en
+
+# Override config with CLI args
+censorr process movie.mkv --config ./custom-config.json --verbose
+
+# CLI args override config values
+censorr process movie.mkv --subtitle-title-exclude "different,patterns"
+```
+
 ### Basic Container Examples
 
 #### Docker

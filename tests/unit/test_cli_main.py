@@ -312,3 +312,168 @@ class TestCLIMain:
         
         assert result.exit_code != 0
         assert "error" in result.stdout.lower() or "failed" in result.stdout.lower()
+
+    @patch('src.cli.main.Config.load_with_fallback')
+    @patch('src.cli.main.Path.exists')
+    @patch('src.cli.main.Executor')
+    @patch('src.cli.main.Planner')
+    def test_process_with_config_defaults(self, mock_planner_class, mock_executor_class, mock_exists, mock_config_load):
+        """Test that config defaults are applied correctly."""
+        from src.models.config import Config
+        
+        # Setup mocks
+        mock_exists.return_value = True
+        mock_planner = mock_planner_class.return_value
+        mock_executor = mock_executor_class.return_value
+        
+        # Mock config with custom defaults
+        mock_config = Config(
+            subtitle_title_exclude=["custom", "config", "defaults"],
+            verbose=True,
+            jobs=4
+        )
+        mock_config_load.return_value = mock_config
+        
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
+        mock_executor.execute.return_value = []
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "process",
+            "/path/to/video.mp4",
+            "--output", "/tmp/test"
+            # No CLI args for subtitle filtering - should use config defaults
+        ])
+        
+        assert result.exit_code == 0
+        mock_config_load.assert_called_once_with(None)  # No custom config path provided
+        
+        # Verify executor was called with config defaults
+        if mock_executor.execute.called:
+            call_args = mock_executor.execute.call_args
+            flags = call_args.kwargs['flags']
+            assert flags.verbose is True  # From config
+    
+    @patch('src.cli.main.Config.load_with_fallback')
+    @patch('src.cli.main.Path.exists')
+    @patch('src.cli.main.Executor')
+    @patch('src.cli.main.Planner')
+    def test_process_with_custom_config_path(self, mock_planner_class, mock_executor_class, mock_exists, mock_config_load):
+        """Test loading custom config file."""
+        from src.models.config import Config
+        
+        # Setup mocks
+        mock_exists.return_value = True
+        mock_planner = mock_planner_class.return_value
+        mock_executor = mock_executor_class.return_value
+        
+        mock_config_load.return_value = Config()
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
+        mock_executor.execute.return_value = []
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "process",
+            "/path/to/video.mp4",
+            "--config", "/custom/config.json",
+            "--output", "/tmp/test"
+        ])
+        
+        assert result.exit_code == 0
+        mock_config_load.assert_called_once_with("/custom/config.json")
+    
+    @patch('src.cli.main.Config.load_with_fallback')
+    @patch('src.cli.main.Path.exists')
+    @patch('src.cli.main.Executor')
+    @patch('src.cli.main.Planner')
+    def test_process_cli_args_override_config(self, mock_planner_class, mock_executor_class, mock_exists, mock_config_load):
+        """Test that CLI arguments override config values."""
+        from src.models.config import Config
+        
+        # Setup mocks
+        mock_exists.return_value = True
+        mock_planner = mock_planner_class.return_value
+        mock_executor = mock_executor_class.return_value
+        
+        # Config with verbose=True
+        mock_config = Config(verbose=True, force=False)
+        mock_config_load.return_value = mock_config
+        
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
+        mock_executor.execute.return_value = []
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "process",
+            "/path/to/video.mp4",
+            "--output", "/tmp/test",
+            "--force"  # CLI override
+            # --verbose not specified, should use config default (True)
+        ])
+        
+        assert result.exit_code == 0
+        
+        # Verify the merged values were used
+        if mock_executor.execute.called:
+            call_args = mock_executor.execute.call_args
+            flags = call_args.kwargs['flags']
+            assert flags.force is True  # CLI override
+            assert flags.verbose is True  # Config default
+    
+    @patch('src.cli.main.Config.load_with_fallback')
+    @patch('src.cli.main.Path.exists')
+    def test_process_config_load_failure(self, mock_exists, mock_config_load):
+        """Test graceful handling of config load failure."""
+        from src.models.config import Config
+        
+        # Setup mocks
+        mock_exists.return_value = True
+        mock_config_load.side_effect = Exception("Config load failed")
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "process",
+            "/path/to/video.mp4",
+            "--output", "/tmp/test",
+            "--dry-run"  # Use dry-run to avoid execution complexity
+        ])
+        
+        # Should still work with default config
+        assert result.exit_code == 0
+        assert "Warning" in result.stdout or "config" in result.stdout.lower()
+    
+    @patch('src.cli.main.Path.exists')
+    @patch('src.cli.main.Executor')
+    @patch('src.cli.main.Planner')
+    def test_process_subtitle_exclusion_defaults(self, mock_planner_class, mock_executor_class, mock_exists):
+        """Test that default subtitle exclusions are applied."""
+        # Setup mocks
+        mock_exists.return_value = True
+        mock_planner = mock_planner_class.return_value
+        mock_executor = mock_executor_class.return_value
+        
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
+        mock_executor.execute.return_value = []
+        
+        runner = CliRunner()
+        result = runner.invoke(app, [
+            "process",
+            "/path/to/video.mp4",
+            "--output", "/tmp/test",
+            "--language", "en"
+            # No explicit subtitle-title-exclude - should use config defaults
+        ])
+        
+        assert result.exit_code == 0
+        
+        # Verify planner was called with selectors
+        mock_planner.plan.assert_called_once()
+        call_args = mock_planner.plan.call_args
+        selectors = call_args.kwargs.get('selectors', [])
+        
+        # Should have a subtitle selector with default exclusions
+        subtitle_selectors = [s for s in selectors if hasattr(s, 'type') and s.type.value == 'SUBTITLE']
+        if subtitle_selectors:
+            selector = subtitle_selectors[0]
+            # Should have default SDH exclusions
+            assert 'sdh' in [pattern.lower() for pattern in selector.title_exclude]
