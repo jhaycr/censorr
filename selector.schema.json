@@ -42,10 +42,6 @@
       "items": { "type": "string" },
       "description": "Include tracks with titles matching these regex patterns (SUBTITLE only)"
     },
-    "exclude_sdh": {
-      "type": "boolean",
-      "description": "Exclude hearing-impaired/SDH tracks (SUBTITLE only)"
-    },
     "prefer": {
       "type": "boolean",
       "description": "Indicates user preference boost when multiple tracks match"
@@ -70,8 +66,7 @@
             { "required": ["forced"] },
             { "required": ["title_include"] },
             { "required": ["title_exclude"] },
-            { "required": ["title_regex"] },
-            { "required": ["exclude_sdh"] }
+            { "required": ["title_regex"] }
           ]
         }
       }
@@ -85,8 +80,7 @@
             { "required": ["role"] },
             { "required": ["title_include"] },
             { "required": ["title_exclude"] },
-            { "required": ["title_regex"] },
-            { "required": ["exclude_sdh"] }
+            { "required": ["title_regex"] }
           ]
         }
       }

@@ -26,7 +26,7 @@ class TestSubtitleSelectionIntegration:
         selector = Selector(
             type=ArtifactType.SUBTITLE,
             language="en",
-            exclude_sdh=True  # This will exclude the SDH track
+            title_exclude=["sdh", "hi", "cc"]  # This will exclude the SDH track
         )
         
         # Mock the extract operation to return three tracks
@@ -97,7 +97,7 @@ class TestSubtitleSelectionIntegration:
         selector = Selector(
             type=ArtifactType.SUBTITLE,
             language="en",
-            exclude_sdh=True
+            title_exclude=["sdh", "hi", "cc"]
         )
         
         # Plan to produce merged subtitle
@@ -130,7 +130,7 @@ class TestSubtitleSelectionIntegration:
         fallback_selector = Selector(
             type=ArtifactType.SUBTITLE,
             language="en", 
-            exclude_sdh=True,
+            title_exclude=["sdh", "hi", "cc"],
             priority=1  # Lower priority
         )
         

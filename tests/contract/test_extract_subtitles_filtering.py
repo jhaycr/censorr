@@ -78,15 +78,15 @@ class TestExtractSubtitlesFiltering:
             metadata={}
         )
         
-        # Create selector for forced tracks only
-        forced_selector = Selector(
+        # Create selector that only includes tracks with "Forced" in title
+        forced_only_selector = Selector(
             type=ArtifactType.SUBTITLE,
             language="en",
             title_include=["Forced"]
         )
         
         flags = OperationFlags(
-            selectors=[forced_selector],
+            selectors=[forced_only_selector],
             dry_run=False
         )
         
@@ -120,7 +120,7 @@ class TestExtractSubtitlesFiltering:
             assert results[0].metadata['title'] == "Forced"
     
     def test_extract_subtitles_filters_exclude_sdh(self, tmp_path):
-        """Test that extract_subtitles excludes SDH tracks when exclude_sdh=True."""
+        """Test that extract_subtitles excludes SDH tracks using title_exclude patterns."""
         # Arrange  
         operation = ExtractSubtitlesOperation()
         video_artifact = Artifact(
@@ -129,11 +129,11 @@ class TestExtractSubtitlesFiltering:
             metadata={}
         )
         
-        # Create selector that excludes SDH
+        # Create selector that excludes SDH using title patterns
         no_sdh_selector = Selector(
             type=ArtifactType.SUBTITLE,
             language="en",
-            exclude_sdh=True
+            title_exclude=["sdh", "hi", "cc"]
         )
         
         flags = OperationFlags(

@@ -21,7 +21,6 @@ class Selector(BaseModel):
     title_include: List[str] = Field(default_factory=list, description="Include tracks with titles containing these substrings (SUBTITLE only)")
     title_exclude: List[str] = Field(default_factory=list, description="Exclude tracks with titles containing these substrings (SUBTITLE only)")
     title_regex: List[str] = Field(default_factory=list, description="Include tracks with titles matching these regex patterns (SUBTITLE only)")
-    exclude_sdh: bool = Field(False, description="Exclude hearing-impaired/SDH tracks (SUBTITLE only)")
     
     @field_validator('forced')
     @classmethod
@@ -47,13 +46,7 @@ class Selector(BaseModel):
             raise ValueError('title filtering fields are only valid for SUBTITLE type')
         return v
     
-    @field_validator('exclude_sdh')
-    @classmethod
-    def exclude_sdh_only_for_subtitle(cls, v, info):
-        """Ensure exclude_sdh field is only used for SUBTITLE type."""
-        if v and info.data.get('type') != ArtifactType.SUBTITLE:
-            raise ValueError('exclude_sdh field is only valid for SUBTITLE type')
-        return v
+
     
     def _normalize_title(self, title: Optional[str]) -> str:
         """Normalize title for matching: case-insensitive, strip brackets/parens, collapse whitespace."""
@@ -65,18 +58,7 @@ class Selector(BaseModel):
         normalized = re.sub(r'\s+', ' ', normalized).strip().lower()
         return normalized
     
-    def _is_sdh_title(self, title: Optional[str]) -> bool:
-        """Check if title indicates hearing-impaired/SDH content."""
-        if not title:
-            return False
-        
-        normalized = self._normalize_title(title)
-        sdh_patterns = [
-            'sdh', 'hi', 'cc', 'hearing impaired', 'closed captions',
-            'deaf', 'hard of hearing', 'descriptive', 'audio description'
-        ]
-        
-        return any(pattern in normalized for pattern in sdh_patterns)
+
     
     def _matches_title_filters(self, title: Optional[str]) -> bool:
         """Check if title matches include/exclude filters."""
@@ -88,34 +70,30 @@ class Selector(BaseModel):
                 if exclude_pattern.lower() in normalized_title:
                     return False
         
-        # Check SDH exclusion - this also takes precedence
-        if self.exclude_sdh and self._is_sdh_title(title):
-            return False
-        
-        # If we have any include filters, at least one must match
-        has_include_filters = bool(self.title_include or self.title_regex)
-        include_match = False
+
         
         # Apply inclusions
         if self.title_include:
             for include_pattern in self.title_include:
                 if include_pattern.lower() in normalized_title:
-                    include_match = True
-                    break
+                    return True
+            # If includes are specified but none match, reject
+            return False
         
         # Apply regex inclusions
         if self.title_regex:
             for regex_pattern in self.title_regex:
                 try:
                     if re.search(regex_pattern, title or "", re.IGNORECASE):
-                        include_match = True
-                        break
+                        return True
                 except re.error:
                     # Invalid regex, skip
                     continue
+            # If regex patterns are specified but none match, reject
+            return False
         
-        # If we have include filters, we need a match; otherwise accept all
-        return include_match if has_include_filters else True
+        # If no title filters specified, accept (but may still be excluded by SDH)
+        return True
     
     def matches(self, artifact) -> bool:
         """Check if this selector matches the given artifact."""

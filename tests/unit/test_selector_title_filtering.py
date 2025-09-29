@@ -64,11 +64,11 @@ class TestSubtitleTitleFiltering:
         assert not selector.matches(commentary_track)
     
     def test_exclude_sdh_synonyms(self):
-        """Test exclusion of SDH/HI synonym tracks."""
+        """Test exclusion of SDH/HI synonym tracks using title_exclude patterns."""
         selector = Selector(
             type=ArtifactType.SUBTITLE,
             language="en",
-            exclude_sdh=True
+            title_exclude=["sdh", "hi", "cc", "hearing impaired", "closed captions"]
         )
         
         test_cases = [
@@ -164,11 +164,11 @@ class TestSubtitleTitleFiltering:
             assert selector.matches(artifact), f"Failed for case-insensitive title: '{title}'"
     
     def test_title_normalization(self):
-        """Test title normalization (brackets, whitespace)."""
+        """Test title normalization (brackets, whitespace) using title_exclude patterns."""
         selector = Selector(
             type=ArtifactType.SUBTITLE,
             language="en", 
-            exclude_sdh=True
+            title_exclude=["sdh"]
         )
         
         # These should all be detected as SDH despite formatting differences
@@ -240,17 +240,4 @@ class TestSelectorValidation:
                 title_exclude=["test"]
             )
     
-    def test_exclude_sdh_only_for_subtitle(self):
-        """Test that exclude_sdh is only valid for SUBTITLE type."""
-        # Should work for SUBTITLE
-        Selector(
-            type=ArtifactType.SUBTITLE,
-            exclude_sdh=True
-        )
-        
-        # Should fail for other types
-        with pytest.raises(ValueError, match="exclude_sdh field is only valid for SUBTITLE type"):
-            Selector(
-                type=ArtifactType.AUDIO,
-                exclude_sdh=True
-            )
+

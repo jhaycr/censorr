@@ -244,7 +244,7 @@ class ExtractSubtitlesOperation(Operation):
                 return False
         
         # Check title filtering for subtitles
-        if hasattr(selector, 'title_include') or hasattr(selector, 'title_exclude') or hasattr(selector, 'exclude_sdh'):
+        if hasattr(selector, 'title_include') or hasattr(selector, 'title_exclude') or hasattr(selector, 'title_regex'):
             if not selector._matches_title_filters(track.title):
                 return False
         

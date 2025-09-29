@@ -295,3 +295,20 @@ Notes:
 	- Tests: verify RMS calculation accuracy within tolerance vs. original audioop values on sample data.
 	- Result: Full test suite green (366 passed / 10 skipped); no deprecation warnings.
 	- Rationale: `audioop` module deprecated in Python 3.11+ and removed in 3.13; maintain forward compatibility without external dependencies.
+
+---
+
+## New: Remove exclude-sdh CLI Flag (Selector-Only Architecture)
+
+78. ✅ Remove --exclude-sdh CLI flag and related functionality
+	- Remove `exclude_sdh` parameter from CLI command in `src/cli/main.py` (lines ~184-186, ~269-284).
+	- Remove `exclude_sdh` field from `Selector` model in `src/models/selectors.py` (lines ~24, ~50-55, ~92).
+	- Remove `exclude_sdh` logic from `extract_subtitles.py` operation (line ~247).
+	- Update `contracts/selectors.md` documentation to remove `exclude_sdh` references and CLI integration notes.
+	- Remove/update all test cases that use `exclude_sdh` parameter:
+		* `tests/contract/test_extract_subtitles_filtering.py` (lines ~122-136)
+		* `tests/unit/test_selector_title_filtering.py` (lines ~66-71, ~171, ~243-255)
+		* `tests/integration/test_subtitle_selection.py` (lines ~16-29, ~100, ~133)
+	- Update tests to use structured selectors with `title_exclude` patterns for SDH filtering instead.
+	- Update quickstart.md examples to show selector-based SDH exclusion approach.
+	- Rationale: Simplify CLI interface by enforcing selector-only architecture; removes redundant flag in favor of flexible JSON selectors.

@@ -128,8 +128,7 @@ custom_config_example() {
         "track_type": "SUBTITLE",
         "language": "en",
         "title_include": ["full", "forced"],
-        "title_exclude": ["sdh", "hi", "cc"],
-        "exclude_sdh": true
+        "title_exclude": ["sdh", "hi", "cc"]
     }
 ]
 EOF

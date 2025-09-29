@@ -15,7 +15,6 @@ Selectors filter and prioritize tracks across VIDEO, AUDIO, and SUBTITLE types.
 - title_include: array<string> (SUBTITLE) – include tracks with titles containing these substrings
 - title_exclude: array<string> (SUBTITLE) – exclude tracks with titles containing these substrings  
 - title_regex: array<string> (SUBTITLE) – include tracks with titles matching these regex patterns
-- exclude_sdh: boolean (SUBTITLE) – exclude hearing-impaired/SDH tracks
 - prefer: array<string> – ranking hints
 - firstOnly: boolean – select only first match if true
 - priority: integer – lower is higher priority
@@ -41,7 +40,7 @@ Selectors filter and prioritize tracks across VIDEO, AUDIO, and SUBTITLE types.
 {
   "type": "SUBTITLE",
   "language": "en", 
-  "exclude_sdh": true,
+  "title_exclude": ["sdh", "hi", "cc"],
   "priority": 0
 }
 
@@ -58,7 +57,7 @@ Selectors filter and prioritize tracks across VIDEO, AUDIO, and SUBTITLE types.
   "type": "SUBTITLE", 
   "language": "en",
   "title_regex": ["English.*(Forced|Full)"],
-  "exclude_sdh": true,
+  "title_exclude": ["sdh", "hi", "cc"],
   "priority": 0
 }
 
@@ -72,7 +71,7 @@ Selectors filter and prioritize tracks across VIDEO, AUDIO, and SUBTITLE types.
 ```
 
 ### Precedence Rules
-1. Exclusions (title_exclude, exclude_sdh) are applied first and take precedence
+1. Exclusions (title_exclude) are applied first and take precedence
 2. If any exclusion pattern matches, the track is rejected
 3. If title_include patterns are specified, at least one must match
 4. If title_regex patterns are specified, at least one must match  

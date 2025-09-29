@@ -181,10 +181,6 @@ def process(
         None, "--subtitle-title-regex",
         help="Include subtitle tracks with titles matching these regex patterns (comma-separated)"
     ),
-    exclude_sdh: bool = typer.Option(
-        False, "--exclude-sdh",
-        help="Exclude hearing-impaired/SDH subtitle tracks"
-    ),
     profanity_list_file: Optional[str] = typer.Option(
         None, "--profanity-list-file",
         help="Path to JSON file with an array of {word: string, ...} objects for profanity masking"
@@ -265,13 +261,9 @@ def process(
         if subtitle_title_regex:
             title_regex_list = [s.strip() for s in subtitle_title_regex.split(",")]
         
-        # Selector precedence: warn about deprecated individual flags if structured selectors exist
-        if exclude_sdh and verbose:
-            rprint("[yellow]WARNING: --exclude-sdh is deprecated. Use structured selectors JSON for complex filtering.[/yellow]")
-        
         # Check if any subtitle filtering is requested
         has_subtitle_filters = (language or title_include_list or title_exclude_list or 
-                               title_regex_list or exclude_sdh)
+                               title_regex_list)
         
         if has_subtitle_filters:
             # Create subtitle selector
@@ -280,8 +272,7 @@ def process(
                 language=language,
                 title_include=title_include_list,
                 title_exclude=title_exclude_list,
-                title_regex=title_regex_list,
-                exclude_sdh=exclude_sdh
+                title_regex=title_regex_list
             )
             selectors.append(subtitle_selector)
         
