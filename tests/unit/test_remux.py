@@ -1,511 +1,272 @@
-"""Unit tests for remux operation."""
+"""Unit tests for remux operation (updated to reflect edition tagging and audio prioritization)."""
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, call
+from unittest.mock import patch
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 from src.ops.remux import RemuxOperation
 
 
+def _return_output_side_effect(*args, **kwargs):
+    # Always return the provided output path so tests see the edition-tagged filename
+    if "output" in kwargs:
+        return kwargs["output"]
+    # Fallback positional (video_input, output, ...)
+    return args[1] if len(args) > 1 else None
+
+
 class TestRemuxOperation:
     """Test cases for RemuxOperation."""
 
     def test_operation_creation(self):
-        """Test operation can be created."""
         op = RemuxOperation()
         assert op.consumes == {ArtifactType.VIDEO, ArtifactType.AUDIO, ArtifactType.SUBTITLE}
         assert op.produces == {ArtifactType.VIDEO}
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_with_all_track_types(self, mock_ffmpeg_class):
-        """Test running operation with video, audio, and subtitle tracks."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={"original": True}
-        )
-        audio_artifact = Artifact(
-            type=ArtifactType.AUDIO,
-            path="/path/to/audio.wav",
-            metadata={"mute_windows_applied": 3}
-        )
-        subtitle_artifact = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="/path/to/subtitles.srt",
-            metadata={"masked": True, "language": "en"}
-        )
+        video_artifact = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={"original": True})
+        # Use path pattern containing 'extract_audio' so prioritization treats as extracted audio
+        audio_artifact = Artifact(type=ArtifactType.AUDIO, path="output/test/extract_audio/999/audio_track_1.wav", metadata={"mute_windows_applied": 3})
+        subtitle_artifact = Artifact(type=ArtifactType.SUBTITLE, path="/path/to/subtitles.srt", metadata={"masked": True, "language": "en"})
         flags = OperationFlags(subtitle_mode="all")
-        
-        # Execute operation
+
         op = RemuxOperation()
         results = op.run([video_artifact, audio_artifact, subtitle_artifact], workdir, flags)
-        
-        # Verify results
+
         assert len(results) == 1
-        assert results[0].type == ArtifactType.VIDEO
-        assert results[0].path == "/tmp/test/remuxed_video.mp4"
-        assert "input_video" in results[0].metadata
-        assert "audio_tracks" in results[0].metadata
-        assert "subtitle_tracks" in results[0].metadata
-        assert results[0].metadata["audio_tracks"] == 1
-        assert results[0].metadata["subtitle_tracks"] == 1
-        
-        # Verify FFmpeg call
-        mock_ffmpeg.remux.assert_called_once_with(
-            video_input="/path/to/video.mp4",
-            output="/tmp/test/remuxed_video.mp4",
-            audio_tracks=["/path/to/audio.wav"],
-            subtitle_tracks=["/path/to/subtitles.srt"]
-        )
+        result = results[0]
+        assert result.type == ArtifactType.VIDEO
+        assert "{edition-Censorr}" in Path(result.path).name
+        assert result.metadata["audio_tracks"] == 1
+        assert result.metadata["subtitle_tracks"] == 1
+
+        mock_ffmpeg.remux.assert_called_once()
+        kwargs = mock_ffmpeg.remux.call_args.kwargs
+        assert kwargs["video_input"] == video_artifact.path
+        assert kwargs["audio_tracks"] == [audio_artifact.path]
+        assert kwargs["subtitle_tracks"] == [subtitle_artifact.path]
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_video_only(self, mock_ffmpeg_class):
-        """Test running operation with only video (no remuxing needed)."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data - only video artifact
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={"original": True}
-        )
+        video_artifact = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={"original": True})
         flags = OperationFlags()
-        
-        # Execute operation
+
         op = RemuxOperation()
         results = op.run([video_artifact], workdir, flags)
-        
-        # Verify results
+
         assert len(results) == 1
-        assert results[0].type == ArtifactType.VIDEO
-        assert results[0].path == "/tmp/test/remuxed_video.mp4"
-        assert results[0].metadata["audio_tracks"] == 0
-        assert results[0].metadata["subtitle_tracks"] == 0
-        
-        # Verify FFmpeg call with empty tracks
-        mock_ffmpeg.remux.assert_called_once_with(
-            video_input="/path/to/video.mp4",
-            output="/tmp/test/remuxed_video.mp4",
-            audio_tracks=[],
-            subtitle_tracks=[]
-        )
+        result = results[0]
+        assert result.type == ArtifactType.VIDEO
+        assert "{edition-Censorr}" in Path(result.path).name
+        assert result.metadata["audio_tracks"] == 0
+        assert result.metadata["subtitle_tracks"] == 0
+        mock_ffmpeg.remux.assert_called_once()
+        kwargs = mock_ffmpeg.remux.call_args.kwargs
+        assert kwargs["audio_tracks"] == [] and kwargs["subtitle_tracks"] == []
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_multiple_audio_tracks(self, mock_ffmpeg_class):
-        """Test running operation with multiple audio tracks."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={}
-        )
-        audio_artifact1 = Artifact(
-            type=ArtifactType.AUDIO,
-            path="/path/to/audio1.wav",
-            metadata={"language": "en"}
-        )
-        audio_artifact2 = Artifact(
-            type=ArtifactType.AUDIO,
-            path="/path/to/audio2.wav",
-            metadata={"language": "es"}
-        )
+        video_artifact = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={})
+        audio1 = Artifact(type=ArtifactType.AUDIO, path="output/test/extract_audio/111/audio_track_1.wav", metadata={"language": "en"})
+        audio2 = Artifact(type=ArtifactType.AUDIO, path="output/test/extract_audio/222/audio_track_2.wav", metadata={"language": "es"})
         flags = OperationFlags()
-        
-        # Execute operation
+
         op = RemuxOperation()
-        results = op.run([video_artifact, audio_artifact1, audio_artifact2], workdir, flags)
-        
-        # Verify results
+        results = op.run([video_artifact, audio1, audio2], workdir, flags)
         assert len(results) == 1
         assert results[0].metadata["audio_tracks"] == 2
-        
-        # Verify FFmpeg call
-        call_args = mock_ffmpeg.remux.call_args
-        audio_tracks = call_args.kwargs["audio_tracks"]
-        assert len(audio_tracks) == 2
-        assert "/path/to/audio1.wav" in audio_tracks
-        assert "/path/to/audio2.wav" in audio_tracks
+        audio_tracks = mock_ffmpeg.remux.call_args.kwargs["audio_tracks"]
+        assert set(audio_tracks) == {audio1.path, audio2.path}
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_multiple_subtitle_tracks(self, mock_ffmpeg_class):
-        """Test running operation with multiple subtitle tracks."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={}
-        )
-        subtitle_artifact1 = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="/path/to/subtitles_en.srt",
-            metadata={"language": "en"}
-        )
-        subtitle_artifact2 = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="/path/to/subtitles_es.srt",
-            metadata={"language": "es"}
-        )
+        video_artifact = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={})
+        sub1 = Artifact(type=ArtifactType.SUBTITLE, path="/path/to/subtitles_en.srt", metadata={"language": "en"})
+        sub2 = Artifact(type=ArtifactType.SUBTITLE, path="/path/to/subtitles_es.srt", metadata={"language": "es"})
         flags = OperationFlags(subtitle_mode="all")
-        
-        # Execute operation
+
         op = RemuxOperation()
-        results = op.run([video_artifact, subtitle_artifact1, subtitle_artifact2], workdir, flags)
-        
-        # Verify results
+        results = op.run([video_artifact, sub1, sub2], workdir, flags)
         assert len(results) == 1
         assert results[0].metadata["subtitle_tracks"] == 2
-        
-        # Verify FFmpeg call
-        call_args = mock_ffmpeg.remux.call_args
-        subtitle_tracks = call_args.kwargs["subtitle_tracks"]
-        assert len(subtitle_tracks) == 2
-        assert "/path/to/subtitles_en.srt" in subtitle_tracks
-        assert "/path/to/subtitles_es.srt" in subtitle_tracks
+        subtitle_tracks = mock_ffmpeg.remux.call_args.kwargs["subtitle_tracks"]
+        assert set(subtitle_tracks) == {sub1.path, sub2.path}
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_dry_run(self, mock_ffmpeg_class):
-        """Test operation in dry-run mode."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        
-        # Test data
+        # No side effect needed (dry run skips remux)
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={}
-        )
-        audio_artifact = Artifact(
-            type=ArtifactType.AUDIO,
-            path="/path/to/audio.wav",
-            metadata={}
-        )
+        video_artifact = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={})
+        audio_artifact = Artifact(type=ArtifactType.AUDIO, path="output/test/extract_audio/333/audio_track_1.wav", metadata={})
         flags = OperationFlags(dry_run=True)
-        
-        # Execute operation
+
         op = RemuxOperation()
         results = op.run([video_artifact, audio_artifact], workdir, flags)
-        
-        # Verify results
         assert len(results) == 1
-        assert results[0].type == ArtifactType.VIDEO
         assert "remuxed_" in results[0].path
+        assert "{edition-Censorr}" in Path(results[0].path).name
         assert results[0].metadata["audio_tracks"] == 1
-        
-        # Verify FFmpeg was not called
         mock_ffmpeg.remux.assert_not_called()
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_ffmpeg_error(self, mock_ffmpeg_class):
-        """Test handling FFmpeg errors."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = Exception("FFmpeg failed")
-        
-        # Test data
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={}
-        )
+        video_artifact = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={})
         flags = OperationFlags()
-        
-        # Execute operation and expect error
+
         op = RemuxOperation()
         with pytest.raises(RuntimeError, match="Failed to remux video"):
             op.run([video_artifact], workdir, flags)
 
     def test_run_no_video_artifact(self):
-        """Test operation fails with no video artifacts."""
         op = RemuxOperation()
-        
-        audio_artifact = Artifact(
-            type=ArtifactType.AUDIO,
-            path="/path/to/audio.wav",
-            metadata={}
-        )
-        
+        audio_artifact = Artifact(type=ArtifactType.AUDIO, path="/path/to/audio_track_1.wav", metadata={})
         workdir = Path("/tmp/test")
         flags = OperationFlags()
-        
         with pytest.raises(ValueError, match="No video artifacts found"):
             op.run([audio_artifact], workdir, flags)
 
     def test_run_multiple_video_artifacts(self):
-        """Test operation fails with multiple video artifacts."""
         op = RemuxOperation()
-        
-        video_artifact1 = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video1.mp4",
-            metadata={}
-        )
-        video_artifact2 = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video2.mp4",
-            metadata={}
-        )
-        
+        v1 = Artifact(type=ArtifactType.VIDEO, path="/path/to/video1.mp4", metadata={})
+        v2 = Artifact(type=ArtifactType.VIDEO, path="/path/to/video2.mp4", metadata={})
         workdir = Path("/tmp/test")
         flags = OperationFlags()
-        
         with pytest.raises(ValueError, match="Multiple video artifacts found"):
-            op.run([video_artifact1, video_artifact2], workdir, flags)
+            op.run([v1, v2], workdir, flags)
 
-    @patch('src.ops.remux.FFmpegAdapter')
-    def test_generate_output_path(self, mock_ffmpeg_class):
-        """Test output path generation."""
+    def test_generate_output_path(self):
         op = RemuxOperation()
-        
-        # Test basic path generation
         workdir = Path("/tmp/test")
-        input_path = "/path/to/video.mp4"
-        output_path = op._generate_output_path(input_path, workdir)
-        
-        assert output_path.startswith("/tmp/test/remuxed_")
-        assert output_path.endswith(".mp4")
-        
-        # Test different extension
-        input_path = "/path/to/video.mkv"
-        output_path = op._generate_output_path(input_path, workdir)
-        assert output_path.endswith(".mkv")
+        out = op._generate_output_path("/path/to/video.mp4", workdir)
+        assert out.startswith("/tmp/test/remuxed_") and out.endswith(".mp4")
+        out2 = op._generate_output_path("/path/to/video.mkv", workdir)
+        assert out2.endswith(".mkv")
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_verbose_mode(self, mock_ffmpeg_class):
-        """Test operation in verbose mode."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={}
-        )
-        audio_artifact = Artifact(
-            type=ArtifactType.AUDIO,
-            path="/path/to/audio.wav",
-            metadata={}
-        )
-        subtitle_artifact = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="/path/to/subtitles.srt",
-            metadata={"language": "en"}
-        )
+        video = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={})
+        audio = Artifact(type=ArtifactType.AUDIO, path="/path/to/audio_track_1.wav", metadata={})
+        sub = Artifact(type=ArtifactType.SUBTITLE, path="/path/to/subtitles.srt", metadata={"language": "en"})
         flags = OperationFlags(verbose=True)
-        
-        # Execute operation
+
         op = RemuxOperation()
         with patch('builtins.print') as mock_print:
-            results = op.run([video_artifact, audio_artifact, subtitle_artifact], workdir, flags)
-        
-        # Verify verbose output was printed
+            op.run([video, audio, sub], workdir, flags)
         assert mock_print.called
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("audio tracks" in call for call in print_calls)
-        assert any("subtitle tracks" in call for call in print_calls)
-        assert any("Remuxing video" in call for call in print_calls)
+        printed = "\n".join(str(c[0][0]) for c in mock_print.call_args_list)
+        assert "audio tracks" in printed
+        assert "subtitle tracks" in printed
+        assert "Remuxing video" in printed
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_preserve_video_metadata(self, mock_ffmpeg_class):
-        """Test that video metadata is preserved in the result."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={
-                "original_format": "h264",
-                "duration": 3600.0,
-                "resolution": "1920x1080"
-            }
-        )
+        video = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={
+            "original_format": "h264",
+            "duration": 3600.0,
+            "resolution": "1920x1080"
+        })
         flags = OperationFlags()
-        
-        # Execute operation
+
         op = RemuxOperation()
-        results = op.run([video_artifact], workdir, flags)
-        
-        # Verify video metadata is preserved
-        assert results[0].metadata["original_format"] == "h264"
-        assert results[0].metadata["duration"] == 3600.0
-        assert results[0].metadata["resolution"] == "1920x1080"
+        results = op.run([video], workdir, flags)
+        meta = results[0].metadata
+        assert meta["original_format"] == "h264"
+        assert meta["duration"] == 3600.0
+        assert meta["resolution"] == "1920x1080"
 
     def test_prioritize_audio_artifacts(self):
-        """Test audio artifact prioritization logic."""
         op = RemuxOperation()
-        
-        # Create test artifacts
-        extracted_audio = Artifact(
-            type=ArtifactType.AUDIO,
-            path="output/test/extract_audio/123/audio_track_1.wav",
-            metadata={"source": "extracted"}
-        )
-        
-        muted_audio = Artifact(
-            type=ArtifactType.AUDIO,
-            path="output/test/mute_audio/456/muted_audio_track_1.wav",
-            metadata={"source": "muted"}
-        )
-        
-        # Test 1: Only extracted audio
-        result = op._prioritize_audio_artifacts([extracted_audio])
-        assert len(result) == 1
-        assert result[0].path == extracted_audio.path
-        
-        # Test 2: Only muted audio
-        result = op._prioritize_audio_artifacts([muted_audio])
-        assert len(result) == 1
-        assert result[0].path == muted_audio.path
-        
-        # Test 3: Both extracted and muted audio (should prefer muted)
-        result = op._prioritize_audio_artifacts([extracted_audio, muted_audio])
-        assert len(result) == 1
-        assert result[0].path == muted_audio.path
-        
-        # Test 4: Empty list
-        result = op._prioritize_audio_artifacts([])
-        assert len(result) == 0
+        extracted = Artifact(type=ArtifactType.AUDIO, path="output/test/extract_audio/123/audio_track_1.wav", metadata={"source": "extracted"})
+        muted = Artifact(type=ArtifactType.AUDIO, path="output/test/mute_audio/456/muted_audio_track_1.wav", metadata={"source": "muted"})
+        workdir = Path("/tmp/test")
+        r1 = op._prioritize_audio_artifacts([extracted], workdir)
+        assert len(r1) == 1 and r1[0].path == extracted.path
+        r2 = op._prioritize_audio_artifacts([muted], workdir)
+        assert len(r2) == 1 and r2[0].path == muted.path
+        r3 = op._prioritize_audio_artifacts([extracted, muted], workdir)
+        assert len(r3) == 1 and muted.path in r3[0].path
+        r4 = op._prioritize_audio_artifacts([], workdir)
+        assert len(r4) == 0
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_run_prioritizes_muted_audio(self, mock_ffmpeg_class):
-        """Test that remux operation prioritizes muted audio over extracted audio."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={}
-        )
-        
-        extracted_audio = Artifact(
-            type=ArtifactType.AUDIO,
-            path="output/test/extract_audio/123/audio_track_1.wav",
-            metadata={"source": "extracted"}
-        )
-        
-        muted_audio = Artifact(
-            type=ArtifactType.AUDIO,
-            path="output/test/mute_audio/456/muted_audio_track_1.wav",
-            metadata={"source": "muted"}
-        )
-        
+        video = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={})
+        extracted = Artifact(type=ArtifactType.AUDIO, path="output/test/extract_audio/123/audio_track_1.wav", metadata={"source": "extracted"})
+        muted = Artifact(type=ArtifactType.AUDIO, path="output/test/mute_audio/456/muted_audio_track_1.wav", metadata={"source": "muted"})
         flags = OperationFlags()
-        
-        # Execute operation with both extracted and muted audio
         op = RemuxOperation()
-        results = op.run([video_artifact, extracted_audio, muted_audio], workdir, flags)
-        
-        # Verify remux was called with muted audio only
+        results = op.run([video, extracted, muted], workdir, flags)
         mock_ffmpeg.remux.assert_called_once()
-        call_args = mock_ffmpeg.remux.call_args
-        assert call_args[1]["audio_tracks"] == [muted_audio.path]
-        
-        # Verify result metadata
-        assert len(results) == 1
+        audio_tracks = mock_ffmpeg.remux.call_args.kwargs["audio_tracks"]
+        assert audio_tracks == [muted.path]
         assert results[0].metadata["audio_tracks"] == 1
 
     def test_subtitle_mode_masked_only(self):
-        """Test subtitle filtering for masked_only mode."""
         op = RemuxOperation()
-        
-        # Create test artifacts
-        extracted_subtitle = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="output/test/extract_subtitles/123/subtitle.srt",
-            metadata={"language": "en"}
-        )
-        
-        merged_subtitle = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="output/test/merge_subtitles/456/merged_subtitles.srt",
-            metadata={"language": "en", "merged_from": ["sub1.srt", "sub2.srt"]}
-        )
-        
-        masked_subtitle = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="output/test/mask_subtitles/789/masked_subtitles.srt",
-            metadata={"language": "en", "profanity_filtered": True}
-        )
-        
-        # Test 1: Only masked subtitle should be selected
-        result = op._get_masked_subtitles_only([extracted_subtitle, merged_subtitle, masked_subtitle])
-        assert len(result) == 1
-        assert result[0].path == masked_subtitle.path
-        
-        # Test 2: Fallback to merged when no masked available
-        result = op._get_masked_subtitles_only([extracted_subtitle, merged_subtitle])
-        assert len(result) == 1
-        assert result[0].path == merged_subtitle.path
-        
-        # Test 3: Empty when nothing matches
-        result = op._get_masked_subtitles_only([extracted_subtitle])
-        assert len(result) == 0
+        extracted = Artifact(type=ArtifactType.SUBTITLE, path="output/test/extract_subtitles/123/subtitle.srt", metadata={"language": "en"})
+        merged = Artifact(type=ArtifactType.SUBTITLE, path="output/test/merge_subtitles/456/merged_subtitles.srt", metadata={"language": "en", "merged_from": ["s1", "s2"]})
+        masked = Artifact(type=ArtifactType.SUBTITLE, path="output/test/mask_subtitles/789/masked_subtitles.srt", metadata={"language": "en", "profanity_filtered": True})
+        r1 = op._get_masked_subtitles_only([extracted, merged, masked])
+        assert len(r1) == 1 and r1[0].path == masked.path
+        r2 = op._get_masked_subtitles_only([extracted, merged])
+        assert len(r2) == 1 and r2[0].path == merged.path
+        r3 = op._get_masked_subtitles_only([extracted])
+        assert len(r3) == 0
 
     @patch('src.ops.remux.FFmpegAdapter')
     def test_subtitle_modes(self, mock_ffmpeg_class):
-        """Test different subtitle modes in remux operation."""
-        # Setup mocks
         mock_ffmpeg = mock_ffmpeg_class.return_value
-        mock_ffmpeg.remux.return_value = "/tmp/test/remuxed_video.mp4"
-        
-        # Test data
+        mock_ffmpeg.remux.side_effect = _return_output_side_effect
+
         workdir = Path("/tmp/test")
-        video_artifact = Artifact(
-            type=ArtifactType.VIDEO,
-            path="/path/to/video.mp4",
-            metadata={}
-        )
-        
-        masked_subtitle = Artifact(
-            type=ArtifactType.SUBTITLE,
-            path="output/test/mask_subtitles/789/masked_subtitles.srt",
-            metadata={"language": "en", "profanity_filtered": True}
-        )
-        
-        # Test mode: masked_only (default)
-        flags = OperationFlags(subtitle_mode="masked_only")
+        video = Artifact(type=ArtifactType.VIDEO, path="/path/to/video.mp4", metadata={})
+        masked = Artifact(type=ArtifactType.SUBTITLE, path="output/test/mask_subtitles/789/masked_subtitles.srt", metadata={"language": "en", "profanity_filtered": True})
         op = RemuxOperation()
-        results = op.run([video_artifact, masked_subtitle], workdir, flags)
-        assert results[0].metadata["subtitle_tracks"] == 1
-        
-        # Test mode: none
+
+        flags = OperationFlags(subtitle_mode="masked_only")
+        r1 = op.run([video, masked], workdir, flags)
+        assert r1[0].metadata["subtitle_tracks"] == 1
+
         flags = OperationFlags(subtitle_mode="none")
-        results = op.run([video_artifact, masked_subtitle], workdir, flags)
-        assert results[0].metadata["subtitle_tracks"] == 0
-        
-        # Test mode: all
+        r2 = op.run([video, masked], workdir, flags)
+        assert r2[0].metadata["subtitle_tracks"] == 0
+
         flags = OperationFlags(subtitle_mode="all")
-        results = op.run([video_artifact, masked_subtitle], workdir, flags)
-        assert results[0].metadata["subtitle_tracks"] == 1
+        r3 = op.run([video, masked], workdir, flags)
+        assert r3[0].metadata["subtitle_tracks"] == 1

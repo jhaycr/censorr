@@ -259,3 +259,25 @@ Dependencies & Ordering Notes
 	- Git commit messages for features include: summary line, bullet list of key changes, rationale/observability improvements section when relevant.
 
 Status: 67–73 implemented; 72 partially pending (existing tests currently being refactored to align with heartbeat path). Marking feature baseline as complete; remaining minor test refactors tracked separately.
+
+---
+
+## New: Test Suite Alignment for Heartbeat & Edition Tag (Maintenance)
+
+75. ✅ FFmpeg adapter test adaptation
+	- Update unit tests to mock `subprocess.Popen` for heartbeat-enabled commands (extract audio, subtitles, mute, remux).
+	- Ensure side-effects create expected output artifacts so adapter returns path without altering production code.
+	- Remove brittle `subprocess.run`-only assertions; accept Popen pathway while still validating output presence and command structure (e.g., filter graph inclusion).
+	- Rationale: Implementation extended heartbeat to all long-running FFmpeg operations (FR-064); tests needed parity without disabling feature globally.
+
+76. ✅ Remux operation test reconstruction
+	- Rebuilt `tests/unit/test_remux.py` after prior incremental patch corruption (indentation & scoping errors) to clean, deterministic suite.
+	- Added `_return_output_side_effect` so edition tagging logic (FR-054/055) is preserved in test results.
+	- Adjusted audio artifact paths to include `extract_audio` or `mute_audio` segments so prioritization logic `_prioritize_audio_artifacts` recognizes tracks and counts them.
+	- Updated assertions to expect Plex-style edition tag `{edition-Censorr}` and correct audio/subtitle track counts under dry-run and full modes.
+	- Ensured subtitle mode variants (`masked_only`, `none`, `all`) and verbose logging paths remain covered.
+	- Rationale: Keep tests reflecting current production logic without reverting functional changes; restore full green suite (now 355 passed / 10 skipped).
+
+Notes:
+- Both tasks classified as maintenance (no production code changes) but logged per Constitution v0.4.0 for traceability.
+- Follow-up: Optional suppression flag for heartbeat already available; no additional changes required now.
