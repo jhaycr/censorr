@@ -444,7 +444,8 @@ class TestAudioOnlyFlow:
             assert results[0].metadata.get("mute_windows_applied", 0) >= 1
 
             # Verify audio is actually muted inside the window using RMS energy
-            import wave, audioop
+            import wave
+            from src.utils import audio_utils
             with wave.open(str(out), 'rb') as wf:
                 rate = wf.getframerate()
                 width = wf.getsampwidth()
@@ -456,8 +457,8 @@ class TestAudioOnlyFlow:
                     wf.setpos(start)
                     data = wf.readframes(count)
                     if nch == 2:
-                        data = audioop.tomono(data, width, 0.5, 0.5)
-                    return audioop.rms(data, width)
+                        data = audio_utils.tomono(data, width, 0.5, 0.5)
+                    return audio_utils.rms(data, width)
 
                 # Window was 1-3s; sample inside and outside
                 rms_muted = segment_rms(1.2, 1.8)

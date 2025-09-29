@@ -3,13 +3,13 @@
 import json
 import tempfile
 import wave
-import audioop
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 
 from src.ops.audio_quality_check import AudioQualityCheckOperation
+from src.utils import audio_utils
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 
@@ -51,9 +51,11 @@ class TestAudioQualityCheckOperation:
                 wav_file.setnchannels(1)  # Mono
                 wav_file.setsampwidth(2)  # 16-bit
                 wav_file.setframerate(sample_rate)
-                wav_file.writeframes(audioop.lin2lin(bytes(
-                    sum(([b & 0xff, (b >> 8) & 0xff] for b in frames), [])
-                ), 1, 2))
+                # Convert 16-bit samples to bytes manually
+                frame_bytes = []
+                for sample in frames:
+                    frame_bytes.extend([sample & 0xff, (sample >> 8) & 0xff])
+                wav_file.writeframes(bytes(frame_bytes))
             
             # Create mute windows covering the tone part (should detect as failure)
             mute_windows = [{"start": 0.0, "end": 1.0, "reason": "test", "source": "TEST"}]

@@ -7,10 +7,11 @@ compared to control segments, similar to subtitle QC for residual profanities.
 """
 import json
 import wave
-import audioop
 from pathlib import Path
 from typing import List, Dict, Any, Set
 from typing import List, Dict, Any, Optional, Tuple
+
+from src.utils import audio_utils
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.common import MuteWindow
@@ -340,6 +341,6 @@ class AudioQualityCheckOperation(Operation):
         
         # Convert to mono if stereo
         if nchannels == 2:
-            data = audioop.tomono(data, width, 0.5, 0.5)
+            data = audio_utils.tomono(data, width, 0.5, 0.5)
         
-        return audioop.rms(data, width)
+        return audio_utils.rms(data, width)

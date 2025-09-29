@@ -281,3 +281,17 @@ Status: 67–73 implemented; 72 partially pending (existing tests currently bein
 Notes:
 - Both tasks classified as maintenance (no production code changes) but logged per Constitution v0.4.0 for traceability.
 - Follow-up: Optional suppression flag for heartbeat already available; no additional changes required now.
+
+---
+
+## New: audioop Deprecation Replacement (Python 3.13 Compatibility)
+
+77. ✅ Replace audioop usage with wave-based alternative
+	- Create audio utility module `src/utils/audio_utils.py` with functions for mono conversion and RMS calculation.
+	- Replace `audioop.tomono()` with custom stereo-to-mono mixer using struct unpacking.
+	- Replace `audioop.rms()` with manual RMS calculation (square root of mean squared amplitudes).
+	- Update `src/ops/audio_quality_check.py` to import from new utility instead of deprecated `audioop`.
+	- Update test files (`test_audio_quality_check.py`, `test_audio_flow.py`) to use new utility functions.
+	- Tests: verify RMS calculation accuracy within tolerance vs. original audioop values on sample data.
+	- Result: Full test suite green (366 passed / 10 skipped); no deprecation warnings.
+	- Rationale: `audioop` module deprecated in Python 3.11+ and removed in 3.13; maintain forward compatibility without external dependencies.
