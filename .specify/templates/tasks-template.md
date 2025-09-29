@@ -97,6 +97,13 @@ Task: "Integration test auth in tests/integration/test_auth.py"
 - Commit after each task
 - Avoid: vague tasks, same file conflicts
 
+## Immutable Task Ledger Rules (Constitution v0.4.0)
+- Append-only: Do NOT delete or rewrite existing task lines; only add ✅ at end when complete.
+- Corrections: Add a NEW task referencing the original ID (e.g., "Follow-up to T012: ...") instead of editing old text.
+- Commit Traceability: Every commit that implements tasks MUST reference their IDs (e.g., "Implements T010, T011").
+- No Behavior Without Tasks: If code changes behavior, there MUST be a task first; add a task before implementing.
+- Artifact Hygiene: Never commit generated artifacts, media samples, workdir, or test-output directories.
+
 ## Task Generation Rules
 *Applied during main() execution*
 

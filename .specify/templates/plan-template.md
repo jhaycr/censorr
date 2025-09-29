@@ -208,4 +208,4 @@ ios/ or android/
 - [ ] Complexity deviations documented
 
 ---
-*Based on Constitution v0.3.0 - See `.specify/memory/constitution.md`*
+*Based on Constitution v0.4.0 - See `.specify/memory/constitution.md`*

@@ -1,18 +1,19 @@
 <!--
 Sync Impact Report
-- Version change: 0.2.0 → 0.3.0 (MINOR: added container deployability principle and constraints)
-- Modified principles:
-	* None (new principle added)
+- Version change: 0.3.0 → 0.4.0 (MINOR: added immutable task ledger & commit traceability + artifact hygiene enforcement)
+- Modified sections:
+	* Development Workflow & Quality Gates (added commit/task ledger gates)
+	* Governance (version/date line)
 - Added sections:
-	* XII. Container‑Deployable Deliverables
-	* Additional container constraints in Security & Operational Constraints
+	* XIII. Immutable Task Ledger & Commit Traceability
 - Removed sections: None
 - Templates requiring updates:
-	* ✅ .specify/templates/plan-template.md (footer updated to Constitution v0.3.0)
-	* ✅ .specify/templates/spec-template.md (no changes required)
-	* ✅ .specify/templates/tasks-template.md (no changes required)
-	* ⚠ .specify/templates/commands/* (directory not present)
-- Follow-up TODOs: None
+	* ✅ .specify/templates/plan-template.md (footer bumped to v0.4.0)
+	* ✅ .specify/templates/spec-template.md (no textual update required)
+	* ✅ .specify/templates/tasks-template.md (added ledger & commit rules)
+	* ✅ .specify/memory/constitution.md (this file)
+*- agent-file-template.md: no changes
+- Follow-up TODOs: Consider adding automated pre-commit hook to validate task ledger invariants (Deferred)
 -->
 
 # Censorr Homelab Service Constitution
@@ -82,6 +83,17 @@ All solutions MUST be straightforward to deploy as containers (Docker/Podman):
 - Prefer multi‑arch builds (amd64, arm64) or document supported arches.
 - Security: run as non‑root, least privileges; no secrets baked into images.
 
+### XIII. Immutable Task Ledger & Commit Traceability
+To preserve historical accuracy and ensure every change is transparent and reviewable:
+- Feature & Change Commits: Every feature, fix, or refactor that alters behavior MUST be represented by at least one commit that includes (a) the tests that initially failed, (b) the implementation that makes them pass, and (c) any required docs updates in the same commit series.
+- Append-Only Tasks: `tasks.md` is an immutable historical ledger. Existing task lines are NEVER deleted, renumbered, or repurposed. Completion is indicated ONLY by appending a stable marker (e.g., ✅) without altering the original description text (except optional trailing status token additions).
+- Corrections & Omissions: If a task was written incorrectly or incompletely, create a NEW follow-up task referencing the original ID instead of editing in place.
+- Ordering & IDs: Task IDs must not be reused. New tasks are appended after all existing tasks. Historical ordering is preserved forever.
+- Commit Referencing: Commits MUST reference all completed task IDs they satisfy (e.g., "Implements T029, T030" or a range when unambiguous). A PR is rejected if code changes appear without associated completed tasks.
+- Artifact Hygiene: No generated / transient / runtime / media / workdir / test-output artifacts may be committed. `.gitignore` MUST enumerate these. Adding a new category of generated artifact requires updating `.gitignore` in the SAME commit that introduces it.
+- Review Gate: Reviewers MUST block merges that (a) remove or rewrite historical tasks, (b) introduce behavior without task references, or (c) include prohibited artifacts.
+- Future Automation: A future guard script may enforce these invariants automatically; until implemented, manual review enforces them.
+
 ## Security & Operational Constraints
 
 - Runtime scope: Support Docker or Podman first; Compose/K8s support is additive and must not break the CLI contract.
@@ -100,6 +112,11 @@ All solutions MUST be straightforward to deploy as containers (Docker/Podman):
 - Build & Lint: Code must compile and lint cleanly. Pre‑commit hooks encouraged. CI must run tests and validate constitution checks where applicable.
 - Observability: Ensure structured logging fields and correlation IDs are present in both CLI and HTTP paths.
 - Versioning gate: Assign a version at merge; increment BUILD for any change; document breaking changes and provide migration notes.
+- Commit & Task Ledger Gates:
+	- Each commit introducing behavior MUST include: tests (failing first in history), implementation, and docs updates.
+	- No task modifications other than adding completion markers.
+	- CI / review MUST verify no prohibited artifacts are staged (sync with `.gitignore`).
+	- Commits missing task references are rejected.
 
 ## Governance
 
@@ -111,4 +128,4 @@ This constitution supersedes other practices for this repository. Amendments req
 
 All reviews must verify compliance with the Core Principles and Quality Gates. Complexity must be justified in the plan/spec. Deviations are recorded in "Complexity Tracking" within plans.
 
-**Version**: 0.3.0 | **Ratified**: 2025-09-14 | **Last Amended**: 2025-09-21
+**Version**: 0.4.0 | **Ratified**: 2025-09-14 | **Last Amended**: 2025-09-28
