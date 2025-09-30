@@ -1,5 +1,5 @@
 {
   "subtitle_title_exclude": ["sdh", "hi", "cc"],
   "verbose": true,
-  "output": "./config-test-output"
+  "output": "./output"
 }
