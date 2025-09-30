@@ -1,0 +1,29 @@
+# Example Censorr service fragment for Docker Compose aggregation
+# Merge into your main compose file list consumed by your Ansible role.
+
+services:
+  censorr:
+    image: "${CENSORR_IMAGE_REPO:-ghcr.io/jhaycr/censorr}:${CENSORR_IMAGE_TAG}"
+    container_name: ${CENSORR_CONTAINER_NAME:-censorr}
+    restart: unless-stopped
+    environment:
+      TZ: ${CENSORR_TZ:-UTC}
+      CENSORR_VERBOSE: ${CENSORR_VERBOSE:-false}
+      # Additional environment passed by role templating
+    volumes:
+      - /mnt/media:/media:ro
+      - /srv/censorr/work:/app/workdir:rw
+      # - /srv/censorr/logs:/app/logs:rw
+    labels:
+      org.censorr.service: "censorr"
+      org.censorr.version: "${CENSORR_IMAGE_TAG}"
+    healthcheck:
+      # Include only if health enabled via vars; placeholder example:
+      # test: ["CMD", "censorr", "--version"]
+      # interval: 30s
+      # timeout: 5s
+      # retries: 3
+      # start_period: 10s
+      # Disable placeholder by default to avoid invalid config
+      test: ["CMD-SHELL", "exit 0"]
+    # resources / deploy section may be added by role if supported
