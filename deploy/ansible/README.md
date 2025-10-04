@@ -1,6 +1,27 @@
-# Censorr Ansible Integration Artifacts
+# Censorr Ansible Integration Artifacts### Health Check Configuration
 
-These files support integrating the Censorr container into an external infrastructure-as-code repository (e.g., `nas-infra`) **without modifying existing Ansible roles**. Use as reference; copy into your infra repo where appropriate.
+Censorr containers can include health checks to monitor application status:
+
+```yaml
+# Deploy with health check enabled
+censorr_health_check_enabled: true
+censorr_health_check_interval: "30s"
+censorr_health_check_timeout: "10s"
+censorr_health_check_retries: 3
+```
+
+### Troubleshooting Health Issues
+
+Common health check problems and their solutions:
+
+| Symptom | Probable Cause | Solution |
+|---------|---------------|----------|
+| Health check "starting" → "unhealthy" | Application startup slow | Increase `censorr_health_check_timeout` or `censorr_health_check_retries` |
+| Immediate "unhealthy" status | Wrong health endpoint configured | Verify `censorr_health_check_test` matches application endpoint |
+| Intermittent health failures | Resource contention | Check CPU/memory limits, increase `censorr_health_check_interval` |
+| Health check never runs | Docker daemon issues | Restart Docker daemon, check container logs |
+| "starting" status persists | Application never ready | Check application logs, verify all dependencies available |
+| Health failures after deploy | Configuration mismatch | Compare deployed vs expected environment variables |iles support integrating the Censorr container into an external infrastructure-as-code repository (e.g., `nas-infra`) **without modifying existing Ansible roles**. Use as reference; copy into your infra repo where appropriate.
 
 ## Files
 - `vars.example.yml` – Suggested variable structure for group_vars/host_vars.
@@ -37,7 +58,71 @@ org.censorr.version: <resolved image tag>
 ```
 Extend with `censorr_labels` if needed.
 
-## Health Check (Optional)
+## Post-Deployment Operations
+
+### Export Image Digest (Automation Readiness)
+
+After successful deployment, capture the deployed image digest for future automation:
+
+```bash
+# Export actual deployed image digest
+docker inspect censorr --format='{{.Image}}' > censorr-deployed-digest.txt
+
+# Alternative: Get digest from registry
+docker image inspect censorr:latest --format='{{index .RepoDigests 0}}' >> deployment-log.txt
+```
+
+## Future Enhancements
+
+The following features are planned for future releases:
+
+### Deferred Features
+- **Automatic Rollback**: Automated rollback based on health check failures
+- **Prometheus Integration**: Extended container labels for metrics collection  
+- **Digest Pin Helper**: Utility script to automatically pin to latest stable digest
+- **Multi-Environment Support**: Environment-specific configuration templates
+- **Backup Integration**: Automated volume backup before deployments
+
+### Monitoring Extensions
+- **Traefik Label Automation**: Dynamic service discovery configuration
+- **Log Aggregation**: Structured logging with centralized collection
+- **Performance Metrics**: Container resource usage tracking
+
+## Contributing to Integration Artifacts
+
+### Updating Deployment Configuration
+
+When modifying integration artifacts, follow these rules:
+
+1. **Task Ledger Updates**: Any changes to deployment behavior must be tracked in `/specs/002-integrate-existing-docker/tasks.md`
+2. **Documentation Sync**: Keep `README.md` examples aligned with `vars.example.yml` defaults
+3. **Validation Script**: Update `/scripts/validate_deployment.py` schema when adding new configuration options
+4. **Contract Tests**: Add test cases in `/tests/contract/` for new validation scenarios
+
+### Testing Integration Changes
+
+Before submitting changes:
+
+```bash
+# Validate example configuration
+python3 scripts/validate_deployment.py deploy/ansible/vars.example.yml
+
+# Run contract tests  
+python3 -m pytest tests/contract/test_validate_deployment_config.py -v
+
+# Test actual deployment (if possible)
+python3 scripts/validate_deployment.py /path/to/your/config.yml --runtime-check
+```
+
+### Integration Artifact Paths
+
+- Configuration: `deploy/ansible/vars.example.yml`
+- Documentation: `deploy/ansible/README.md`  
+- Validation: `scripts/validate_deployment.py`
+- Tests: `tests/contract/test_validate_deployment_config.py`
+- Planning: `specs/002-integrate-existing-docker/`
+
+These enhancements will be considered based on user feedback and ecosystem maturity.
 ```yaml
 censorr_health:
   command: ["censorr", "--version"]

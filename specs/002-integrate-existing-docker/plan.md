@@ -217,5 +217,37 @@ No added complexity beyond additional documentation directory (`deploy/ansible/`
 - [ ] All NEEDS CLARIFICATION resolved
 - [x] Complexity deviations documented
 
+## Functional Requirements → Tasks Mapping
+
+This table cross-references functional requirements from the specification to their implementing tasks:
+
+| Functional Requirement | Implementing Tasks | Status |
+|------------------------|-------------------|---------|
+| FR-001 vars.yml template | T001, T002, T003 | ✅ Complete |
+| FR-002 example integration | T004, T005 | ✅ Complete |
+| FR-003 env → CLI mapping | T008, T009 | ✅ Complete |
+| FR-004 volume management | T006, T007 | ✅ Complete |
+| FR-005 multi-arch deployment | T011 | ✅ Complete |
+| FR-006 health check | T012, T031 | ✅ Complete |
+| FR-007 labels | T019, T032 | ✅ Complete |
+| FR-008 secrets handling | T013, T014 | ✅ Complete |
+| FR-009 env override pattern | T015, T016 | ✅ Complete |
+| FR-010 digest pinning | T017, T018 | ✅ Complete |
+| FR-011 resource limits | T020 | ✅ Complete |
+| FR-012 network config | T022 | ✅ Complete |
+| FR-013 rollback manual | T010, T021 (auto rollback deferred: T036) | ✅ Complete |
+| FR-014 troubleshooting | T023, T031 | ✅ Complete |
+| FR-015 config validation | T024, T025, T026, T027 | ✅ Complete |
+| FR-016 runtime validation | T028, T029, T030 | ✅ Complete |
+| FR-017 integration docs | T001-T023 | ✅ Complete |
+| FR-018 error messages | T024-T030 | ✅ Complete |
+| FR-019 update channel/tag pattern | Clarification T036/T038 (deferred) | ⏳ Deferred |
+
+### Clarification Task Status
+- T036: Automatic rollback mechanism (stakeholder decision pending)
+- T037: Monitoring/label ecosystem requirements (stakeholder decision pending)  
+- T038: Max no-op deploy time threshold (stakeholder decision pending)
+- T039: Secrets `_FILE` injection pattern (stakeholder decision pending)
+
 ---
 *Based on Constitution v0.4.0 - See `.specify/memory/constitution.md`*

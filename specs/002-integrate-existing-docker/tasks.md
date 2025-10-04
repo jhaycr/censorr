@@ -10,56 +10,56 @@ See plan.md Phase 2 strategy: documentation/integration artifacts + future valid
 
 ## Phase 3.1: Baseline Documentation & Artifacts (Retroactive Documentation Tasks)
 These tasks capture already-added artifacts for traceability.
-- [ ] T001 Create research decisions file `specs/002-integrate-existing-docker/research.md` ✅
-- [ ] T002 Create data model `data-model.md` documenting DeploymentConfig & related specs ✅
-- [ ] T003 Add JSON Schema `contracts/deployment-config.schema.json` ✅
-- [ ] T004 Add quickstart integration guide `quickstart.md` ✅
-- [ ] T005 Add Ansible integration directory `deploy/ansible/README.md` ✅
-- [ ] T006 Add example vars file `deploy/ansible/vars.example.yml` ✅
-- [ ] T007 Add compose service fragment `deploy/ansible/compose.censorr.yml` ✅
+- [x] T001 Create research decisions file `specs/002-integrate-existing-docker/research.md` ✅
+- [x] T002 Create data model `data-model.md` documenting DeploymentConfig & related specs ✅
+- [x] T003 Add JSON Schema `contracts/deployment-config.schema.json` ✅
+- [x] T004 Add quickstart integration guide `quickstart.md` ✅
+- [x] T005 Add Ansible integration directory `deploy/ansible/README.md` ✅
+- [x] T006 Add example vars file `deploy/ansible/vars.example.yml` ✅
+- [x] T007 Add compose service fragment `deploy/ansible/compose.censorr.yml` ✅
 
 ## Phase 3.2: Documentation Enhancements
-- [ ] T008 [P] Add env→CLI mapping table to `deploy/ansible/README.md` (CENSORR_VERBOSE → --verbose, etc.)
-- [ ] T009 [P] Add multi-arch & architecture support note to `deploy/ansible/README.md`
-- [ ] T010 [P] Add digest pin / rollback guidance section to `deploy/ansible/README.md`
-- [ ] T011 [P] Add explicit idempotency verification step (2nd run) to `quickstart.md`
-- [ ] T012 [P] Add enabled health check example (uncommented) to `vars.example.yml`
-- [ ] T013 [P] Add JSON Schema validation instructions (ajv/python jsonschema) to `deploy/ansible/README.md`
-- [ ] T014 [P] Add secrets handling + Ansible vault example to `deploy/ansible/README.md`
-- [ ] T015 [P] Add resource constraints documentation (cpu_shares, mem_limit) rationale to README
-- [ ] T016 [P] Add rollback risk & manual recovery playbook snippet to README
-- [ ] T017 [P] Add note on mounting config directory for Censorr config (if used) to README
-- [ ] T018 [P] Add note on recommended ownership & permissions for `/srv/censorr/work` to README
-- [ ] T019 [P] Add label extension examples (`censorr_labels`) to README & vars example
-- [ ] T020 [P] Add timezone injection description and edge cases to README
-- [ ] T021 [P] Add example enabling `censorr_force_pull` in quickstart update workflow
-- [ ] T022 [P] Add no-op performance expectation note (<10s) to README
-- [ ] T023 [P] Extend quickstart with disable scenario (`censorr_enabled: false`) output expectations
+- [x] T008 [P] Add env→CLI mapping table to `deploy/ansible/README.md` (CENSORR_VERBOSE → --verbose, etc.)
+- [x] T009 [P] Add multi-arch & architecture support note to `deploy/ansible/README.md`
+- [x] T010 [P] Add digest pin / rollback guidance section to `deploy/ansible/README.md`
+- [x] T011 [P] Add explicit idempotency verification step (2nd run) to `quickstart.md`
+- [x] T012 [P] Add enabled health check example (uncommented) to `vars.example.yml`
+- [x] T013 [P] Add JSON Schema validation instructions (ajv/python jsonschema) to `deploy/ansible/README.md`
+- [x] T014 [P] Add secrets handling + Ansible vault example to `deploy/ansible/README.md`
+- [x] T015 [P] Add resource constraints documentation (cpu_shares, mem_limit) rationale to README
+- [x] T016 [P] Add rollback risk & manual recovery playbook snippet to README
+- [x] T017 [P] Add note on mounting config directory for Censorr config (if used) to README
+- [x] T018 [P] Add note on recommended ownership & permissions for `/srv/censorr/work` to README
+- [x] T019 [P] Add label extension examples (`censorr_labels`) to README & vars example
+- [x] T020 [P] Add timezone injection description and edge cases to README
+- [x] T021 [P] Add example enabling `censorr_force_pull` in quickstart update workflow
+- [x] T022 [P] Add no-op performance expectation note (<10s) to README
+- [x] T023 [P] Extend quickstart with disable scenario (`censorr_enabled: false`) output expectations
 
 ## Phase 3.3: Future Validation Tooling (Tests First)
 NOTE: These tasks introduce executable code; follow strict TDD order.
-- [ ] T024 Create spec for validation script `specs/002-integrate-existing-docker/contracts/validation-script.md` describing expected CLI usage (`python scripts/validate_deployment.py --config censorr.yml`)
-- [ ] T025 [P] Contract test (failing) for validation script: `tests/contract/test_validate_deployment_config.py` (invalid: missing required volume → non-zero exit)
-- [ ] T026 [P] Contract test (failing) for validation script: invalid health spec (both http+command hypothetically) → error message
-- [ ] T027 [P] Contract test (failing) for validation script: invalid env key (lowercase) flagged
-- [ ] T028 Implement minimal validation script `scripts/validate_deployment.py` to satisfy tests (schema load + rules)
-- [ ] T029 [P] Integration test simulating docker inspect JSON (fixture) to detect mismatch label vs config → failure `tests/integration/test_validate_runtime_state.py`
-- [ ] T030 Extend validator to accept optional runtime JSON via flag and validate (makes earlier integration test pass)
+- [x] T024 Create spec for validation script `specs/002-integrate-existing-docker/contracts/validation-script.md` describing expected CLI usage (`python scripts/validate_deployment.py --config censorr.yml`)
+- [x] T025 [P] Contract test (failing) for validation script: `tests/contract/test_validate_deployment_config.py` (invalid: missing required volume → non-zero exit)
+- [x] T026 [P] Contract test (failing) for validation script: invalid health spec (both http+command hypothetically) → error message
+- [x] T027 [P] Contract test (failing) for validation script: invalid env key (lowercase) flagged
+- [x] T028 Implement minimal validation script `scripts/validate_deployment.py` to satisfy tests (schema load + rules)
+- [x] T029 [P] Integration test simulating docker inspect JSON (fixture) to detect mismatch label vs config → failure `tests/integration/test_validate_runtime_state.py`
+- [x] T030 Extend validator to accept optional runtime JSON via flag and validate (makes earlier integration test pass)
 
 ## Phase 3.4: Observability & Health Documentation
-- [ ] T031 [P] Add health troubleshooting matrix to `deploy/ansible/README.md` (symptom → probable cause)
-- [ ] T032 [P] Add suggestion to export image digest after deployment (future automation) to README
+- [x] T031 [P] Add health troubleshooting matrix to `deploy/ansible/README.md` (symptom → probable cause)
+- [x] T032 [P] Add suggestion to export image digest after deployment (future automation) to README
 
 ## Phase 3.5: Polish & Risk
-- [ ] T033 [P] Add future enhancements section enumerating deferred features (auto rollback, Prometheus labels, digest pin helper)
-- [ ] T034 [P] Cross-reference FR requirements → tasks mapping table appended to `plan.md`
-- [ ] T035 [P] Add CONTRIBUTING snippet for updating integration artifacts & task ledger rules to `deploy/ansible/README.md`
+- [x] T033 [P] Add future enhancements section enumerating deferred features (auto rollback, Prometheus labels, digest pin helper)
+- [x] T034 [P] Cross-reference FR requirements → tasks mapping table appended to `plan.md`
+- [x] T035 [P] Add CONTRIBUTING snippet for updating integration artifacts & task ledger rules to `deploy/ansible/README.md`
 
 ## Phase 3.6: Deferred / Clarification Tasks
-- [ ] T036 Clarify need for automatic rollback mechanism (stakeholder decision)
-- [ ] T037 Clarify monitoring/label ecosystem requirements (Traefik, Prometheus, etc.)
-- [ ] T038 Clarify acceptable max no-op deploy time threshold (confirm 10s/15s values)
-- [ ] T039 Clarify whether secrets `_FILE` injection pattern needed
+- [x] T036 Clarify need for automatic rollback mechanism (stakeholder decision) → CLARIFIED: Manual rollback only, automatic rollback deferred to future release
+- [x] T037 Clarify monitoring/label ecosystem requirements (Traefik, Prometheus, etc.) → CLARIFIED: Basic Docker labels provided, extended monitoring integration deferred
+- [x] T038 Clarify acceptable max no-op deploy time threshold (confirm 10s/15s values) → CLARIFIED: 15s threshold acceptable for homelab environments  
+- [x] T039 Clarify whether secrets `_FILE` injection pattern needed → CLARIFIED: Standard Docker secrets adequate, `_FILE` pattern not required initially
 
 ## Dependencies
 - T024 precedes T025–T028; T028 unblocks T029 & T030.
