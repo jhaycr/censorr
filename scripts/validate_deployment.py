@@ -249,11 +249,33 @@ class DeploymentValidator:
     
     def _validate_required_fields(self, config: Dict[str, Any]):
         """Validate required configuration fields."""
-        required_fields = ['censorr_enabled', 'censorr_image_repo', 'censorr_image_tag', 'censorr_volumes']
+        # Check mutual exclusivity: image vs build mode
+        has_image_config = bool(config.get('censorr_image_repo') and config.get('censorr_image_tag'))
+        has_build_config = bool(config.get('censorr_build_enabled'))
+        
+        if has_build_config and config.get('censorr_build_enabled'):
+            if has_image_config:
+                self.result.add_error("Cannot specify both image configuration (censorr_image_repo/censorr_image_tag) and build mode (censorr_build_enabled: true)")
+            
+            # Validate build mode requirements
+            if not config.get('censorr_git_repo'):
+                self.result.add_error("Build mode enabled but censorr_git_repo not specified")
+            if not config.get('censorr_git_ref'):
+                self.result.add_error("Build mode enabled but censorr_git_ref not specified")
+                
+            # Build mode has different required fields
+            required_fields = ['censorr_enabled', 'censorr_build_enabled', 'censorr_git_repo', 'censorr_git_ref', 'censorr_volumes']
+        else:
+            # Standard image mode required fields
+            required_fields = ['censorr_enabled', 'censorr_image_repo', 'censorr_image_tag', 'censorr_volumes']
         
         for field in required_fields:
             if field not in config:
                 self.result.add_error(f"Missing required field: {field}")
+                
+        # Ensure at least one mode is specified
+        if not has_build_config and not has_image_config:
+            self.result.add_error("Must specify either image configuration (censorr_image_repo + censorr_image_tag) or enable build mode (censorr_build_enabled: true)")
     
     def _validate_volumes(self, config: Dict[str, Any]):
         """Validate volume configuration."""

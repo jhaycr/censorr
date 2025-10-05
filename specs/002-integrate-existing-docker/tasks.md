@@ -37,16 +37,16 @@ These tasks capture already-added artifacts for traceability.
 - [x] T023 [P] Extend quickstart with disable scenario (`censorr_enabled: false`) output expectations
 
 ## Phase 3.2b: Build-from-Source (Private Repo) Additions
-- [ ] T023.1 Add Dockerfile template capable of cloning private repo via BuildKit secret
-- [ ] T023.2 Update `deploy/ansible/compose.censorr.yml` to support build section when `censorr_build_enabled: true`
-- [ ] T023.3 Extend `vars.example.yml` with build-mode variables: `censorr_build_enabled`, `censorr_git_repo`, `censorr_git_ref`, `censorr_dockerfile`, and document `censorr_git_token` (vault)
-- [ ] T023.4 Add README instructions for enabling BuildKit and passing secrets with Ansible (no_log) and how to run a build
-- [ ] T023.5 Add validation script checks for mutually exclusive image vs build configuration
+- [x] T023.1 Add Dockerfile template capable of cloning private repo via BuildKit secret
+- [x] T023.2 Update `deploy/ansible/compose.censorr.yml` to support build section when `censorr_build_enabled: true`
+- [x] T023.3 Extend `vars.example.yml` with build-mode variables: `censorr_build_enabled`, `censorr_git_repo`, `censorr_git_ref`, `censorr_dockerfile`, and document `censorr_git_token` (vault)
+- [x] T023.4 Add README instructions for enabling BuildKit and passing secrets with Ansible (no_log) and how to run a build
+- [x] T023.5 Add validation script checks for mutually exclusive image vs build configuration
 
 ## Phase 3.2c: Media Mount Standardization
-- [ ] T023.6 Update compose fragment to mount TV and Movies to /data/media/tv and /data/media/movies (container paths)
-- [ ] T023.7 Extend vars with `censorr_tv_path_host` and `censorr_movies_path_host` and migrate examples
-- [ ] T023.8 Update README with new internal paths and rationale
+- [x] T023.6 Update compose fragment to mount TV and Movies to /data/media/tv and /data/media/movies (container paths)
+- [x] T023.7 Extend vars with `censorr_tv_path_host` and `censorr_movies_path_host` and migrate examples
+- [x] T023.8 Update README with new internal paths and rationale
 
 ## Phase 3.3: Future Validation Tooling (Tests First)
 NOTE: These tasks introduce executable code; follow strict TDD order.
@@ -58,8 +58,8 @@ NOTE: These tasks introduce executable code; follow strict TDD order.
 - [x] T029 [P] Integration test simulating docker inspect JSON (fixture) to detect mismatch label vs config → failure `tests/integration/test_validate_runtime_state.py`
 
 ## Phase 3.3b: Validation Updates for Build Mode
-- [ ] T029.1 Contract test: invalid when both image and build enabled
-- [ ] T029.2 Contract test: invalid when build enabled but git repo/ref missing
+- [x] T029.1 Contract test: invalid when both image and build enabled
+- [x] T029.2 Contract test: invalid when build enabled but git repo/ref missing
 - [x] T030 Extend validator to accept optional runtime JSON via flag and validate (makes earlier integration test pass)
 
 ## Phase 3.4: Observability & Health Documentation
