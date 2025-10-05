@@ -43,6 +43,11 @@ These tasks capture already-added artifacts for traceability.
 - [ ] T023.4 Add README instructions for enabling BuildKit and passing secrets with Ansible (no_log) and how to run a build
 - [ ] T023.5 Add validation script checks for mutually exclusive image vs build configuration
 
+## Phase 3.2c: Media Mount Standardization
+- [ ] T023.6 Update compose fragment to mount TV and Movies to /data/media/tv and /data/media/movies (container paths)
+- [ ] T023.7 Extend vars with `censorr_tv_path_host` and `censorr_movies_path_host` and migrate examples
+- [ ] T023.8 Update README with new internal paths and rationale
+
 ## Phase 3.3: Future Validation Tooling (Tests First)
 NOTE: These tasks introduce executable code; follow strict TDD order.
 - [x] T024 Create spec for validation script `specs/002-integrate-existing-docker/contracts/validation-script.md` describing expected CLI usage (`python scripts/validate_deployment.py --config censorr.yml`)

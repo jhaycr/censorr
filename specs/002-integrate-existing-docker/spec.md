@@ -41,6 +41,7 @@ As a NAS administrator maintaining infrastructure-as-code via Ansible, I want th
 7. **Given** log retention settings are configured via environment or volume mapping, **When** the container runs for multiple days, **Then** logs persist according to retention policy (externalized if volume configured) and are not lost on restart.
 8. **Given** a health check configuration (interval, retries) is defined in vars, **When** the container starts, **Then** the health status transitions from starting to healthy within the expected grace period assuming the tool is functional.
 9. **Given** the Censorr source is hosted in a private Git repository, **When** I enable a build-from-source mode and provide a Git access token via BuildKit secret in Ansible, **Then** the Docker image is built via a Dockerfile that clones the repo using the secret (not written to layers/logs) and the resulting container deploys successfully.
+10. **Given** the NAS stores media at separate roots for TV and Movies, **When** I deploy Censorr, **Then** the container has read access to TV at `/data/media/tv` and Movies at `/data/media/movies` inside the container via bind mounts.
 
 ### Edge Cases
 - What happens when the specified image tag does not exist? → Deployment should fail clearly; no partial container left running. [NEEDS CLARIFICATION: Should there be an optional fallback to `latest`?]
@@ -56,7 +57,7 @@ As a NAS administrator maintaining infrastructure-as-code via Ansible, I want th
 ### Functional Requirements
 - **FR-001**: System MUST define a declarative variable structure for enabling/disabling the Censorr deployment.
 - **FR-002**: System MUST allow specifying the Docker image (registry, repository, tag) for Censorr.
-- **FR-003**: System MUST support configuring mapped volumes for: media input (read), work/output, configuration, and optional logs directory.
+- **FR-003**: System MUST support configuring mapped volumes for: media input (read), work/output, configuration, and optional logs directory; media MUST be available inside the container at `/data/media/tv` and `/data/media/movies` (bind mounts), with host paths configurable via vars.
 - **FR-004**: System MUST allow specifying environment variables (key-value map) including override and remove semantics. [NEEDS CLARIFICATION: Is remove semantic required or just override?]
 - **FR-005**: System MUST apply a restart policy (default: unless-stopped) configurable via variable.
 - **FR-006**: System MUST support optional health check definition (command or HTTP endpoint, interval, timeout, retries, start period).

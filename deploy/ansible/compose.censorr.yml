@@ -20,7 +20,10 @@ services:
       CENSORR_VERBOSE: ${CENSORR_VERBOSE:-false}
       # Additional environment passed by role templating
     volumes:
-      - /mnt/media:/media:ro
+      # Media mounts (host paths templated via vars)
+      - ${CENSORR_TV_HOST_PATH:-/mnt/media/tv}:/data/media/tv:ro
+      - ${CENSORR_MOVIES_HOST_PATH:-/mnt/media/movies}:/data/media/movies:ro
+      # Work directory (writeable)
       - /srv/censorr/work:/app/workdir:rw
       # - /srv/censorr/logs:/app/logs:rw
     labels:

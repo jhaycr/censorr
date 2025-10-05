@@ -23,7 +23,8 @@ censorr_group_id: null
 
 # Required volumes (adjust host paths)
 censorr_volumes:
-  - { host: /mnt/media, container: /media, mode: ro }
+  - { host: "{{ censorr_tv_path_host | default('/mnt/media/tv') }}", container: /data/media/tv, mode: ro }
+  - { host: "{{ censorr_movies_path_host | default('/mnt/media/movies') }}", container: /data/media/movies, mode: ro }
   - { host: /srv/censorr/work, container: /app/workdir, mode: rw }
 
 # Optional log volume (example)
@@ -35,6 +36,10 @@ censorr_env:
   CENSORR_VERBOSE: "true"
   # CENSORR_JOBS: "4"
   # CENSORR_SIDEcar_TAG: "clean"
+
+# Host media path variables (optional overrides)
+censorr_tv_path_host: /mnt/media/tv
+censorr_movies_path_host: /mnt/media/movies
 
 # Additional labels
 censorr_labels: {}

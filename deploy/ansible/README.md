@@ -51,6 +51,18 @@ Common health check problems and their solutions:
 | censorr_mem_limit | Memory limit | No | null |
 | censorr_timezone | Inject TZ env | No | null |
 
+### Media Mounts (Standardized Internal Paths)
+
+- Inside container, media paths are standardized:
+  - TV: `/data/media/tv`
+  - Movies: `/data/media/movies`
+- Configure host paths via:
+  - `censorr_tv_path_host` (default: `/mnt/media/tv`)
+  - `censorr_movies_path_host` (default: `/mnt/media/movies`)
+- The example volumes in `vars.example.yml` bind these host paths read-only to the standardized internal paths.
+
+Migration note: if you previously mounted all media at `/media`, update your workflows or add compatibility bind mounts if needed.
+
 ## Base Labels
 ```
 org.censorr.service: censorr

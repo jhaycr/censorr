@@ -31,6 +31,13 @@ For environments that cannot pull a prebuilt image, provide an alternative path:
    - `censorr_build_context`: path to build context (default: repo root)
    - `censorr_dockerfile`: path to Dockerfile (default: ./Dockerfile)
 - Compose integration: switch from image: to build: section when build mode is enabled; ensure BuildKit is set and secrets passed.
+
+## Media Mounts Standardization
+Use consistent internal container paths for media:
+
+- Inside container: `/data/media/tv` and `/data/media/movies`
+- Expose variables for host paths, e.g., `censorr_tv_path_host` and `censorr_movies_path_host`
+- Update compose fragment and vars to reflect these defaults and ensure read-only mounts for media.
 6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code or `AGENTS.md` for opencode).
 7. Re-evaluate Constitution Check section
    → If new violations: Refactor design, return to Phase 1
