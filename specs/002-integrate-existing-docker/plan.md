@@ -18,6 +18,19 @@
    → Update Progress Tracking: Initial Constitution Check
 5. Execute Phase 0 → research.md
    → If NEEDS CLARIFICATION remain: ERROR "Resolve unknowns"
+
+## Build-from-Source Path (Private Repo)
+For environments that cannot pull a prebuilt image, provide an alternative path:
+
+- Introduce a build flag (e.g., `censorr_build_enabled: true|false`).
+- When enabled, use a Dockerfile that clones the private Git repo and builds the image.
+- Use Docker BuildKit secrets to inject the Git token securely (`--secret id=git_token`), sourced from Ansible vault variable (e.g., `censorr_git_token`).
+- Expose variables:
+   - `censorr_git_repo`: git+https URL (e.g., https://github.com/jhaycr/censorr_private.git)
+   - `censorr_git_ref`: branch, tag, or commit (e.g., main or v0.1.0)
+   - `censorr_build_context`: path to build context (default: repo root)
+   - `censorr_dockerfile`: path to Dockerfile (default: ./Dockerfile)
+- Compose integration: switch from image: to build: section when build mode is enabled; ensure BuildKit is set and secrets passed.
 6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code or `AGENTS.md` for opencode).
 7. Re-evaluate Constitution Check section
    → If new violations: Refactor design, return to Phase 1

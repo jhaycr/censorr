@@ -40,6 +40,7 @@ As a NAS administrator maintaining infrastructure-as-code via Ansible, I want th
 6. **Given** a corrupted or failing container (non-zero restart loop), **When** I re-run the playbook, **Then** the idempotent deployment enforces the desired healthy state (pull latest image, recreate) unless an explicit rollback pin is configured.
 7. **Given** log retention settings are configured via environment or volume mapping, **When** the container runs for multiple days, **Then** logs persist according to retention policy (externalized if volume configured) and are not lost on restart.
 8. **Given** a health check configuration (interval, retries) is defined in vars, **When** the container starts, **Then** the health status transitions from starting to healthy within the expected grace period assuming the tool is functional.
+9. **Given** the Censorr source is hosted in a private Git repository, **When** I enable a build-from-source mode and provide a Git access token via BuildKit secret in Ansible, **Then** the Docker image is built via a Dockerfile that clones the repo using the secret (not written to layers/logs) and the resulting container deploys successfully.
 
 ### Edge Cases
 - What happens when the specified image tag does not exist? → Deployment should fail clearly; no partial container left running. [NEEDS CLARIFICATION: Should there be an optional fallback to `latest`?]
@@ -83,6 +84,8 @@ As a NAS administrator maintaining infrastructure-as-code via Ansible, I want th
 - **FR-028**: System MUST support optional schedule integration (e.g., systemd timer / cron outside scope) documented as out-of-scope for this role (clarify boundaries).
 - **FR-029**: System MUST allow enabling structured logging volume (if tool supports) via variable.
 - **FR-030**: System MUST produce a summary output at end of play: deployed image tag, container name, health status (if health check defined).
+- **FR-031**: System MUST support an alternative "build mode" that builds a Docker image from a Dockerfile which clones the private Censorr Git repository, using BuildKit secrets for Git credentials.
+- **FR-032**: System MUST provide variables for Git repository URL and ref (branch/tag/commit) and a secure way to inject the Git token to the build (via Ansible vault → BuildKit secret), without persisting the secret in image layers or logs.
 
 ### Non-Functional / Operational Requirements
 - **NFR-001**: Deployment MUST be idempotent (zero changes on second run with identical inputs).
@@ -91,6 +94,7 @@ As a NAS administrator maintaining infrastructure-as-code via Ansible, I want th
 - **NFR-004**: Average deployment execution time SHOULD remain under 10s when no changes needed. [NEEDS CLARIFICATION: Acceptable upper bound?]
 - **NFR-005**: Health check failure SHOULD produce actionable remediation guidance in message text.
 - **NFR-006**: Documentation MUST be sufficient for a new operator to replicate deployment using only example vars file + README snippet.
+- **NFR-007**: Build mode MUST NOT leak Git tokens in build cache, image layers, or logs; tokens MUST be provided via BuildKit secrets and marked no_log in Ansible.
 
 ### Key Entities
 - **DeploymentConfig**: Declarative configuration defined in Ansible vars (image, tag, volumes, env, health, restart policy, enabled flag, resources, labels).

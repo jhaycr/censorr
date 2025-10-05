@@ -7,6 +7,15 @@ censorr_image_repo: ghcr.io/jhaycr/censorr
 censorr_image_tag: v0.1.0
 censorr_force_pull: false
 
+# Optional: Build from private Git repo instead of pulling image
+censorr_build_enabled: false
+censorr_git_repo: https://github.com/jhaycr/censorr_private.git
+censorr_git_ref: main
+censorr_dockerfile: Dockerfile
+# Provide Git token via BuildKit secret; recommend storing in Ansible Vault as a file or variable
+# Example approach (inventory): censorr_git_token: "{{ vault_censorr_git_token }}" (no_log)
+# And render to a temporary file for BuildKit: CENSORR_GIT_TOKEN_FILE=/run/ansible/censorr_git_token
+
 censorr_container_name: censorr
 # Optional UID/GID if running non-root inside container (image must support)
 censorr_user_id: null

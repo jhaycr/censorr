@@ -3,7 +3,16 @@
 
 services:
   censorr:
+    # One of the following will be used depending on Ansible templating:
+    # - image: ... (default)
+    # - build: ... (when censorr_build_enabled: true)
     image: "${CENSORR_IMAGE_REPO:-ghcr.io/jhaycr/censorr}:${CENSORR_IMAGE_TAG}"
+    # build:
+    #   context: ${CENSORR_BUILD_CONTEXT:-.}
+    #   dockerfile: ${CENSORR_DOCKERFILE:-Dockerfile}
+    #   x-bake:
+    #     secrets:
+    #       - id=git_token,src=${CENSORR_GIT_TOKEN_FILE}
     container_name: ${CENSORR_CONTAINER_NAME:-censorr}
     restart: unless-stopped
     environment:

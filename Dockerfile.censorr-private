@@ -1,0 +1,36 @@
+# Build Censorr from private Git repository using BuildKit secrets
+# Usage: docker build --secret id=git_token,src=/path/to/token -f Dockerfile.censorr-private .
+
+# syntax=docker/dockerfile:1.7-labs
+FROM python:3.12-slim as base
+
+# Accept repo and ref as build args
+ARG GIT_REPO
+ARG GIT_REF=main
+
+# BuildKit secret: git_token
+# Use MinGit strategy via HTTPS to avoid SSH keys; token used in header
+RUN --mount=type=secret,id=git_token,target=/run/secrets/git_token,required=true \
+    set -euo pipefail && \
+    apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* && \
+    TOKEN=$(cat /run/secrets/git_token) && \
+    git config --global url."https://oauth2:${TOKEN}@".insteadOf "https://" && \
+    git clone --depth 1 --branch "${GIT_REF}" "${GIT_REPO}" /src && \
+    git -C /src rev-parse HEAD > /src/.git-commit && \
+    git -C /src rev-parse --abbrev-ref HEAD > /src/.git-ref || true
+
+WORKDIR /src
+
+# Install runtime deps if repo contains pyproject/requirements
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi && \
+    if [ -f pyproject.toml ]; then pip install --no-cache-dir .; fi
+
+# Final image
+FROM python:3.12-slim
+COPY --from=base /src /app
+WORKDIR /app
+
+# Define default entrypoint if the repo provides CLI
+# Override as needed in compose
+ENTRYPOINT ["python", "-m", "src.cli.main"]

@@ -58,6 +58,32 @@ org.censorr.version: <resolved image tag>
 ```
 Extend with `censorr_labels` if needed.
 
+## Build from Private Git Repo (Optional)
+
+If you cannot or prefer not to pull a prebuilt image, you can build from the private Censorr Git repo using Docker BuildKit secrets for Git tokens.
+
+1) Enable Build Mode in vars:
+
+```yaml
+censorr_build_enabled: true
+censorr_git_repo: https://github.com/jhaycr/censorr_private.git
+censorr_git_ref: main   # or tag/commit
+censorr_dockerfile: Dockerfile
+```
+
+2) Provide Git token securely via Ansible Vault and BuildKit secret:
+
+- Store token in vault (e.g., `vault_censorr_git_token`).
+- In your role/tasks, render it to a temp file with `no_log: true` and pass to build as secret env/file.
+- Example BuildKit secret mapping (conceptual): `--secret id=git_token,src={{ censorr_git_token_file }}`
+
+3) Compose fragment:
+
+- When `censorr_build_enabled: true`, switch from `image:` to a `build:` block with `context`, `dockerfile`, and BuildKit `secrets`.
+- Ensure BuildKit is enabled on the target host (DOCKER_BUILDKIT=1).
+
+Security: The Git token must not appear in logs or image layers. Use BuildKit secrets and `no_log` on Ansible tasks.
+
 ## Post-Deployment Operations
 
 ### Export Image Digest (Automation Readiness)

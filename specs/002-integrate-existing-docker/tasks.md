@@ -36,6 +36,13 @@ These tasks capture already-added artifacts for traceability.
 - [x] T022 [P] Add no-op performance expectation note (<10s) to README
 - [x] T023 [P] Extend quickstart with disable scenario (`censorr_enabled: false`) output expectations
 
+## Phase 3.2b: Build-from-Source (Private Repo) Additions
+- [ ] T023.1 Add Dockerfile template capable of cloning private repo via BuildKit secret
+- [ ] T023.2 Update `deploy/ansible/compose.censorr.yml` to support build section when `censorr_build_enabled: true`
+- [ ] T023.3 Extend `vars.example.yml` with build-mode variables: `censorr_build_enabled`, `censorr_git_repo`, `censorr_git_ref`, `censorr_dockerfile`, and document `censorr_git_token` (vault)
+- [ ] T023.4 Add README instructions for enabling BuildKit and passing secrets with Ansible (no_log) and how to run a build
+- [ ] T023.5 Add validation script checks for mutually exclusive image vs build configuration
+
 ## Phase 3.3: Future Validation Tooling (Tests First)
 NOTE: These tasks introduce executable code; follow strict TDD order.
 - [x] T024 Create spec for validation script `specs/002-integrate-existing-docker/contracts/validation-script.md` describing expected CLI usage (`python scripts/validate_deployment.py --config censorr.yml`)
@@ -44,6 +51,10 @@ NOTE: These tasks introduce executable code; follow strict TDD order.
 - [x] T027 [P] Contract test (failing) for validation script: invalid env key (lowercase) flagged
 - [x] T028 Implement minimal validation script `scripts/validate_deployment.py` to satisfy tests (schema load + rules)
 - [x] T029 [P] Integration test simulating docker inspect JSON (fixture) to detect mismatch label vs config → failure `tests/integration/test_validate_runtime_state.py`
+
+## Phase 3.3b: Validation Updates for Build Mode
+- [ ] T029.1 Contract test: invalid when both image and build enabled
+- [ ] T029.2 Contract test: invalid when build enabled but git repo/ref missing
 - [x] T030 Extend validator to accept optional runtime JSON via flag and validate (makes earlier integration test pass)
 
 ## Phase 3.4: Observability & Health Documentation
