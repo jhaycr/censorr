@@ -173,7 +173,7 @@ Create `config/censorr.json` in your project:
         "profanity_list_file": "config/profanity_list.json"
       },
       "language_selector": { "prefer_non_sdh": true },
-      "output": { "in_place": true, "embed_muted_audio": true },
+      "output": { "in_place": false, "embed_muted_audio": true, "output_mode": "REMUX_NEW_FILE" },
       "backup_default": false
     },
     "tv": {
@@ -191,7 +191,11 @@ Create `config/censorr.json` in your project:
         "profanity_list_file": "config/profanity_list.json"
       },
       "language_selector": { "prefer_non_sdh": true },
-      "output": { "in_place": true, "embed_muted_audio": true },
+      "output": { "in_place": false, "embed_muted_audio": true, "output_mode": "REMUX_NEW_FILE" },
+      "tv_output_policy": {
+        "policy": "subfolder_tag",
+        "tag": "[Censorr]"
+      },
       "backup_default": false
     }
   }
@@ -235,6 +239,10 @@ censorr process "/data/media/tv/Show/S01E03.mkv" --preset tv --language es
 
 # In-place remux with backup of original
 censorr process "/data/media/movies/Movie (2024).mkv" --preset movies --backup
+
+# TV to separate censored root
+censorr process "/data/media/tv/Show/S01E03.mkv" --preset tv --output-mode REMUX_NEW_FILE \
+  --tv-policy separate_root --tv-separate-root "/data/media/TV/Censorr"
 ```
 
 ### Basic Container Examples

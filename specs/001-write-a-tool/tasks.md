@@ -380,3 +380,44 @@ Notes:
 	90. Observability and idempotency
 		- Log resolved preset and effective plan; include selection decisions and remux mapping
 		- Re-run on same inputs should not duplicate muted track or rewrite identical outputs
+
+	---
+
+	## New: Output modes and TV destination policy (FR-071..FR-074)
+
+	91. Model: OutputMode enum and TVPolicy
+		- Add `output_mode: REMUX_ORIGINAL_VIDEO|REMUX_NEW_FILE` to config and preset schema
+		- Add `tv_output_policy` object with fields: `policy: subfolder_tag|separate_root`, `tag: "[Censorr]"`, `separate_root: "TV/Censorr"`, and optional `template` string with tokens `{library_root}`, `{show}{tag}`, `{season}`, `{episode}`
+
+	92. CLI: flags for output mode and TV policy overrides
+		- `--output-mode {REMUX_ORIGINAL_VIDEO,REMUX_NEW_FILE}`
+		- `--tv-policy {subfolder_tag,separate_root}` plus `--tv-policy-tag` and `--tv-separate-root`
+		- Precedence: CLI > preset > config defaults; echo effective settings
+
+	93. Movies: REMUX_NEW_FILE behavior
+		- Implement edition filename `{edition-Censorr}` in same directory without overwriting original (FR-072)
+		- Validate no duplicate edition tags; idempotent reruns
+		- Tests: generate expected path; ensure original remains
+
+	94. TV: subfolder_tag policy
+		- Compute destination `.../<Show Name> [Censorr]/Season N/<Episode>.mkv`
+		- Create missing directories; preserve original file
+		- Tests: nested directories creation, deterministic path building
+
+	95. TV: separate_root policy
+		- Compute destination `TV/Censorr/<Show Name>/Season N/<Episode>.mkv`
+		- Configurable `separate_root`; create directories
+		- Tests: path correctness relative to configured root
+
+	96. Conflict handling for REMUX_NEW_FILE (FR-074)
+		- Configurable policy: `reuse_if_identical` (default), `overwrite`, `fail`, `suffix`
+		- Implement checksum compare for reuse; suffix format `-2`, `-3` before extension
+		- Tests: each policy path covered
+
+	97. Idempotency and logging
+		- Log computed destination, conflict decision, and final path
+		- Re-run produces no additional files when identical outputs exist (reuse)
+
+	98. Docs & quickstart updates
+		- Document output modes, TV policies, and examples for both variants
+		- Add config samples for `presets.movies` and `presets.tv` with output_mode and tv_output_policy

@@ -35,6 +35,7 @@ Add a config-driven presets system in `config/censorr.json` enabling `--preset m
 extract_subtitles, merge_subtitles, mask_subtitles, extract_audio, mute_audio, audio_quality_check, remux.
 Presets set defaults for: `--create-subtitle-sidecar` and `--profanity-list-file config/profanity_list.json`.
 Language selection prefers non‑SDH/non‑CC tracks (by title/code/empty), merging same‑language Forced; falls back to SDH/CC when needed. Remux embeds muted audio as an additional track, preserves originals, and supports in-place replacement with optional `--backup`.
+Introduce output modes: REMUX_ORIGINAL_VIDEO (in-place replace, optional backup) and REMUX_NEW_FILE (non-destructive new file). For movies, REMUX_NEW_FILE writes `{edition-Censorr}` in the same folder. For TV, REMUX_NEW_FILE writes using a configurable policy: `subfolder_tag` (e.g., `Show [Censorr]/Season …`) or `separate_root` (e.g., `TV/Censorr/Show/Season …`). Policies are configurable and reusable across shows via templates.
 
 ## Technical Context
 **Language/Version**: Python 3.12  
@@ -130,6 +131,7 @@ ios/ or android/
 2. Define default presets `movies` and `tv` with the specified pipeline and flags. Add language selection policy description.
 3. Update selector schema documentation to express the non‑SDH preference and forced merge behavior (configurable patterns).
 4. Add CLI contract for `--preset` and `--backup` flags; precedence: CLI > preset > config defaults.
+5. Output Mode contract: define enum `output_mode` with `REMUX_ORIGINAL_VIDEO` and `REMUX_NEW_FILE`; define TV output policy contract with `policy: subfolder_tag|separate_root`, `{tag}`, `{root}`, and a templated path schema supporting `{library_root}`, `{show}{tag}`, `{season}`, `{episode}` tokens. Specify idempotency and conflict resolution policies.
 *Prerequisites: research.md complete*
 
 1. **Extract entities from feature spec** → `data-model.md`:
@@ -177,7 +179,7 @@ ios/ or android/
 - Dependency order: Models before services before UI
 - Mark [P] for parallel execution (independent files)
 
-**Estimated Output**: 10-16 tasks (model, CLI, ops integration, tests, docs)
+**Estimated Output**: 14-20 tasks (model, CLI, ops integration, output mode + TV policy, idempotency, tests, docs)
 
 **IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
 
