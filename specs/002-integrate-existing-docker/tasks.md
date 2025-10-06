@@ -36,17 +36,11 @@ These tasks capture already-added artifacts for traceability.
 - [x] T022 [P] Add no-op performance expectation note (<10s) to README
 - [x] T023 [P] Extend quickstart with disable scenario (`censorr_enabled: false`) output expectations
 
-## Phase 3.2b: Build-from-Source (Private Repo) Additions
-- [x] T023.1 Add Dockerfile template capable of cloning private repo via BuildKit secret
-- [x] T023.2 Update `deploy/ansible/compose.censorr.yml` to support build section when `censorr_build_enabled: true`
-- [x] T023.3 Extend `vars.example.yml` with build-mode variables: `censorr_build_enabled`, `censorr_git_repo`, `censorr_git_ref`, `censorr_dockerfile`, and document `censorr_git_token` (vault)
-- [x] T023.4 Add README instructions for enabling BuildKit and passing secrets with Ansible (no_log) and how to run a build
-- [x] T023.5 Add validation script checks for mutually exclusive image vs build configuration
-
-## Phase 3.2c: Media Mount Standardization
-- [x] T023.6 Update compose fragment to mount TV and Movies to /data/media/tv and /data/media/movies (container paths)
-- [x] T023.7 Extend vars with `censorr_tv_path_host` and `censorr_movies_path_host` and migrate examples
-- [x] T023.8 Update README with new internal paths and rationale
+## Phase 3.2b: Docker Compose Deliverables
+- [ ] T023.1 Add docker-compose.yml to project root with service `censorr`, build: ., env_file: ./.env, volumes for tv/movies/work/config, labels, healthcheck, restart policy
+- [ ] T023.2 Add env.template to project root with TV_HOST_PATH, MOVIES_HOST_PATH, WORKDIR_PATH, CONFIG_PATH, CONTAINER_NAME, IMAGE_TAG, TZ, UID, GID, CENSORR_VERBOSE
+- [ ] T023.3 Update root README with instructions: copy env.template to .env, docker compose up -d, docker exec usage, Radarr/Sonarr hook example
+- [ ] T023.4 Remove deploy/ansible directory and references in docs/spec/plan
 
 ## Phase 3.3: Future Validation Tooling (Tests First)
 NOTE: These tasks introduce executable code; follow strict TDD order.
@@ -57,9 +51,9 @@ NOTE: These tasks introduce executable code; follow strict TDD order.
 - [x] T028 Implement minimal validation script `scripts/validate_deployment.py` to satisfy tests (schema load + rules)
 - [x] T029 [P] Integration test simulating docker inspect JSON (fixture) to detect mismatch label vs config → failure `tests/integration/test_validate_runtime_state.py`
 
-## Phase 3.3b: Validation Updates for Build Mode
-- [x] T029.1 Contract test: invalid when both image and build enabled
-- [x] T029.2 Contract test: invalid when build enabled but git repo/ref missing
+## Phase 3.3b: Validation Updates
+- [ ] T029.1 Remove build-mode validation and tests tied to BuildKit/private repo
+- [ ] T029.2 Ensure validator supports .env-driven compose expectations (media paths, container name)
 - [x] T030 Extend validator to accept optional runtime JSON via flag and validate (makes earlier integration test pass)
 
 ## Phase 3.4: Observability & Health Documentation
