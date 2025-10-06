@@ -1,0 +1,94 @@
+{
+  "output": "./output",
+  "verbose": true,
+  "subtitle_title_exclude": ["sdh", "hi", "cc", "commentary"],
+  "language": "en",
+  "subtitle_mode": "masked_only",
+  "sidecar_tag": "censorr",
+  "jobs": 4,
+  "output_mode": "REMUX_ORIGINAL_VIDEO",
+  "destination_policy": {
+    "policy": "subfolder_tag",
+    "tag": "[Censorr]",
+    "separate_root": "/data/media/TV/Censorr"
+  },
+  "presets": {
+    "movies": {
+      "operations": [
+        "extract_subtitles",
+        "merge_subtitles",
+        "mask_subtitles",
+        "extract_audio",
+        "mute_audio",
+        "audio_quality_check",
+        "remux"
+      ],
+      "flags": {
+        "create_subtitle_sidecar": true,
+        "profanity_list_file": "config/profanity_list.json"
+      },
+      "language_selector": { 
+        "prefer_non_sdh": true 
+      },
+      "output": { 
+        "output_mode": "REMUX_NEW_FILE",
+        "embed_muted_audio": true 
+      },
+      "backup_default": false
+    },
+    "tv": {
+      "operations": [
+        "extract_subtitles",
+        "merge_subtitles",
+        "mask_subtitles",
+        "extract_audio",
+        "mute_audio",
+        "audio_quality_check",
+        "remux"
+      ],
+      "flags": {
+        "create_subtitle_sidecar": true,
+        "profanity_list_file": "config/profanity_list.json"
+      },
+      "language_selector": { 
+        "prefer_non_sdh": true 
+      },
+      "output": { 
+        "output_mode": "REMUX_NEW_FILE",
+        "embed_muted_audio": true 
+      },
+      "destination_policy": {
+        "policy": "subfolder_tag",
+        "tag": "[Censorr]"
+      },
+      "backup_default": false
+    },
+    "tv-separate": {
+      "operations": [
+        "extract_subtitles",
+        "merge_subtitles",
+        "mask_subtitles",
+        "extract_audio",
+        "mute_audio",
+        "audio_quality_check",
+        "remux"
+      ],
+      "flags": {
+        "create_subtitle_sidecar": true,
+        "profanity_list_file": "config/profanity_list.json"
+      },
+      "language_selector": { 
+        "prefer_non_sdh": true 
+      },
+      "output": { 
+        "output_mode": "REMUX_NEW_FILE",
+        "embed_muted_audio": true 
+      },
+      "destination_policy": {
+        "policy": "separate_root",
+        "separate_root": "/data/media/TV/Censorr"
+      },
+      "backup_default": false
+    }
+  }
+}

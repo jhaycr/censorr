@@ -11,11 +11,18 @@ from typing import List, Optional, Set
 from ..adapters.ffmpeg import FFmpegAdapter
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import Operation, OperationFlags
+from src.models.config import OutputMode
 from src.utils.filename_utils import (
     ensure_movie_edition_tag,
     is_episode_filename,
     build_sidecar_subtitle_path,
     handle_sidecar_collision
+)
+from src.utils.path_builder import (
+    build_same_folder_new_name,
+    build_destination_path,
+    resolve_output_conflict,
+    detect_media_type
 )
 
 
@@ -111,7 +118,7 @@ class RemuxOperation(Operation):
             subtitle_tracks = [artifact.path for artifact in subtitle_artifacts]
             
             # Generate output path
-            output_path = self._generate_output_path(video_artifact.path, workdir)
+            output_path = self._generate_output_path(video_artifact.path, workdir, flags)
             
             # Apply edition tagging for movies (not episodes)
             if not is_episode_filename(output_path):
@@ -122,28 +129,40 @@ class RemuxOperation(Operation):
                 print(f"Skipped edition tag for episode: {Path(output_path).name}")
             
             if not flags.dry_run:
-                if flags.verbose:
-                    print(f"Remuxing video: {video_artifact.path}")
-                    if audio_tracks:
-                        print(f"  Audio tracks: {audio_tracks}")
-                    if subtitle_tracks:
-                        print(f"  Subtitle tracks: {subtitle_tracks}")
+                # Check if we should skip writing due to conflict resolution
+                should_write = getattr(flags, '_should_write_output', True)
                 
-                # Perform remuxing using FFmpeg
-                try:
-                    remuxed_path = self.ffmpeg.remux(
-                        video_input=video_artifact.path,
-                        output=output_path,
-                        audio_tracks=audio_tracks,
-                        subtitle_tracks=subtitle_tracks
-                    )
+                if should_write:
+                    if flags.verbose:
+                        print(f"Remuxing video: {video_artifact.path}")
+                        if audio_tracks:
+                            print(f"  Audio tracks: {audio_tracks}")
+                        if subtitle_tracks:
+                            print(f"  Subtitle tracks: {subtitle_tracks}")
                     
-                    # Verify audio parity if audio tracks were provided
-                    if audio_tracks:
-                        self._verify_audio_parity(audio_artifacts, remuxed_path, flags)
+                    # Ensure parent directory exists for new file outputs
+                    output_path_obj = Path(output_path)
+                    output_path_obj.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Perform remuxing using FFmpeg
+                    try:
+                        remuxed_path = self.ffmpeg.remux(
+                            video_input=video_artifact.path,
+                            output=output_path,
+                            audio_tracks=audio_tracks,
+                            subtitle_tracks=subtitle_tracks
+                        )
                         
-                except Exception as e:
-                    raise RuntimeError(f"Failed to remux video {video_artifact.path}: {e}")
+                        # Verify audio parity if audio tracks were provided
+                        if audio_tracks:
+                            self._verify_audio_parity(audio_artifacts, remuxed_path, flags)
+                            
+                    except Exception as e:
+                        raise RuntimeError(f"Failed to remux video {video_artifact.path}: {e}")
+                else:
+                    if flags.verbose:
+                        print(f"Skipping remux - output already exists and matches: {output_path}")
+                    remuxed_path = output_path
             else:
                 remuxed_path = output_path
             
@@ -393,23 +412,56 @@ class RemuxOperation(Operation):
         else:
             return "extracted"
     
-    def _generate_output_path(self, input_path: str, workdir: Path) -> str:
-        """Generate output path for remuxed video.
+    def _generate_output_path(self, input_path: str, workdir: Path, flags: OperationFlags) -> str:
+        """Generate output path for remuxed video based on output mode.
         
         Args:
             input_path: Path to input video file
             workdir: Working directory
+            flags: Operation flags containing output mode and destination policy
             
         Returns:
             Generated output path
         """
         input_path_obj = Path(input_path)
-        extension = input_path_obj.suffix
         
-        output_filename = f"remuxed_{input_path_obj.stem}{extension}"
-        output_path = workdir / output_filename
+        # Get output mode from flags (default to REMUX_ORIGINAL_VIDEO for backward compatibility)
+        output_mode = getattr(flags, 'output_mode', 'REMUX_ORIGINAL_VIDEO')
         
-        return str(output_path)
+        if output_mode == 'REMUX_NEW_FILE':
+            # New file mode - determine destination based on media type and policy
+            media_type = detect_media_type(input_path_obj)
+            
+            if media_type == "movie":
+                # For movies: same folder, new name with edition tag
+                output_path_obj = build_same_folder_new_name(input_path_obj, "Censorr")
+            else:
+                # For episodes: use destination policy
+                dest_policy = getattr(flags, 'dest_policy', 'subfolder_tag')
+                dest_tag = getattr(flags, 'dest_policy_tag', '[Censorr]')
+                dest_root = getattr(flags, 'dest_separate_root', '/data/media/TV/Censorr')
+                
+                output_path_obj = build_destination_path(
+                    input_path_obj, 
+                    dest_policy, 
+                    dest_tag, 
+                    dest_root
+                )
+            
+            # Handle conflicts
+            conflict_policy = getattr(flags, 'conflict_policy', 'reuse_if_identical')
+            final_path, should_write = resolve_output_conflict(output_path_obj, conflict_policy)
+            
+            # Store conflict resolution result in flags for later use
+            flags.__dict__['_should_write_output'] = should_write
+            
+            return str(final_path)
+        else:
+            # Original behavior: create in workdir, will be moved to replace original
+            extension = input_path_obj.suffix
+            output_filename = f"remuxed_{input_path_obj.stem}{extension}"
+            output_path = workdir / output_filename
+            return str(output_path)
     
     def _verify_audio_parity(self, audio_artifacts: List[Artifact], remuxed_path: str, flags: OperationFlags):
         """Verify audio parity between source and remuxed files.

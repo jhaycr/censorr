@@ -31,6 +31,14 @@ class OperationFlags(BaseModel):
     persist_intermediate: bool = Field(False, description="Keep intermediate artifacts after successful completion")
     final_dest: str | None = Field(None, description="Final destination directory to move completed outputs")
     
+    # Output mode and destination policy
+    output_mode: str = Field("REMUX_ORIGINAL_VIDEO", description="Output mode: REMUX_ORIGINAL_VIDEO or REMUX_NEW_FILE")
+    backup: bool = Field(False, description="Create backup for in-place remux (REMUX_ORIGINAL_VIDEO only)")
+    dest_policy: str = Field("subfolder_tag", description="Destination policy for REMUX_NEW_FILE: subfolder_tag or separate_root")
+    dest_policy_tag: str = Field("[Censorr]", description="Tag for subfolder_tag policy")
+    dest_separate_root: str = Field("/data/media/TV/Censorr", description="Root directory for separate_root policy")
+    conflict_policy: str = Field("reuse_if_identical", description="Conflict resolution: reuse_if_identical, overwrite, fail, suffix")
+    
     @model_validator(mode='after')
     def validate_flags(self):
         """Validate flag combinations and apply automatic adjustments."""

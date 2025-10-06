@@ -12,7 +12,7 @@ from rich import print as rprint
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 from src.models.selectors import Selector
-from src.models.config import Config
+from src.models.config import Config, OutputMode, DestinationPolicy, PresetConfig
 from src.planner.planner import Planner
 from src.planner.registry import OperationRegistry
 from src.planner.executor import Executor
@@ -217,6 +217,30 @@ def process(
     final_dest: Optional[str] = typer.Option(
         None, "--final-dest",
         help="Final destination directory to move completed outputs"
+    ),
+    preset: Optional[str] = typer.Option(
+        None, "--preset",
+        help="Use a named preset configuration (e.g., 'movies', 'tv')"
+    ),
+    backup: bool = typer.Option(
+        False, "--backup",
+        help="Create backup of original file before in-place remux (REMUX_ORIGINAL_VIDEO only)"
+    ),
+    output_mode: Optional[str] = typer.Option(
+        None, "--output-mode",
+        help="Output mode: REMUX_ORIGINAL_VIDEO (in-place) or REMUX_NEW_FILE (new file)"
+    ),
+    dest_policy: Optional[str] = typer.Option(
+        None, "--dest-policy",
+        help="Destination policy for REMUX_NEW_FILE: subfolder_tag or separate_root"
+    ),
+    dest_policy_tag: Optional[str] = typer.Option(
+        None, "--dest-policy-tag",
+        help="Tag for subfolder_tag policy (e.g., '[Censorr]')"
+    ),
+    dest_separate_root: Optional[str] = typer.Option(
+        None, "--dest-separate-root",
+        help="Root directory for separate_root policy"
     )
 ):
     """
@@ -235,6 +259,52 @@ def process(
             rprint(f"[yellow]Warning: Failed to load config: {e}[/yellow]")
             rprint("[yellow]Using default configuration[/yellow]")
             app_config = Config()
+        
+        # Resolve preset if specified
+        preset_config = None
+        if preset:
+            if preset in app_config.presets:
+                preset_config = app_config.presets[preset]
+                if verbose:
+                    rprint(f"[green]Using preset: {preset}[/green]")
+            else:
+                rprint(f"[red]Error: Preset '{preset}' not found in configuration[/red]")
+                raise typer.Exit(1)
+        
+        # Apply preset defaults first, then CLI args (CLI precedence: CLI > preset > config)
+        effective_output_mode = output_mode
+        effective_dest_policy = dest_policy
+        effective_dest_policy_tag = dest_policy_tag
+        effective_dest_separate_root = dest_separate_root
+        effective_backup = backup
+        
+        if preset_config:
+            # Apply preset output settings
+            preset_output = preset_config.output
+            if not effective_output_mode and 'output_mode' in preset_output:
+                effective_output_mode = preset_output['output_mode']
+            if not effective_backup and preset_config.backup_default:
+                effective_backup = preset_config.backup_default
+            
+            # Apply preset destination policy if set
+            if preset_config.destination_policy and not dest_policy:
+                policy_obj = preset_config.destination_policy
+                effective_dest_policy = policy_obj.policy
+                if not effective_dest_policy_tag:
+                    effective_dest_policy_tag = policy_obj.tag
+                if not effective_dest_separate_root:
+                    effective_dest_separate_root = policy_obj.separate_root
+        
+        # Apply config defaults if still not set
+        if not effective_output_mode:
+            effective_output_mode = app_config.output_mode.value
+        if app_config.destination_policy and not effective_dest_policy:
+            policy_obj = app_config.destination_policy
+            effective_dest_policy = policy_obj.policy
+            if not effective_dest_policy_tag:
+                effective_dest_policy_tag = policy_obj.tag
+            if not effective_dest_separate_root:
+                effective_dest_separate_root = policy_obj.separate_root
         
         # Merge config with CLI arguments (CLI args take precedence)
         # For boolean flags, we need to detect if they were explicitly set or using default
@@ -387,7 +457,13 @@ def process(
             sidecar_tag=merged_args['sidecar_tag'],
             strict_audio_parity=merged_args['strict_audio_parity'],
             persist_intermediate=persist_intermediate,
-            final_dest=final_dest
+            final_dest=final_dest,
+            output_mode=effective_output_mode,
+            backup=effective_backup,
+            dest_policy=effective_dest_policy or "subfolder_tag",
+            dest_policy_tag=effective_dest_policy_tag or "[Censorr]",
+            dest_separate_root=effective_dest_separate_root or "/data/media/TV/Censorr",
+            conflict_policy="reuse_if_identical"
         )
         
         # Plan operations

@@ -8,7 +8,14 @@ This checklist will guide the implementation using TDD. It maps to requirements 
 3. Implement registry and planner stubs with unit tests (P)
 4. Add executor with dry-run and explain (tests) (P)
 
-## Adapters & Utilities (P)
+## Adapter99. ✅ Implementation milestone: Config model changes
+   - Extend `src/models/config.py` presets to include `output_mode` and `destination_policy`; update validation (enum values, required fields per policy) and merge rules.
+
+100. ✅ Implementation milestone: CLI flags and precedence
+   - Add `--output-mode`, `--dest-policy`, `--dest-policy-tag`, `--dest-separate-root`; resolve effective config with precedence CLI > preset > config; unit tests for resolution logic.
+
+101. ✅ Implementation milestone: Path builders and conflict handling
+   - Implement `build_same_folder_new_name(src)` and `build_destination_path(src, policy)` helpers; integrate conflict handling policy (reuse/overwrite/fail/suffix) with checksum compare; wire into remux op; tests for path correctness and conflicts.ities (P)
 5. FFmpeg adapter: probe, extract audio/subs, mute windows, remux (tests with small fixtures) (P)
 6. Subtitle parser utils using pysubs2; normalization helpers (tests) (P)
 7. Fuzzy matcher using RapidFuzz with defaults and allow-list (tests) (P)
