@@ -421,3 +421,12 @@ Notes:
 	98. Docs & quickstart updates
 		- Document output modes, TV policies, and examples for both variants
 		- Add config samples for `presets.movies` and `presets.tv` with output_mode and tv_output_policy
+
+	99. Implementation milestone: Config model changes
+		- Extend `src/models/config.py` presets to include `output_mode` and `tv_output_policy`; update validation (enum values, required fields per policy) and merge rules.
+
+	100. Implementation milestone: CLI flags and precedence
+		- Add `--output-mode`, `--tv-policy`, `--tv-policy-tag`, `--tv-separate-root`; resolve effective config with precedence CLI > preset > config; unit tests for resolution logic.
+
+	101. Implementation milestone: Path builders and conflict handling
+		- Implement `build_movie_edition_output_path(src)` and `build_tv_output_path(src, policy)` helpers; integrate conflict handling policy (reuse/overwrite/fail/suffix) with checksum compare; wire into remux op; tests for path correctness and conflicts.

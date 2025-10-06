@@ -132,6 +132,9 @@ ios/ or android/
 3. Update selector schema documentation to express the non‑SDH preference and forced merge behavior (configurable patterns).
 4. Add CLI contract for `--preset` and `--backup` flags; precedence: CLI > preset > config defaults.
 5. Output Mode contract: define enum `output_mode` with `REMUX_ORIGINAL_VIDEO` and `REMUX_NEW_FILE`; define TV output policy contract with `policy: subfolder_tag|separate_root`, `{tag}`, `{root}`, and a templated path schema supporting `{library_root}`, `{show}{tag}`, `{season}`, `{episode}` tokens. Specify idempotency and conflict resolution policies.
+6. Implementation milestone: Model changes — update Config presets to include `output_mode` and `tv_output_policy` (schema, validation, docs).
+7. Implementation milestone: CLI flags and resolution — add flags (`--output-mode`, `--tv-policy`, `--tv-policy-tag`, `--tv-separate-root`) and enforce precedence CLI > preset > config.
+8. Implementation milestone: Path builders & conflicts — implement movie edition filename builder and TV destination builders for both policies, with conflict handling (reuse/overwrite/fail/suffix) and idempotency.
 *Prerequisites: research.md complete*
 
 1. **Extract entities from feature spec** → `data-model.md`:
