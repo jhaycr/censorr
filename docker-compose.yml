@@ -2,10 +2,8 @@ version: "3.9"
 
 services:
   censorr:
-    container_name: ${CONTAINER_NAME:-censorr}
+    container_name: censorr
     build: .
-    # Alternatively use a published image by setting IMAGE_REPO/TAG
-    image: ${IMAGE_REPO:-jhaycr/censorr}:${IMAGE_TAG:-latest}
     env_file:
       - ./.env
     restart: unless-stopped
@@ -15,8 +13,8 @@ services:
       PUID: ${UID:-1000}
       PGID: ${GID:-1000}
     volumes:
-      - ${TV_HOST_PATH:-/mnt/media/tv}:/data/media/tv:ro
-      - ${MOVIES_HOST_PATH:-/mnt/media/movies}:/data/media/movies:ro
+      - ${MEDIA_PATH_TV:-/mnt/media/tv}:/data/media/tv:ro
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/data/media/movies:ro
       - ${WORKDIR_PATH:-/srv/censorr/work}:/app/workdir:rw
       - ${CONFIG_PATH:-/srv/censorr/config}:/app/config:rw
     healthcheck:
@@ -27,4 +25,4 @@ services:
       start_period: 10s
     labels:
       org.censorr.service: "censorr"
-      org.censorr.version: "${IMAGE_TAG:-dev}"
+      org.censorr.version: "local-build"

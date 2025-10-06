@@ -29,7 +29,7 @@
 ## Steps
 1. Create docker-compose.yml with build/image, env_file, volumes, healthcheck, labels, restart policy.
 2. Create env.template with all configurable options (optional) and document that compose runs without `.env` using defaults.
-3. Update README with quickstart using docker compose, including Radarr/Sonarr hook snippet.
+3. Update README with quickstart using docker compose (local build by default from repo's Dockerfile), including Radarr/Sonarr hook snippet.
 4. Remove deploy/ansible directory and references.
  5. Purge Podman-specific examples and references from docs and examples to avoid confusion.
 
@@ -37,7 +37,7 @@
 Use consistent internal container paths for media:
 
 - Inside container: `/data/media/tv` and `/data/media/movies`
-- Expose .env variables for host paths, e.g., `TV_HOST_PATH` and `MOVIES_HOST_PATH`
+- Expose .env variables for host paths as `MEDIA_PATH_TV` and `MEDIA_PATH_MOVIES`
 - Ensure read-only mounts for media.
 6. Execute Phase 1 → contracts, data-model.md, quickstart.md, agent-specific template file (e.g., `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for GitHub Copilot, `GEMINI.md` for Gemini CLI, `QWEN.md` for Qwen Code or `AGENTS.md` for opencode).
 7. Re-evaluate Constitution Check section
@@ -174,7 +174,7 @@ Adaptation: No API/endpoint changes; instead we define configuration schema + in
 
 Planned Artifacts:
 1. `data-model.md`: Conceptual models
-   - DeploymentConfig (fields: enabled, image_repo, image_tag, force_pull, volumes[], env map, labels map, health spec, resources, user/group, log volume, sidecar config)
+   - DeploymentConfig (fields: enabled, volumes[], env map, labels map, health spec, resources, user/group, log volume, sidecar config)
    - HealthSpec (command, interval, timeout, retries, start_period)
    - ResourceSpec (memory_limit, cpu_shares)
 2. `contracts/` directory: Provide a `deployment-config.schema.json` (JSON Schema for vars structure) to enable validation scripts (future) + sample `compose-service.fragment.yml` template (documented only; not executed here).

@@ -37,9 +37,9 @@ These tasks capture already-added artifacts for traceability.
 - [x] T023 [P] Extend quickstart with disable scenario (`censorr_enabled: false`) output expectations
 
 ## Phase 3.2b: Docker Compose Deliverables
-- [x] T023.1 Add docker-compose.yml to project root with service `censorr`, build: ., image override, volumes for tv/movies/work/config, labels, healthcheck, restart policy; ensure sensible defaults in compose so `.env` is optional
-- [x] T023.2 Add env.template to project root with TV_HOST_PATH, MOVIES_HOST_PATH, WORKDIR_PATH, CONFIG_PATH, CONTAINER_NAME, IMAGE_TAG, TZ, UID, GID, CENSORR_VERBOSE (optional convenience)
-- [ ] T023.3 Update root README with instructions: optional .env, docker compose up -d, docker exec usage, Radarr/Sonarr hook example, and defaults table
+- [x] T023.1 Add docker-compose.yml to project root with service `censorr`, local build by default (build: .), volumes for tv/movies/work/config, labels, healthcheck, restart policy; ensure sensible defaults in compose so `.env` is optional, and set container_name in compose (not via .env)
+- [x] T023.2 Add env.template to project root with MEDIA_PATH_TV, MEDIA_PATH_MOVIES, WORKDIR_PATH, CONFIG_PATH, TZ, UID, GID, CENSORR_VERBOSE (optional convenience); remove IMAGE_REPO/IMAGE_TAG and CONTAINER_NAME from .env
+ - [ ] T023.3 Update root README with instructions: optional .env, docker compose up -d (local build), docker exec usage, Radarr/Sonarr hook example, and defaults table
 - [ ] T023.4 Remove deploy/ansible directory and references in docs/spec/plan
 - [ ] T023.5 Sanity check: run compose without `.env` (document default paths required) and with `.env`
  - [x] T023.6 Remove Podman examples and references from spec/plan/tasks and standardize docs on Docker Compose only ✅

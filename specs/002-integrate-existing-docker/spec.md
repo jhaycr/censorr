@@ -59,8 +59,8 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 
 ### Functional Requirements
 - **FR-001**: Provide docker-compose.yml with sensible defaults colocated with the Dockerfile; provide an env.template as an optional convenience for customization.
-- **FR-002**: Allow specifying the Docker image/tag via .env and support local build via Compose (build: .).
-- **FR-003**: Support configuring mapped volumes for: media input (read), work/output, configuration; media MUST be available inside the container at `/data/media/tv` and `/data/media/movies` (bind mounts), with host paths configurable via .env.
+- **FR-002**: Default workflow MUST build locally from the Dockerfile via Docker Compose (build: .); do not include IMAGE_REPO or IMAGE_TAG in .env. Optionally document using a published image as an advanced override outside of .env.
+- **FR-003**: Support configuring mapped volumes for: media input (read), work/output, configuration; media MUST be available inside the container at `/data/media/tv` and `/data/media/movies` (bind mounts), with host paths configurable via .env using `MEDIA_PATH_TV` and `MEDIA_PATH_MOVIES`.
 - **FR-004**: Allow specifying environment variables via .env (uppercase keys with underscores).
 - **FR-005**: Apply a restart policy (default: unless-stopped) in compose.
 - **FR-006**: Support optional health check in compose (CMD or HTTP), configurable via .env.
@@ -73,7 +73,7 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 - **FR-013**: Document manual rollback by pinning image tag or digest in .env.
 - **FR-014**: Provide log strategy guidance (Docker logging driver vs bind-mounted logs directory).
 - **FR-015**: Validate that mutually exclusive health parameters are not set simultaneously.
-- **FR-016**: Provide a deterministic default container name (e.g., `censorr`) configurable via .env.
+- **FR-016**: Provide a deterministic container name (`censorr`) set in docker-compose.yml; this MUST NOT be configured via .env.
 - **FR-017**: Support optional resource constraints (memory, CPU) via compose fields.
 - **FR-018**: Provide an env.template (optional) documenting all supported .env options.
 - **FR-019a**: The docker-compose.yml MUST run without a `.env` file by relying on reasonable default values (documented), assuming the default host paths exist.
@@ -95,7 +95,7 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
  - Note: Podman-specific guidance is intentionally excluded to reduce surface area and confusion; Docker Compose is the canonical path for this feature.
 
 ### Key Entities
-- **DeploymentConfig**: Declarative configuration defined in Ansible vars (image, tag, volumes, env, health, restart policy, enabled flag, resources, labels).
+- **DeploymentConfig**: Declarative configuration (volumes, env, health, restart policy, enabled flag, resources, labels). Image selection is not configured via .env for this feature; compose builds locally by default.
 - **RuntimeContainerState**: Observed post-deploy state (running/stopped, image digest, health status, restart count, created timestamp).
 - **MonitoringSignal**: Derived health/label metadata passed to external systems (discovery, metrics collector). (Conceptual only; no implementation defined here.)
 
