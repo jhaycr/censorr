@@ -161,9 +161,12 @@ class TestRemuxOperation:
     def test_generate_output_path(self):
         op = RemuxOperation()
         workdir = Path("/tmp/test")
-        out = op._generate_output_path("/path/to/video.mp4", workdir)
+        flags = OperationFlags()  # Use default flags
+        
+        out = op._generate_output_path("/path/to/video.mp4", workdir, flags)
         assert out.startswith("/tmp/test/remuxed_") and out.endswith(".mp4")
-        out2 = op._generate_output_path("/path/to/video.mkv", workdir)
+        
+        out2 = op._generate_output_path("/path/to/video.mkv", workdir, flags)
         assert out2.endswith(".mkv")
 
     @patch('src.ops.remux.FFmpegAdapter')
