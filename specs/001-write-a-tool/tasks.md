@@ -383,15 +383,15 @@ Notes:
 
 	---
 
-	## New: Output modes and TV destination policy (FR-071..FR-074)
+	## New: Output modes and destination policy (FR-071..FR-074)
 
-	91. Model: OutputMode enum and TVPolicy
+	91. Model: OutputMode enum and DestinationPolicy
 		- Add `output_mode: REMUX_ORIGINAL_VIDEO|REMUX_NEW_FILE` to config and preset schema
-		- Add `tv_output_policy` object with fields: `policy: subfolder_tag|separate_root`, `tag: "[Censorr]"`, `separate_root: "TV/Censorr"`, and optional `template` string with tokens `{library_root}`, `{show}{tag}`, `{season}`, `{episode}`
+		- Add `destination_policy` object with fields: `policy: subfolder_tag|separate_root`, `tag: "[Censorr]"`, `separate_root: "/data/media/TV/Censorr"`, and optional `template` string with tokens `{library_root}`, `{collection}{tag}`, `{season}`, `{episode}`
 
-	92. CLI: flags for output mode and TV policy overrides
+	92. CLI: flags for output mode and destination policy overrides
 		- `--output-mode {REMUX_ORIGINAL_VIDEO,REMUX_NEW_FILE}`
-		- `--tv-policy {subfolder_tag,separate_root}` plus `--tv-policy-tag` and `--tv-separate-root`
+		- `--dest-policy {subfolder_tag,separate_root}` plus `--dest-policy-tag` and `--dest-separate-root`
 		- Precedence: CLI > preset > config defaults; echo effective settings
 
 	93. Movies: REMUX_NEW_FILE behavior
@@ -399,12 +399,12 @@ Notes:
 		- Validate no duplicate edition tags; idempotent reruns
 		- Tests: generate expected path; ensure original remains
 
-	94. TV: subfolder_tag policy
+	94. Destination: subfolder_tag policy
 		- Compute destination `.../<Show Name> [Censorr]/Season N/<Episode>.mkv`
 		- Create missing directories; preserve original file
 		- Tests: nested directories creation, deterministic path building
 
-	95. TV: separate_root policy
+	95. Destination: separate_root policy
 		- Compute destination `TV/Censorr/<Show Name>/Season N/<Episode>.mkv`
 		- Configurable `separate_root`; create directories
 		- Tests: path correctness relative to configured root
@@ -419,14 +419,14 @@ Notes:
 		- Re-run produces no additional files when identical outputs exist (reuse)
 
 	98. Docs & quickstart updates
-		- Document output modes, TV policies, and examples for both variants
-		- Add config samples for `presets.movies` and `presets.tv` with output_mode and tv_output_policy
+		- Document output modes, destination policies, and examples for both variants
+		- Add config samples for `presets.movies` and `presets.tv` with output_mode and destination_policy
 
 	99. Implementation milestone: Config model changes
-		- Extend `src/models/config.py` presets to include `output_mode` and `tv_output_policy`; update validation (enum values, required fields per policy) and merge rules.
+		- Extend `src/models/config.py` presets to include `output_mode` and `destination_policy`; update validation (enum values, required fields per policy) and merge rules.
 
 	100. Implementation milestone: CLI flags and precedence
-		- Add `--output-mode`, `--tv-policy`, `--tv-policy-tag`, `--tv-separate-root`; resolve effective config with precedence CLI > preset > config; unit tests for resolution logic.
+		- Add `--output-mode`, `--dest-policy`, `--dest-policy-tag`, `--dest-separate-root`; resolve effective config with precedence CLI > preset > config; unit tests for resolution logic.
 
 	101. Implementation milestone: Path builders and conflict handling
-		- Implement `build_movie_edition_output_path(src)` and `build_tv_output_path(src, policy)` helpers; integrate conflict handling policy (reuse/overwrite/fail/suffix) with checksum compare; wire into remux op; tests for path correctness and conflicts.
+		- Implement `build_same_folder_new_name(src)` (edition pattern for movies preset) and `build_destination_path(src, policy)` helpers; integrate conflict handling policy (reuse/overwrite/fail/suffix) with checksum compare; wire into remux op; tests for path correctness and conflicts.
