@@ -13,8 +13,8 @@ services:
       PUID: ${UID:-1000}
       PGID: ${GID:-1000}
     volumes:
-      - ${MEDIA_PATH_TV:-/mnt/media/tv}:/data/media/tv:ro
-      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/data/media/movies:ro
+      - ${MEDIA_PATH_TV:-/mnt/media/tv}:/data/media/tv
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/data/media/movies
       - ${WORKDIR_PATH:-/srv/censorr/work}:/app/workdir:rw
       - ${CONFIG_PATH:-/srv/censorr/config}:/app/config:rw
     healthcheck:

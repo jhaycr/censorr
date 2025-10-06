@@ -348,6 +348,12 @@ def process(
         sidecar_tag = merged_args['sidecar_tag']
         strict_audio_parity = merged_args['strict_audio_parity']
         profanity_list_file = merged_args['profanity_list_file']
+        # Apply preset flag defaults when not set via CLI (CLI > preset > config)
+        if preset_config and isinstance(preset_config.flags, dict):
+            if not create_subtitle_sidecar and 'create_subtitle_sidecar' in preset_config.flags:
+                create_subtitle_sidecar = bool(preset_config.flags['create_subtitle_sidecar'])
+            if not profanity_list_file and 'profanity_list_file' in preset_config.flags:
+                profanity_list_file = preset_config.flags['profanity_list_file']
         # Validate input file
         input_path = Path(input_file)
         if not input_path.exists():
@@ -371,6 +377,11 @@ def process(
                 rprint(f"[red]Error: Invalid operations: {', '.join(invalid_ops)}[/red]")
                 rprint(f"[yellow]Available operations: {', '.join(AVAILABLE_OPERATIONS)}[/yellow]")
                 raise typer.Exit(1)
+        elif preset_config and preset_config.operations:
+            # If no CLI operations provided, use operations from the selected preset
+            operation_list = preset_config.operations
+            if verbose:
+                rprint(f"[green]Using operations from preset '{preset}': {', '.join(operation_list)}[/green]")
         
         # Create selectors
         selectors = []
@@ -450,7 +461,7 @@ def process(
             max_jobs=merged_args['jobs'],
             continue_on_qc_fail=merged_args['continue_on_qc_fail'],
             continue_on_audio_qc_fail=merged_args['continue_on_audio_qc_fail'],
-            profanity_list_file=merged_args['profanity_list_file'],
+            profanity_list_file=profanity_list_file,
             fuzzy_threshold=merged_args['fuzzy_threshold'],
             subtitle_mode=merged_args['subtitle_mode'],
             create_subtitle_sidecar=create_subtitle_sidecar,
