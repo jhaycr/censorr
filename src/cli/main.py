@@ -354,6 +354,9 @@ def process(
                 create_subtitle_sidecar = bool(preset_config.flags['create_subtitle_sidecar'])
             if not profanity_list_file and 'profanity_list_file' in preset_config.flags:
                 profanity_list_file = preset_config.flags['profanity_list_file']
+            # Language default from preset flags
+            if not language and 'language' in preset_config.flags:
+                language = preset_config.flags['language']
         # Validate input file
         input_path = Path(input_file)
         if not input_path.exists():

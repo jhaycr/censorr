@@ -146,6 +146,33 @@ class Executor:
                 "force": context.flags.force,
                 "skip_existing": context.flags.skip_existing
             }
+            # Incorporate selectors into cache key so language/title filters affect caching
+            if context.flags.selectors:
+                try:
+                    selectors_fp = []
+                    for s in context.flags.selectors:
+                        selectors_fp.append({
+                            "type": getattr(s.type, "value", str(s.type)),
+                            "language": getattr(s, "language", None),
+                            "role": getattr(s, "role", None),
+                            "codec": getattr(s, "codec", None),
+                            "forced": getattr(s, "forced", None),
+                            "title_include": getattr(s, "title_include", None),
+                            "title_exclude": getattr(s, "title_exclude", None),
+                            "title_regex": getattr(s, "title_regex", None),
+                            "first_only": getattr(s, "first_only", None),
+                            "priority": getattr(s, "priority", None),
+                        })
+                    # Sort for stability
+                    operation_params["selectors"] = sorted(
+                        selectors_fp, key=lambda x: (
+                            x.get("type"), x.get("language"), x.get("forced"),
+                            tuple(x.get("title_include") or []), tuple(x.get("title_exclude") or []), tuple(x.get("title_regex") or [])
+                        )
+                    )
+                except Exception:
+                    # If anything goes wrong, fall back to basic params (no selector fingerprint)
+                    pass
             
             is_cached, operation_dir = context.cache_manager.is_cached(
                 operation.name, input_artifacts, operation_params, context.flags
@@ -178,7 +205,16 @@ class Executor:
                             # Determine artifact type from file extension (simple heuristic)
                             if output_path.suffix.lower() in ['.srt', '.vtt', '.ass']:
                                 artifact_type = ArtifactType.SUBTITLE
-                                metadata = {"language": "en"}  # Default language for cached artifacts
+                                # Try to infer language from filename pattern: base.lang.index.ext
+                                name_parts = output_path.name.split('.')
+                                inferred_lang = None
+                                if len(name_parts) >= 3:
+                                    # e.g., Movie Title.eng.1.srt -> 'eng'
+                                    inferred_lang = name_parts[-3]
+                                    # normalize common 3-letter codes to 2-letter where appropriate
+                                    if inferred_lang == 'eng':
+                                        inferred_lang = 'en'
+                                metadata = {"language": inferred_lang or "und"}
                             elif output_path.suffix.lower() in ['.mp3', '.wav', '.flac', '.m4a']:
                                 artifact_type = ArtifactType.AUDIO
                                 metadata = {"channels": "stereo"}  # Default metadata
