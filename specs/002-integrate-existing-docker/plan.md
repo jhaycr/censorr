@@ -21,13 +21,13 @@
 
 ## Deliverables
 - docker-compose.yml in project root
-- env.template in project root
+- env.template in project root (optional convenience)
 - Updated Dockerfile defaults for long-running service entrypoint (daemon)
 - README updates in root (or docs) for compose usage
 
 ## Steps
 1. Create docker-compose.yml with build/image, env_file, volumes, healthcheck, labels, restart policy.
-2. Create env.template with all configurable options.
+2. Create env.template with all configurable options (optional) and document that compose runs without `.env` using defaults.
 3. Update README with quickstart using docker compose, including Radarr/Sonarr hook snippet.
 4. Remove deploy/ansible directory and references.
 

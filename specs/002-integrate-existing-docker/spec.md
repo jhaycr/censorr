@@ -41,6 +41,7 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 7. **Given** log retention settings are configured via environment or volume mapping, **When** the container runs for multiple days, **Then** logs persist according to retention policy (externalized if volume configured) and are not lost on restart.
 8. **Given** a health check configuration (interval, retries) is defined in vars, **When** the container starts, **Then** the health status transitions from starting to healthy within the expected grace period assuming the tool is functional.
 9. [Removed] Build-from-private-repo via BuildKit secrets is out of scope for this feature.
+10. **Given** no `.env` file is present, **When** I run `docker compose up -d` with the provided docker-compose.yml, **Then** the service starts using documented sensible defaults, or fails clearly if required host paths do not exist.
 10. **Given** the NAS stores media at separate roots for TV and Movies, **When** I deploy Censorr, **Then** the container has read access to TV at `/data/media/tv` and Movies at `/data/media/movies` inside the container via bind mounts.
 
 ### Edge Cases
@@ -55,7 +56,7 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
-- **FR-001**: Provide docker-compose.yml and env.template colocated with the Dockerfile in the repo.
+- **FR-001**: Provide docker-compose.yml with sensible defaults colocated with the Dockerfile; provide an env.template as an optional convenience for customization.
 - **FR-002**: Allow specifying the Docker image/tag via .env and support local build via Compose (build: .).
 - **FR-003**: Support configuring mapped volumes for: media input (read), work/output, configuration; media MUST be available inside the container at `/data/media/tv` and `/data/media/movies` (bind mounts), with host paths configurable via .env.
 - **FR-004**: Allow specifying environment variables via .env (uppercase keys with underscores).
@@ -72,7 +73,8 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 - **FR-015**: Validate that mutually exclusive health parameters are not set simultaneously.
 - **FR-016**: Provide a deterministic default container name (e.g., `censorr`) configurable via .env.
 - **FR-017**: Support optional resource constraints (memory, CPU) via compose fields.
-- **FR-018**: Provide an env.template documenting all supported .env options.
+- **FR-018**: Provide an env.template (optional) documenting all supported .env options.
+- **FR-019a**: The docker-compose.yml MUST run without a `.env` file by relying on reasonable default values (documented), assuming the default host paths exist.
 - **FR-019**: Allow specifying update channel/tag pattern via .env if published.
 - **FR-020**: Ensure idempotent re-runs with no changes when configuration is unchanged.
 - **FR-021**: Provide a documented way to refresh images (pull/build) without tag change.

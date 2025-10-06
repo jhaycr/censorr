@@ -37,10 +37,11 @@ These tasks capture already-added artifacts for traceability.
 - [x] T023 [P] Extend quickstart with disable scenario (`censorr_enabled: false`) output expectations
 
 ## Phase 3.2b: Docker Compose Deliverables
-- [ ] T023.1 Add docker-compose.yml to project root with service `censorr`, build: ., env_file: ./.env, volumes for tv/movies/work/config, labels, healthcheck, restart policy
-- [ ] T023.2 Add env.template to project root with TV_HOST_PATH, MOVIES_HOST_PATH, WORKDIR_PATH, CONFIG_PATH, CONTAINER_NAME, IMAGE_TAG, TZ, UID, GID, CENSORR_VERBOSE
-- [ ] T023.3 Update root README with instructions: copy env.template to .env, docker compose up -d, docker exec usage, Radarr/Sonarr hook example
+- [x] T023.1 Add docker-compose.yml to project root with service `censorr`, build: ., image override, volumes for tv/movies/work/config, labels, healthcheck, restart policy; ensure sensible defaults in compose so `.env` is optional
+- [x] T023.2 Add env.template to project root with TV_HOST_PATH, MOVIES_HOST_PATH, WORKDIR_PATH, CONFIG_PATH, CONTAINER_NAME, IMAGE_TAG, TZ, UID, GID, CENSORR_VERBOSE (optional convenience)
+- [ ] T023.3 Update root README with instructions: optional .env, docker compose up -d, docker exec usage, Radarr/Sonarr hook example, and defaults table
 - [ ] T023.4 Remove deploy/ansible directory and references in docs/spec/plan
+- [ ] T023.5 Sanity check: run compose without `.env` (document default paths required) and with `.env`
 
 ## Phase 3.3: Future Validation Tooling (Tests First)
 NOTE: These tasks introduce executable code; follow strict TDD order.
