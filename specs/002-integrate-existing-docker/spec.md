@@ -44,6 +44,8 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 10. **Given** no `.env` file is present, **When** I run `docker compose up -d` with the provided docker-compose.yml, **Then** the service starts using documented sensible defaults, or fails clearly if required host paths do not exist.
 10. **Given** the NAS stores media at separate roots for TV and Movies, **When** I deploy Censorr, **Then** the container has read access to TV at `/data/media/tv` and Movies at `/data/media/movies` inside the container via bind mounts.
 
+11. [Removed] Podman examples are not provided; this feature standardizes on Docker Compose commands only.
+
 ### Edge Cases
 - What happens when the specified image tag does not exist? → Deployment should fail clearly; no partial container left running. [NEEDS CLARIFICATION: Should there be an optional fallback to `latest`?]
 - How does the system handle a downgrade (image tag changes from higher to lower semantic version)? → Should allow and document; require explicit rollback variable? [NEEDS CLARIFICATION]
@@ -80,6 +82,7 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 - **FR-021**: Provide a documented way to refresh images (pull/build) without tag change.
 - **FR-022**: Support optional timezone injection via TZ environment variable.
 - **FR-023**: Document security recommendations: non-root user, volume permissions, secrets handling via .env or compose secrets.
+- **FR-024**: Documentation and examples MUST use Docker Compose exclusively; Podman commands/examples are out of scope for this feature.
 
 ### Non-Functional / Operational Requirements
 - **NFR-001**: Deployment MUST be idempotent (zero changes on second run with identical inputs).
@@ -89,6 +92,7 @@ As a homelab operator, I want a simple docker-compose.yml and an env.template in
 - **NFR-005**: Health check failure SHOULD produce actionable remediation guidance in message text.
 - **NFR-006**: Documentation MUST be sufficient for a new operator to replicate deployment using only example vars file + README snippet.
 - **NFR-007**: Build mode MUST NOT leak Git tokens in build cache, image layers, or logs; tokens MUST be provided via BuildKit secrets and marked no_log in Ansible.
+ - Note: Podman-specific guidance is intentionally excluded to reduce surface area and confusion; Docker Compose is the canonical path for this feature.
 
 ### Key Entities
 - **DeploymentConfig**: Declarative configuration defined in Ansible vars (image, tag, volumes, env, health, restart policy, enabled flag, resources, labels).

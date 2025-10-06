@@ -42,6 +42,7 @@ These tasks capture already-added artifacts for traceability.
 - [ ] T023.3 Update root README with instructions: optional .env, docker compose up -d, docker exec usage, Radarr/Sonarr hook example, and defaults table
 - [ ] T023.4 Remove deploy/ansible directory and references in docs/spec/plan
 - [ ] T023.5 Sanity check: run compose without `.env` (document default paths required) and with `.env`
+ - [x] T023.6 Remove Podman examples and references from spec/plan/tasks and standardize docs on Docker Compose only ✅
 
 ## Phase 3.3: Future Validation Tooling (Tests First)
 NOTE: These tasks introduce executable code; follow strict TDD order.

@@ -24,12 +24,14 @@
 - env.template in project root (optional convenience)
 - Updated Dockerfile defaults for long-running service entrypoint (daemon)
 - README updates in root (or docs) for compose usage
+ - Explicit removal of Podman examples; documentation will standardize on Docker Compose only for this feature.
 
 ## Steps
 1. Create docker-compose.yml with build/image, env_file, volumes, healthcheck, labels, restart policy.
 2. Create env.template with all configurable options (optional) and document that compose runs without `.env` using defaults.
 3. Update README with quickstart using docker compose, including Radarr/Sonarr hook snippet.
 4. Remove deploy/ansible directory and references.
+ 5. Purge Podman-specific examples and references from docs and examples to avoid confusion.
 
 ## Media Mounts Standardization
 Use consistent internal container paths for media:
