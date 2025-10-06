@@ -39,9 +39,11 @@ These tasks capture already-added artifacts for traceability.
 ## Phase 3.2b: Docker Compose Deliverables
 - [x] T023.1 Add docker-compose.yml to project root with service `censorr`, local build by default (build: .), volumes for tv/movies/work/config, labels, healthcheck, restart policy; ensure sensible defaults in compose so `.env` is optional, and set container_name in compose (not via .env)
 - [x] T023.2 Add env.template to project root with MEDIA_PATH_TV, MEDIA_PATH_MOVIES, WORKDIR_PATH, CONFIG_PATH, TZ, UID, GID, CENSORR_VERBOSE (optional convenience); remove IMAGE_REPO/IMAGE_TAG and CONTAINER_NAME from .env
- - [ ] T023.3 Update root README with instructions: optional .env, docker compose up -d (local build), docker exec usage, Radarr/Sonarr hook example, and defaults table
-- [ ] T023.4 Remove deploy/ansible directory and references in docs/spec/plan
-- [ ] T023.5 Sanity check: run compose without `.env` (document default paths required) and with `.env`
+ - [x] T023.3 Update root README with instructions: optional .env, docker compose up -d (local build), docker exec usage, Radarr/Sonarr hook example, and defaults table ✅
+- [x] T023.4 Remove deploy/ansible directory and references in docs/spec/plan ✅
+- [x] T023.5 Sanity check: run compose without `.env` (document default paths required) and with `.env` ✅
+  - Verified: docker compose config works without .env using defaults: /mnt/media/tv, /mnt/media/movies, /srv/censorr/work, /srv/censorr/config
+  - Verified: docker compose config works with .env file present (same results as defaults)
  - [x] T023.6 Remove Podman examples and references from spec/plan/tasks and standardize docs on Docker Compose only ✅
 
 ## Phase 3.3: Future Validation Tooling (Tests First)
@@ -54,8 +56,8 @@ NOTE: These tasks introduce executable code; follow strict TDD order.
 - [x] T029 [P] Integration test simulating docker inspect JSON (fixture) to detect mismatch label vs config → failure `tests/integration/test_validate_runtime_state.py`
 
 ## Phase 3.3b: Validation Updates
-- [ ] T029.1 Remove build-mode validation and tests tied to BuildKit/private repo
-- [ ] T029.2 Ensure validator supports .env-driven compose expectations (media paths, container name)
+- [x] T029.1 Remove build-mode validation and tests tied to BuildKit/private repo ✅
+- [x] T029.2 Ensure validator supports .env-driven compose expectations (media paths, container name) ✅
 - [x] T030 Extend validator to accept optional runtime JSON via flag and validate (makes earlier integration test pass)
 
 ## Phase 3.4: Observability & Health Documentation

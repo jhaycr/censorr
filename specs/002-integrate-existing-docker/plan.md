@@ -30,7 +30,7 @@
 1. Create docker-compose.yml with build/image, env_file, volumes, healthcheck, labels, restart policy.
 2. Create env.template with all configurable options (optional) and document that compose runs without `.env` using defaults.
 3. Update README with quickstart using docker compose (local build by default from repo's Dockerfile), including Radarr/Sonarr hook snippet.
-4. Remove deploy/ansible directory and references.
+4. Update documentation to reflect docker-compose deployment model.
  5. Purge Podman-specific examples and references from docs and examples to avoid confusion.
 
 ## Media Mounts Standardization
@@ -52,30 +52,29 @@ Use consistent internal container paths for media:
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Goal: Provide a reproducible, configurable deployment mechanism for the Censorr container within an existing homelab Ansible infrastructure that already uses a generic `jhaycr-local.docker_compose` role—without modifying that upstream role. Instead, this feature will deliver: (a) a self-contained deployment definition (compose snippet + vars example), (b) documented integration path (possibly via git submodule or pulled artifact), (c) health/monitoring label conventions, and (d) task list for future automation/validation.
+Goal: Provide a reproducible, configurable deployment mechanism for the Censorr container via docker-compose.yml in the repository root, enabling users to clone and run with minimal setup.
 
 High-level approach (WHAT, not HOW):
-- Treat Censorr as a managed service with declarative inputs: image reference, volumes, environment, labels, health check, resource constraints, enable flag.
-- Provide Ansible-facing artifacts (vars example + compose service fragment) stored inside this repository under `deploy/ansible/` so the homelab repo can consume them via git submodule or file copy.
-- Offer optional version pinning & manual refresh mechanism (documented variable naming) but defer automated rollback logic until clarified.
-- Expose recommended labels & health check semantics compatible with common homelab patterns (Traefik/Prometheus style kept abstract—needs clarification before concrete label names become requirements).
-- Ensure guardrails: idempotency, explicit fail on missing required volume bindings, secrets via Ansible vault (only placeholders here).
+- Treat Censorr as a managed service with declarative inputs: volumes, environment, labels, health check, resource constraints.
+- Provide docker-compose.yml and env.template in the repository root for direct usage.
+- Offer optional environment customization via .env but ensure sensible defaults allow running without .env.
+- Expose recommended labels & health check semantics for homelab integration.
+- Ensure guardrails: idempotency, explicit fail on missing required volume bindings.
 
 Out-of-scope (explicitly):
-- Direct edits to `nas-infra` repository or its roles.
-- Implementing automatic rollback logic (only manual pin documented until clarified).
 - Building dynamic inventory integrations or scheduling frameworks.
-- Extending upstream Ansible role functionality.
+- Implementing automatic rollback logic (only manual documented until clarified).
+- Complex authentication or secrets management patterns beyond basic .env variables.
 
 ## Technical Context
-**Language/Version**: Python 3.12 (Censorr codebase); Ansible execution environment (YAML declarative) in separate infra repo.  
-**Primary Dependencies**: Censorr container image (built via Dockerfile in this repo); Ansible role `jhaycr-local.docker_compose` (external); Docker/Compose runtime on NAS host.  
+**Language/Version**: Python 3.12 (Censorr codebase); Docker/Compose runtime.  
+**Primary Dependencies**: Censorr container image (built via Dockerfile in this repo); Docker/Compose runtime.  
 **Storage**: Host-mounted volumes (media read-only, work/output read-write, config, logs). No internal DB.  
-**Testing**: Existing pytest suite for application; new (future) optional validation script to introspect running container (not implemented here—will appear as tasks).  
-**Target Platform**: Linux NAS host (amd64 and potentially arm64—multi-arch images already considered in earlier containerization work).  
+**Testing**: Existing pytest suite for application; optional validation script to introspect running container.  
+**Target Platform**: Linux host (amd64 and potentially arm64—multi-arch images already considered in earlier containerization work).  
 **Project Type**: Single CLI/library project (no architectural change needed).  
-**Performance Goals**: Deployment idempotency (<10s no-op run). Runtime performance unaffected by deployment integration.  
-**Constraints**: Must not require role modification; must not embed secrets; must remain optional (feature toggle).  
+**Performance Goals**: Container startup idempotency (<10s no-op run). Runtime performance unaffected by deployment integration.  
+**Constraints**: Must work with standard Docker Compose; must not require external orchestration.  
 **Scale/Scope**: Single-instance service (one container) per host; low concurrency requirements.
 
 Unresolved / Clarifications carried from spec:
@@ -88,11 +87,11 @@ Unresolved / Clarifications carried from spec:
 
 ## Constitution Check
 Principles mapping:
-- Library-first: No code restructuring required—deployment artifacts are additive docs/config only → COMPLIANT.
+- Library-first: No code restructuring required—deployment artifacts are additive docker-compose config only → COMPLIANT.
 - CLI/Text I/O first: Feature does not add runtime interface changes → COMPLIANT.
 - Tests-first: No new runtime behavior yet; future validation scripts will require tasks before implementation → DECLARATIVE ONLY.
-- Idempotency: Explicit design goal for Ansible consumption → COMPLIANT (planned).
-- Simplicity / YAGNI: Avoid modifying external role; using static compose fragment + vars file → COMPLIANT.
+- Idempotency: Explicit design goal for Docker Compose consumption → COMPLIANT (planned).
+- Simplicity / YAGNI: Using standard docker-compose.yml + optional .env → COMPLIANT.
 - Container-Deployable: Aligns with existing container spec; adding usage docs → COMPLIANT.
 - Immutable Task Ledger: Plan introduces tasks referencing this feature; will ensure commit references → ACK.
 
@@ -148,7 +147,7 @@ ios/ or android/
 └── [platform-specific structure]
 ```
 
-**Structure Decision**: Option 1 (single project). Add `deploy/ansible/` directory for integration artifacts (docs/templates) only—no runtime code.
+**Structure Decision**: Option 1 (single project). Docker Compose configuration in repository root—no additional directories needed.
 
 ## Phase 0: Outline & Research
 Objectives: Resolve deployment ambiguity areas to lock variable naming and artifact structure before producing guidance.
@@ -174,16 +173,12 @@ Adaptation: No API/endpoint changes; instead we define configuration schema + in
 
 Planned Artifacts:
 1. `data-model.md`: Conceptual models
-   - DeploymentConfig (fields: enabled, volumes[], env map, labels map, health spec, resources, user/group, log volume, sidecar config)
+   - DeploymentConfig (fields: enabled, volumes[], env map, labels map, health spec, resources, user/group, log volume)
    - HealthSpec (command, interval, timeout, retries, start_period)
    - ResourceSpec (memory_limit, cpu_shares)
-2. `contracts/` directory: Provide a `deployment-config.schema.json` (JSON Schema for vars structure) to enable validation scripts (future) + sample `compose-service.fragment.yml` template (documented only; not executed here).
-3. `quickstart.md`: Step-by-step: add git submodule, copy example vars file into `nas-infra` inventory/group_vars, enable feature flag, run playbook, verify container.
-4. `deploy/ansible/` directory (new) with:
-   - `README.md` (integration instructions summary)
-   - `vars.example.yml`
-   - `compose.censorr.yml` (service fragment example with placeholders) — NOTE: instruct user to merge contents consistent with existing role conventions.
-5. Open questions explicitly listed with recommended interim decisions.
+2. `contracts/` directory: Provide a `deployment-config.schema.json` (JSON Schema for configuration structure) to enable validation scripts (future).
+3. `quickstart.md`: Step-by-step: clone repo, run docker compose up, verify container.
+4. Updated README with docker-compose usage and integration examples.
 
 Tests (conceptual, not runtime code here):
    - Provide future tasks for a validation script (e.g., `scripts/validate_ansible_vars.py`) but do not implement now.
@@ -191,17 +186,17 @@ Tests (conceptual, not runtime code here):
 No failing code tests are created in this phase because no new executable logic is introduced inside the Python runtime; instead we treat schema + examples as contracts for future validation tooling (tracked in tasks).
 
 ## Phase 2: Task Planning Approach
-Strategy: Because this feature is documentation/integration oriented (no direct code paths changed), tasks focus on creating integration artifacts, schemas, and future validation scaffolding while preserving constitutional TDD expectations for any future executable validators.
+Strategy: Because this feature provides docker-compose deployment (no direct code paths changed), tasks focus on creating deployment artifacts, schemas, and optional validation scaffolding while preserving constitutional TDD expectations for any future executable validators.
 
 Categories:
 1. Research & Decision Capture (produce `research.md`).
 2. Schema & Model Documentation (data-model + JSON schema + example vars).
-3. Integration Artifacts (compose fragment, README, quickstart updates).
+3. Docker Compose Artifacts (docker-compose.yml, env.template, README updates).
 4. Optional Future Validation (placeholder tasks for a Python validation script + tests—*added but can be deferred*).
 5. Observability/Health Documentation.
 6. Risk & Rollback Guidance.
 
-Parallelization: Documentation files are independent except where one references canonical field names (data-model precedes schema & examples). Compose fragment depends on final volume/env naming decisions.
+Parallelization: Documentation files are independent except where one references canonical field names (data-model precedes schema & examples). Docker-compose.yml depends on final volume/env naming decisions.
 
 Estimated Task Count: 18–24 tasks.
 
@@ -218,7 +213,7 @@ Success Criteria for Tasks File:
 **Phase 5**: Validation (run tests, execute quickstart.md, performance validation)
 
 ## Complexity Tracking
-No added complexity beyond additional documentation directory (`deploy/ansible/`). Justification: segregates integration artifacts from core runtime code; avoids polluting root with environment-specific examples. Simpler alternative (placing examples under `specs/`) rejected because operators expect stable path outside feature spec evolution.
+No added complexity beyond docker-compose.yml and env.template in repository root. Justification: standard Docker Compose patterns; minimal additional files. Simpler alternative (embedding all defaults in compose) partially adopted but .env template provided for convenience.
 
 
 ## Progress Tracking

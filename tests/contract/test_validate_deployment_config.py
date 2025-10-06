@@ -12,13 +12,12 @@ class TestValidateDeploymentConfig:
 
     @pytest.fixture
     def valid_config(self):
-        """Valid configuration example."""
+        """Valid configuration example for docker-compose deployment."""
         return {
             'censorr_enabled': True,
-            'censorr_image_repo': 'ghcr.io/jhaycr/censorr',
-            'censorr_image_tag': 'v1.0.0',
             'censorr_volumes': [
-                {'host': '/mnt/media', 'container': '/media', 'mode': 'ro'},
+                {'host': '/mnt/media/tv', 'container': '/data/media/tv', 'mode': 'ro'},
+                {'host': '/mnt/media/movies', 'container': '/data/media/movies', 'mode': 'ro'},
                 {'host': '/srv/censorr/work', 'container': '/app/workdir', 'mode': 'rw'}
             ],
             'censorr_env': {
@@ -66,10 +65,11 @@ class TestValidateDeploymentConfig:
         assert len(output['errors']) == 0
 
     def test_missing_required_volume_fails(self, valid_config, script_path):
-        """Missing required media volume should fail validation."""
-        # Remove media volume (keep only work volume)
+        """Missing required work volume should fail validation."""
+        # Remove work volume (keep only media volumes)
         valid_config['censorr_volumes'] = [
-            {'host': '/srv/censorr/work', 'container': '/app/workdir', 'mode': 'rw'}
+            {'host': '/mnt/media/tv', 'container': '/data/media/tv', 'mode': 'ro'},
+            {'host': '/mnt/media/movies', 'container': '/data/media/movies', 'mode': 'ro'}
         ]
         
         returncode, stdout, stderr = self.run_validator(valid_config, script_path)
@@ -78,7 +78,7 @@ class TestValidateDeploymentConfig:
         
         output = json.loads(stdout)
         assert output['valid'] is False
-        assert any('media' in error.lower() and 'ro' in error for error in output['errors'])
+        assert any('work' in error.lower() and 'rw' in error for error in output['errors'])
 
     def test_invalid_env_key_fails(self, valid_config, script_path):
         """Environment keys must be uppercase."""

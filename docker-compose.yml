@@ -4,8 +4,6 @@ services:
   censorr:
     container_name: censorr
     build: .
-    env_file:
-      - ./.env
     restart: unless-stopped
     environment:
       TZ: ${TZ:-UTC}
