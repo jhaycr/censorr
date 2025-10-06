@@ -91,8 +91,9 @@ class RemuxOperation(Operation):
                 artifact for artifact in inputs
                 if artifact.type == ArtifactType.AUDIO
             ]
-            
-            subtitle_artifacts = [
+
+            # Capture raw subtitle artifacts first (for sidecar creation later)
+            raw_subtitle_artifacts = [
                 artifact for artifact in inputs
                 if artifact.type == ArtifactType.SUBTITLE
             ]
@@ -100,8 +101,8 @@ class RemuxOperation(Operation):
             # Prioritize muted audio over extracted audio (searches entire inputs list + output dir)
             audio_artifacts = self._prioritize_audio_artifacts(inputs, workdir)
             
-            # Process subtitle artifacts based on mode
-            subtitle_artifacts = self._process_subtitle_artifacts(subtitle_artifacts, workdir, flags)
+            # Process subtitle artifacts based on mode for embedding
+            subtitle_artifacts = self._process_subtitle_artifacts(raw_subtitle_artifacts, workdir, flags)
             
             if flags.verbose:
                 print(f"Found {len(audio_artifacts)} audio tracks for remuxing")
@@ -186,6 +187,14 @@ class RemuxOperation(Operation):
                     artifact.metadata for artifact in subtitle_artifacts
                 ]
             
+            # Optionally create subtitle sidecars alongside the remuxed video
+            if flags.create_subtitle_sidecar:
+                try:
+                    self._create_subtitle_sidecars(raw_subtitle_artifacts, workdir, remuxed_path, flags)
+                except Exception as e:
+                    if flags.verbose:
+                        print(f"Failed to create subtitle sidecars: {e}")
+
             result_artifact = Artifact(
                 type=ArtifactType.VIDEO,
                 path=remuxed_path,

@@ -20,6 +20,8 @@
         "remux"
       ],
       "flags": {
+        "language": "en",
+        "subtitle_mode": "none",
         "create_subtitle_sidecar": true,
         "profanity_list_file": "config/profanity_list.json"
       },
@@ -43,6 +45,7 @@
         "remux"
       ],
       "flags": {
+        "language": "en",
         "create_subtitle_sidecar": true,
         "profanity_list_file": "config/profanity_list.json"
       },

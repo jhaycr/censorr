@@ -357,6 +357,11 @@ def process(
             # Language default from preset flags
             if not language and 'language' in preset_config.flags:
                 language = preset_config.flags['language']
+            # Subtitle mode default from preset flags if not overridden on CLI
+            if 'subtitle_mode' in preset_config.flags:
+                # If CLI didn't change it (still default), honor preset
+                if subtitle_mode == app_config.subtitle_mode:
+                    subtitle_mode = preset_config.flags['subtitle_mode']
         # Validate input file
         input_path = Path(input_file)
         if not input_path.exists():
@@ -466,7 +471,7 @@ def process(
             continue_on_audio_qc_fail=merged_args['continue_on_audio_qc_fail'],
             profanity_list_file=profanity_list_file,
             fuzzy_threshold=merged_args['fuzzy_threshold'],
-            subtitle_mode=merged_args['subtitle_mode'],
+            subtitle_mode=subtitle_mode,
             create_subtitle_sidecar=create_subtitle_sidecar,
             sidecar_tag=merged_args['sidecar_tag'],
             strict_audio_parity=merged_args['strict_audio_parity'],

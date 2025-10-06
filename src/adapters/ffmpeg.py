@@ -342,6 +342,9 @@ class FFmpegAdapter:
             for i in range(len(subtitle_tracks)):
                 cmd.extend(["-map", f"{input_index}:s"])
                 input_index += 1
+        else:
+            # Keep original subtitle streams if no new subtitles are being embedded
+            cmd.extend(["-map", "0:s?"])
         
         # Copy codecs to avoid re-encoding
         cmd.extend(["-c", "copy"])
