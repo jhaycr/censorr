@@ -38,10 +38,11 @@ censorr process "/path/movie.mkv" \
   --operations extract_audio,mute_audio \
   --dry-run
 
-# Select English full + forced tracks while excluding SDH
+# Select English full + forced while excluding SDH using structured selectors
+# (preferred over ad-hoc CLI toggles)
 censorr process "/path/movie.mkv" \
-  --language en --exclude-sdh \
-  --subtitle-title-include "forced" \
+  --language en \
+  --selectors-json selectors.en.full_plus_forced.json \
   --operations extract_subtitles,merge_subtitles,mask_subtitles \
   --dry-run
 
@@ -155,7 +156,45 @@ Create `config/censorr.json` in your project:
   "language": "en",
   "subtitle_mode": "masked_only",
   "sidecar_tag": "clean",
-  "jobs": 4
+  "jobs": 4,
+  "presets": {
+    "movies": {
+      "operations": [
+        "extract_subtitles",
+        "merge_subtitles",
+        "mask_subtitles",
+        "extract_audio",
+        "mute_audio",
+        "audio_quality_check",
+        "remux"
+      ],
+      "flags": {
+        "create_subtitle_sidecar": true,
+        "profanity_list_file": "config/profanity_list.json"
+      },
+      "language_selector": { "prefer_non_sdh": true },
+      "output": { "in_place": true, "embed_muted_audio": true },
+      "backup_default": false
+    },
+    "tv": {
+      "operations": [
+        "extract_subtitles",
+        "merge_subtitles",
+        "mask_subtitles",
+        "extract_audio",
+        "mute_audio",
+        "audio_quality_check",
+        "remux"
+      ],
+      "flags": {
+        "create_subtitle_sidecar": true,
+        "profanity_list_file": "config/profanity_list.json"
+      },
+      "language_selector": { "prefer_non_sdh": true },
+      "output": { "in_place": true, "embed_muted_audio": true },
+      "backup_default": false
+    }
+  }
 }
 ```
 
@@ -183,6 +222,19 @@ censorr process movie.mkv --config ./custom-config.json --verbose
 
 # CLI args override config values
 censorr process movie.mkv --subtitle-title-exclude "different,patterns"
+```
+
+### Preset Examples
+
+```bash
+# Minimal default pipeline for movies preset
+censorr process "/data/media/movies/Movie (2024).mkv" --preset movies
+
+# TV preset, explicit language override (CLI overrides preset/config)
+censorr process "/data/media/tv/Show/S01E03.mkv" --preset tv --language es
+
+# In-place remux with backup of original
+censorr process "/data/media/movies/Movie (2024).mkv" --preset movies --backup
 ```
 
 ### Basic Container Examples

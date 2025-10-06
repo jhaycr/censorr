@@ -328,3 +328,55 @@ Notes:
 	- Update CLI integration tests to verify config defaults are applied correctly
 	- Update documentation to describe config file format and precedence rules
 	- Rationale: Provide convenient defaults for common use cases while maintaining CLI flexibility; users no longer need to specify --subtitle-title-exclude for basic SDH filtering.
+
+	---
+
+	## New: Presets (movies/tv), default pipeline, language rules, in-place remux with backup (FR-065..FR-070)
+
+	80. Config schema: add `presets` map in `src/models/config.py`
+		- Shape: name → { operations: [str], flags: {str: any}, language_selector: { prefer_non_sdh: bool, patterns: { include: [], exclude: [], regex: [] } }, output: { in_place: bool, embed_muted_audio: bool }, backup_default: bool }
+		- Validation: operations must be a subset of registered ops; unknown flags rejected.
+
+	81. Default presets: define `movies` and `tv`
+		- Pipeline: extract_subtitles, merge_subtitles, mask_subtitles, extract_audio, mute_audio, audio_quality_check, remux
+		- Flags: `create_subtitle_sidecar: true`, `profanity_list_file: config/profanity_list.json`
+		- Output: `in_place: true`, `embed_muted_audio: true`; `backup_default: false`
+
+	82. CLI wiring: add `--preset` and `--backup` flags
+		- Precedence: CLI > preset > config defaults
+		- Resolution: compute final plan (ops + flags + selector + output policy); emit summary in verbose logs
+
+	83. Language selection rules implementation
+		- Prefer non‑SDH/CC English (or requested language) by title/code/empty
+		- Merge same‑language Forced track with full track
+		- Fallback to SDH/CC only if no non‑SDH match
+		- Tests: unit tests for selector behavior; integration test verifying merged tracks composition
+
+	84. Remux in-place with backup
+		- Implement atomic replace: write to temp path, fsync, rename
+		- `--backup` or preset backup_default: copy original to `<name>.bak` (configurable suffix) prior to replace; skip if exists with identical size/hash
+		- Tests: simulate same-FS rename and cross-FS copy fallback; verify backup behavior and idempotency
+
+	85. Embed muted audio alongside originals
+		- Ensure remux maps include original audio + additional muted track; set language/metadata appropriately
+		- Tests: probe result tracks; assert counts and tags
+
+	86. Defaults when no preset provided
+		- Run the default movies/tv pipeline per spec with sidecar + profanity list defaults; document behavior
+		- Tests: CLI without --preset uses defaults; precedence still applies to explicit CLI flags
+
+	87. E2E tests on fixtures
+		- Add tiny video/subtitle/audio fixtures to exercise the full pipeline for both `movies` and `tv`
+		- Generate deterministic outputs and verify hashes/metadata
+
+	88. Docs update
+		- README and quickstart: add `--preset movies` and `--backup` examples; describe language rules and backup
+		- Add example `config/censorr.json` with presets
+
+	89. Validator extension (optional)
+		- If applicable, validate presets section: known operations, flags types, required files exist (profanity list)
+		- Warnings for missing optional config with sensible defaults
+
+	90. Observability and idempotency
+		- Log resolved preset and effective plan; include selection decisions and remux mapping
+		- Re-run on same inputs should not duplicate muted track or rewrite identical outputs

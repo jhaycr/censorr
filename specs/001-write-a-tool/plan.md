@@ -1,5 +1,5 @@
 
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Presets via Config (Movies/TV) with In-Place Remux and Backup
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
@@ -31,18 +31,21 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-[Extract from feature spec: primary requirement + technical approach from research]
+Add a config-driven presets system in `config/censorr.json` enabling `--preset movies` and `--preset tv` to run a full default pipeline:
+extract_subtitles, merge_subtitles, mask_subtitles, extract_audio, mute_audio, audio_quality_check, remux.
+Presets set defaults for: `--create-subtitle-sidecar` and `--profanity-list-file config/profanity_list.json`.
+Language selection prefers non‑SDH/non‑CC tracks (by title/code/empty), merging same‑language Forced; falls back to SDH/CC when needed. Remux embeds muted audio as an additional track, preserves originals, and supports in-place replacement with optional `--backup`.
 
 ## Technical Context
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.12  
+**Primary Dependencies**: typer, pydantic, ffmpeg/ffprobe, pysubs2, rapidfuzz, PyYAML  
+**Storage**: Filesystem (workdir, config)  
+**Testing**: pytest (unit + integration + end-to-end on fixtures)  
+**Target Platform**: Linux CLI and Docker container  
+**Project Type**: Single project (CLI/lib)  
+**Performance Goals**: End-to-end on sample within CI time; operations stream via ffmpeg  
+**Constraints**: Deterministic outputs, idempotency, atomic replace when possible  
+**Scale/Scope**: Single-file processing per invocation (batch optional later)
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
@@ -99,7 +102,7 @@ ios/ or android/
 └── [platform-specific structure]
 ```
 
-**Structure Decision**: [DEFAULT to Option 1 unless Technical Context indicates web/mobile app]
+**Structure Decision**: Option 1 (single project). Add presets to config model and CLI wiring; add E2E tests and small fixtures.
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:
@@ -123,6 +126,10 @@ ios/ or android/
 **Output**: research.md with all NEEDS CLARIFICATION resolved
 
 ## Phase 1: Design & Contracts
+1. Extend Config model to include `presets` map: name → { operations[], flags, selector config, output policies, backup(bool) }.
+2. Define default presets `movies` and `tv` with the specified pipeline and flags. Add language selection policy description.
+3. Update selector schema documentation to express the non‑SDH preference and forced merge behavior (configurable patterns).
+4. Add CLI contract for `--preset` and `--backup` flags; precedence: CLI > preset > config defaults.
 *Prerequisites: research.md complete*
 
 1. **Extract entities from feature spec** → `data-model.md`:
@@ -170,7 +177,7 @@ ios/ or android/
 - Dependency order: Models before services before UI
 - Mark [P] for parallel execution (independent files)
 
-**Estimated Output**: 25-30 numbered, ordered tasks in tasks.md
+**Estimated Output**: 10-16 tasks (model, CLI, ops integration, tests, docs)
 
 **IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
 
