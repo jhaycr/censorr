@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean
 
 # Create non-root build user
-RUN groupadd -g 10001 censorr && useradd -u 10001 -g censorr -m censorr
+RUN groupadd -g 1000 censorr && useradd -u 1000 -g censorr -m censorr
 
 WORKDIR /build
 
@@ -40,8 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /tmp/* /var/tmp/*
 
 # Create non-root user with specific UID/GID for security
-RUN groupadd -g 10001 censorr && \
-    useradd -u 10001 -g censorr -m -s /bin/bash censorr && \
+RUN groupadd -g 1000 censorr && \
+    useradd -u 1000 -g censorr -m -s /bin/bash censorr && \
     # Remove unnecessary packages and files
     apt-get purge -y --auto-remove \
     && rm -rf /var/cache/apt/archives/*
@@ -64,9 +64,6 @@ RUN python -m pip install --no-cache-dir -e . && \
     chown -R censorr:censorr /app && \
     # Remove pip cache and temporary files
     rm -rf /root/.cache/pip /tmp/* /var/tmp/*
-
-# Ensure no writable directories for non-root user in sensitive locations
-RUN chmod -R o-w /usr/local /etc
 
 # Switch to non-root user early for security  
 USER censorr
@@ -91,8 +88,10 @@ LABEL org.opencontainers.image.licenses="MIT"
 # Document expected volumes
 VOLUME ["/media", "/app/workdir", "/app/config"]
 
-# Set entrypoint to console script
-ENTRYPOINT ["censorr"]
+# Copy entrypoint script and set it
+COPY --chown=censorr:censorr docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Default to help when no args provided
-CMD ["--help"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+# Default to daemon to stay running (can override with CLI args)
+CMD ["daemon"]
