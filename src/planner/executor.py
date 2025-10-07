@@ -255,8 +255,16 @@ class Executor:
             )
             
             # Save manifest for caching
+            # Include applied audio encode settings (from remux op) when available
+            manifest_params = operation_params.copy()
+            try:
+                applied_audio = getattr(context.flags, "_applied_audio_encode", None)
+                if applied_audio is not None and operation.name == "remux":
+                    manifest_params["audio_encode_applied"] = applied_audio
+            except Exception:
+                pass
             context.cache_manager.save_manifest(
-                operation_dir, operation.name, input_artifacts, outputs, operation_params
+                operation_dir, operation.name, input_artifacts, outputs, manifest_params
             )
             
             # Update context with new artifacts

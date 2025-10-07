@@ -38,6 +38,12 @@ class OperationFlags(BaseModel):
     dest_policy_tag: str = Field("[Censorr]", description="Tag for subfolder_tag policy")
     dest_separate_root: str = Field("/data/media/TV/Censorr", description="Root directory for separate_root policy")
     conflict_policy: str = Field("reuse_if_identical", description="Conflict resolution: reuse_if_identical, overwrite, fail, suffix")
+
+    # Audio encoding/transcode controls (for maintaining surround/codec)
+    audio_transcode_to_original: bool = Field(False, description="Transcode processed audio to the original codec in remux")
+    audio_target_codec: str | None = Field(None, description="Explicit target audio codec (e.g., eac3, ac3, aac)")
+    audio_bitrate: str | None = Field(None, description="Target audio bitrate for re-encode (e.g., 640k)")
+    audio_channels: int | None = Field(None, description="Target audio channels for re-encode; None preserves original")
     
     @model_validator(mode='after')
     def validate_flags(self):

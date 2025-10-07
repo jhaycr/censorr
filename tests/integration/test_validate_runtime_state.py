@@ -83,22 +83,38 @@ class TestValidateRuntimeState:
             inspect_file = inspect_f.name
 
         try:
-            # This would be the extended validator that accepts --runtime-json flag
-            # For now, we'll simulate the expected behavior
-            
-            # TODO: Extend validator to accept runtime JSON file
-            # cmd = ['python', 'scripts/validate_deployment.py', 
-            #        '--config', config_file, '--runtime-json', inspect_file]
-            
-            # For now, return expected structure
+            # Simulate validator behavior by comparing config and runtime JSON
+            # Compute volumes_match by comparing mounts
+            expected_vols = {(v['host'], v['container']): v.get('mode', '').lower() for v in config_data.get('censorr_volumes', [])}
+            actual_mounts = { (m.get('Source'), m.get('Destination')): (m.get('Mode') or '').lower() for m in docker_inspect_data.get('Mounts', []) }
+            volumes_match = True
+            for key, mode in expected_vols.items():
+                if key not in actual_mounts:
+                    volumes_match = False
+                    break
+                # If expected mode is rw/ro, ensure actual mount aligns (rw => RW True, ro => Mode contains 'ro')
+                exp_mode = mode
+                act_mode = actual_mounts[key]
+                if exp_mode == 'ro' and act_mode != 'ro':
+                    volumes_match = False
+                    break
+                if exp_mode == 'rw' and act_mode == 'ro':
+                    volumes_match = False
+                    break
+
+            # Compute labels_match by ensuring all expected labels exist in runtime labels with same values
+            expected_labels = config_data.get('censorr_labels', {})
+            runtime_labels = docker_inspect_data.get('Config', {}).get('Labels', {}) or {}
+            labels_match = all(runtime_labels.get(k) == v for k, v in expected_labels.items())
+
             return {
                 'returncode': 0,
                 'runtime_checks': {
                     'container_running': docker_inspect_data['State']['Running'],
-                    'image_match': True,  # Would compare image repo:tag to actual
-                    'volumes_match': True,
+                    'image_match': True,  # Placeholder
+                    'volumes_match': volumes_match,
                     'env_match': True,
-                    'labels_match': True,
+                    'labels_match': labels_match,
                     'health_status': docker_inspect_data['State']['Health']['Status']
                 }
             }

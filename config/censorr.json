@@ -23,7 +23,8 @@
         "language": "en",
         "subtitle_mode": "none",
         "create_subtitle_sidecar": true,
-        "profanity_list_file": "config/profanity_list.json"
+        "profanity_list_file": "config/profanity_list.json",
+        "audio_transcode_to_original": true
       },
       "language_selector": { 
         "prefer_non_sdh": true 
@@ -47,7 +48,8 @@
       "flags": {
         "language": "en",
         "create_subtitle_sidecar": true,
-        "profanity_list_file": "config/profanity_list.json"
+        "profanity_list_file": "config/profanity_list.json",
+        "audio_transcode_to_original": true
       },
       "language_selector": { 
         "prefer_non_sdh": true 

@@ -241,6 +241,22 @@ def process(
     dest_separate_root: Optional[str] = typer.Option(
         None, "--dest-separate-root",
         help="Root directory for separate_root policy"
+    ),
+    audio_transcode_to_original: bool = typer.Option(
+        False, "--audio-transcode-to-original",
+        help="Transcode processed audio to the original codec (e.g., E-AC-3) in remux"
+    ),
+    audio_target_codec: Optional[str] = typer.Option(
+        None, "--audio-target-codec",
+        help="Explicit target audio codec for remuxed processed audio (e.g., eac3, ac3, aac)"
+    ),
+    audio_bitrate: Optional[str] = typer.Option(
+        None, "--audio-bitrate",
+        help="Target audio bitrate for re-encode (e.g., 640k)"
+    ),
+    audio_channels: Optional[int] = typer.Option(
+        None, "--audio-channels",
+        help="Target channel count for re-encode (e.g., 6 for 5.1). Default preserves original"
     )
 ):
     """
@@ -362,6 +378,18 @@ def process(
                 # If CLI didn't change it (still default), honor preset
                 if subtitle_mode == app_config.subtitle_mode:
                     subtitle_mode = preset_config.flags['subtitle_mode']
+            # Audio-related defaults from preset (only if CLI didn't provide)
+            if not audio_transcode_to_original and 'audio_transcode_to_original' in preset_config.flags:
+                audio_transcode_to_original = bool(preset_config.flags['audio_transcode_to_original'])
+            if audio_target_codec is None and 'audio_target_codec' in preset_config.flags:
+                audio_target_codec = preset_config.flags['audio_target_codec']
+            if audio_bitrate is None and 'audio_bitrate' in preset_config.flags:
+                audio_bitrate = preset_config.flags['audio_bitrate']
+            if audio_channels is None and 'audio_channels' in preset_config.flags:
+                try:
+                    audio_channels = int(preset_config.flags['audio_channels'])
+                except Exception:
+                    pass
         # Validate input file
         input_path = Path(input_file)
         if not input_path.exists():
@@ -482,7 +510,11 @@ def process(
             dest_policy=effective_dest_policy or "subfolder_tag",
             dest_policy_tag=effective_dest_policy_tag or "[Censorr]",
             dest_separate_root=effective_dest_separate_root or "/data/media/TV/Censorr",
-            conflict_policy="reuse_if_identical"
+            conflict_policy="reuse_if_identical",
+            audio_transcode_to_original=audio_transcode_to_original,
+            audio_target_codec=audio_target_codec,
+            audio_bitrate=audio_bitrate,
+            audio_channels=audio_channels
         )
         
         # Plan operations

@@ -1,3 +1,11 @@
+## Tasks: Audio parameter parity via presets
+
+- [x] Extend ffprobe adapter to capture audio bitrate and sample rate for audio tracks.
+- [x] Persist original audio parameters (codec, channels, sample rate, bitrate) on the input VIDEO artifact during audio extraction.
+- [x] Add CLI/preset flag `audio_transcode_to_original` to enable transcode-to-original behavior by default for presets.
+- [x] Remux: When transcode-to-original is active, encode processed audio to match original parameters unless explicitly overridden via CLI (codec/bitrate/channels).
+- [x] Wire `sample_rate` and normalized `bitrate` into ffmpeg `-ar` and `-b:a` respectively.
+- [ ] E2E test: Verify that for a fixture with known original audio params, the remuxed audio matches codec, channels, sample rate, and bitrate when `audio_transcode_to_original` is enabled.
 # Tasks (Phase 2+)
 
 This checklist will guide the implementation using TDD. It maps to requirements and constitution gates.

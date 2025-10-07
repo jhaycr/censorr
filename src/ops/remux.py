@@ -133,6 +133,58 @@ class RemuxOperation(Operation):
                 # Check if we should skip writing due to conflict resolution
                 should_write = getattr(flags, '_should_write_output', True)
                 
+                # Prepare audio encode settings before deciding to write, so manifest always records them
+                audio_encode = None
+                applied_audio_manifest = None
+                if flags.audio_transcode_to_original or flags.audio_target_codec:
+                    # Build from original stream metadata unless overridden by flags
+                    orig_codec = video_artifact.metadata.get("audio_codec")
+                    orig_channels = video_artifact.metadata.get("audio_channels")
+                    orig_sr = video_artifact.metadata.get("audio_sample_rate")
+                    orig_br = video_artifact.metadata.get("audio_bitrate") or video_artifact.metadata.get("audio_bitrate_bps")
+
+                    target_codec = flags.audio_target_codec or orig_codec or "eac3"
+                    target_channels = flags.audio_channels or orig_channels
+                    target_sr = None
+                    if flags.audio_bitrate:
+                        target_br = flags.audio_bitrate
+                    else:
+                        target_br = orig_br
+                    # Normalize bitrate: if stored as int bps, convert to 'XXXk' when divisible
+                    if isinstance(target_br, int):
+                        if target_br % 1000 == 0:
+                            target_br = f"{target_br // 1000}k"
+                        else:
+                            # leave as int; adapter will str() it
+                            pass
+                    # sample rate
+                    if hasattr(flags, 'audio_sample_rate') and flags.audio_sample_rate:
+                        target_sr = flags.audio_sample_rate
+                    else:
+                        target_sr = orig_sr
+
+                    audio_encode = {
+                        "codec": target_codec,
+                        "bitrate": target_br,
+                        "channels": target_channels,
+                        "sample_rate": target_sr
+                    }
+                    applied_audio_manifest = {
+                        "mode": "encode",
+                        "codec": target_codec,
+                        "channels": int(target_channels) if isinstance(target_channels, int) else target_channels,
+                        "sample_rate": int(target_sr) if isinstance(target_sr, (int, str)) and str(target_sr).isdigit() else target_sr,
+                        "bitrate": str(target_br) if target_br is not None else None,
+                    }
+                else:
+                    applied_audio_manifest = {"mode": "copy"}
+
+                # Stash applied audio settings on flags for manifest recording by the executor
+                try:
+                    flags.__dict__["_applied_audio_encode"] = applied_audio_manifest
+                except Exception:
+                    pass
+
                 if should_write:
                     if flags.verbose:
                         print(f"Remuxing video: {video_artifact.path}")
@@ -151,7 +203,8 @@ class RemuxOperation(Operation):
                             video_input=video_artifact.path,
                             output=output_path,
                             audio_tracks=audio_tracks,
-                            subtitle_tracks=subtitle_tracks
+                            subtitle_tracks=subtitle_tracks,
+                            audio_encode=audio_encode
                         )
                         
                         # Verify audio parity if audio tracks were provided

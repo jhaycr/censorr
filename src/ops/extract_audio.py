@@ -75,6 +75,40 @@ class ExtractAudioOperation(Operation):
                 raise RuntimeError(f"Failed to probe video file {video_artifact.path}: {probe_result.error}")
             
             media_info = probe_result.result
+            # Store original audio codec info on the video artifact metadata for later use
+            try:
+                orig_audio_tracks = media_info.get_audio_tracks()
+                if orig_audio_tracks:
+                    # Use first audio track as baseline
+                    first_track = orig_audio_tracks[0]
+                    # codec
+                    codec_val = getattr(first_track, "codec", None)
+                    if isinstance(codec_val, str):
+                        video_artifact.metadata["audio_codec"] = codec_val
+                    # channels
+                    channels_val = getattr(first_track, "channels", None)
+                    if isinstance(channels_val, int):
+                        video_artifact.metadata["audio_channels"] = channels_val
+                    # sample_rate (string from ffprobe, keep as int if convertible)
+                    sr_val = getattr(first_track, "sample_rate", None)
+                    if isinstance(sr_val, str) and sr_val.isdigit():
+                        video_artifact.metadata["audio_sample_rate"] = int(sr_val)
+                    elif isinstance(sr_val, int):
+                        video_artifact.metadata["audio_sample_rate"] = sr_val
+                    # bitrate (string bits per second; store as e.g. '256k' if divisible)
+                    br_val = getattr(first_track, "bitrate", None)
+                    if isinstance(br_val, str) and br_val.isdigit():
+                        try:
+                            br_int = int(br_val)
+                            # Convert to k suffix if clean multiple of 1000
+                            if br_int % 1000 == 0:
+                                video_artifact.metadata["audio_bitrate"] = f"{br_int // 1000}k"
+                            else:
+                                video_artifact.metadata["audio_bitrate_bps"] = br_int
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             audio_tracks = media_info.get_audio_tracks()
             
             if flags.verbose:
@@ -122,6 +156,7 @@ class ExtractAudioOperation(Operation):
                     output_path=str(output_path),
                     track_index=ffmpeg_audio_idx,
                     audio_format=self.audio_format,
+                    channels=None,  # Preserve original channel layout
                     heartbeat_interval=8.0,
                     heartbeat_context=f"extracting audio track {track.index} ({track.codec}, {track.language or 'und'})"
                 )
