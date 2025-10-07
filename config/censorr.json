@@ -6,7 +6,7 @@
   "destination_policy": {
     "policy": "subfolder_tag",
     "tag": "[Censorr]",
-    "separate_root": "/data/media/TV/Censorr"
+    "separate_root": "/data/media/tv/General_Clean"
   },
   "presets": {
     "movies": {
@@ -47,6 +47,7 @@
       ],
       "flags": {
         "language": "en",
+        "subtitle_mode": "none",
         "create_subtitle_sidecar": true,
         "profanity_list_file": "config/profanity_list.json",
         "audio_transcode_to_original": true
@@ -59,8 +60,8 @@
         "embed_muted_audio": true 
       },
       "destination_policy": {
-        "policy": "subfolder_tag",
-        "tag": "[Censorr]"
+        "policy": "separate_root",
+        "separate_root": "/data/media/tv/General_Clean"
       },
       "backup_default": false
     }
