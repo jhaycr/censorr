@@ -34,6 +34,7 @@
 Add a config-driven presets system in `config/censorr.json` enabling `--preset movies` and `--preset tv` to run a full default pipeline:
 extract_subtitles, merge_subtitles, mask_subtitles, extract_audio, mute_audio, audio_quality_check, remux.
 Presets set defaults for: `--create-subtitle-sidecar` and `--profanity-list-file config/profanity_list.json`.
+Extend profanity list format to allow per-word overrides (custom fuzzy threshold and variant strategy), enabling aggressive variant detection for families such as "fuck" without enumerating every variant. Maintain backward compatibility with string lists.
 Language selection prefers non‑SDH/non‑CC tracks (by title/code/empty), merging same‑language Forced; falls back to SDH/CC when needed. Remux embeds muted audio as an additional track, preserves originals, and supports in-place replacement with optional `--backup`.
 Introduce output modes: REMUX_ORIGINAL_VIDEO (in-place replace, optional backup) and REMUX_NEW_FILE (non-destructive new file). For movies, REMUX_NEW_FILE writes `{edition-Censorr}` in the same folder. For TV, REMUX_NEW_FILE writes using a configurable policy: `subfolder_tag` (e.g., `Show [Censorr]/Season …`) or `separate_root` (e.g., `TV/Censorr/Show/Season …`). Policies are configurable and reusable across shows via templates.
 
@@ -130,10 +131,13 @@ ios/ or android/
 1. Extend Config model to include `presets` map: name → { operations[], flags, selector config, output policies, backup(bool) }.
 2. Define default presets `movies` and `tv` with the specified pipeline and flags. Add language selection policy description.
 3. Update selector schema documentation to express the non‑SDH preference and forced merge behavior (configurable patterns).
-4. Add CLI contract for `--preset` and `--backup` flags; precedence: CLI > preset > config defaults.
+4. Profanity list contract: define a structured profanity entry object with fields `word`, optional `aliases[]`, optional `fuzzy_threshold`, optional `variant_strategy: default|aggressive`; specify global defaults and inheritance. Document backward compatibility with plain strings.
+5. Add CLI contract for `--preset` and `--backup` flags; precedence: CLI > preset > config defaults.
 5. Output Mode contract: define enum `output_mode` with `REMUX_ORIGINAL_VIDEO` and `REMUX_NEW_FILE`; define destination policy contract with `policy: subfolder_tag|separate_root`, `{tag}`, `{root}`, and a templated path schema supporting `{library_root}`, `{collection}{tag}`, `{season}`, `{episode}` tokens. Specify idempotency and conflict resolution policies.
 6. Implementation milestone: Model changes — update Config presets to include `output_mode` and `destination_policy` (schema, validation, docs).
 7. Implementation milestone: CLI flags and resolution — add flags (`--output-mode`, `--dest-policy`, `--dest-policy-tag`, `--dest-separate-root`) and enforce precedence CLI > preset > config.
+8. Implementation milestone: Profanity config ingestion — update config/profanity list loader to accept string or object entries; normalize into an internal term model with effective thresholds and strategies; unit tests for parsing and inheritance.
+9. Implementation milestone: Matcher wiring — update the fuzzy matcher to accept an effective threshold per term and a variant strategy; add an aggressive variant pathway that expands candidate windows (e.g., morphological/compounded forms) while preserving boundary semantics; tests for detection of variants like "fuckable" without explicit enumeration.
 8. Implementation milestone: Path builders & conflicts — implement same-folder new-name builder (movie edition) and generic destination builders (subfolder_tag, separate_root), with conflict handling (reuse/overwrite/fail/suffix) and idempotency.
 *Prerequisites: research.md complete*
 

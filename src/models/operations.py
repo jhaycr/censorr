@@ -21,6 +21,9 @@ class OperationFlags(BaseModel):
     max_jobs: int = Field(1, description="Maximum number of parallel jobs (implies parallel=True)")
     continue_on_qc_fail: bool = Field(False, description="Continue pipeline on QC failure (residual matches found)")
     continue_on_audio_qc_fail: bool = Field(False, description="Continue pipeline on audio QC failure (insufficient muting)")
+    # Audio QC tuning
+    audio_qc_threshold_db: float | None = Field(None, description="Minimum dB reduction required in muted windows (more negative is stricter)")
+    audio_qc_control_window: float | None = Field(None, description="Duration in seconds for control segments used in audio QC comparisons")
     selectors: List['Selector'] = Field(default_factory=list, description="Track selectors for filtering operations")
     profanity_list_file: str | None = Field(None, description="Path to JSON profanity list file for subtitle masking")
     fuzzy_threshold: float | None = Field(None, description="Similarity threshold (0-100) for fuzzy profanity matching")

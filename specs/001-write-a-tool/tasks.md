@@ -6,6 +6,31 @@
 - [x] Remux: When transcode-to-original is active, encode processed audio to match original parameters unless explicitly overridden via CLI (codec/bitrate/channels).
 - [x] Wire `sample_rate` and normalized `bitrate` into ffmpeg `-ar` and `-b:a` respectively.
 - [ ] E2E test: Verify that for a fixture with known original audio params, the remuxed audio matches codec, channels, sample rate, and bitrate when `audio_transcode_to_original` is enabled.
+
+## Tasks: Per-word fuzzy threshold and aggressive variant detection
+
+- [ ] Profanity list schema and loader
+	- Accept entries as either strings or objects: `{ word, aliases?, fuzzy_threshold?, variant_strategy? }`.
+	- Implement normalization to an internal model with effective (inherited) threshold and strategy.
+	- Back-compat test: legacy string lists load with global defaults.
+
+- [ ] Matcher enhancements
+	- Allow per-term threshold overrides when evaluating matches.
+	- Implement `variant_strategy=aggressive` pathway that expands candidate phrases to capture common morphological/compounded variants (e.g., for "fuck": "fuckable", "fucking", "motherfucker", hyphenated forms), while respecting word boundaries and normalization.
+	- Add allow-list precedence and collision safeguards; unit tests for false-positive minimization.
+
+- [ ] QC alignment
+	- Ensure post-mask QC uses the same effective per-term thresholds and strategies as masking.
+	- Include effective threshold and strategy in QC report per matched term.
+
+- [ ] Integration tests
+	- Fixture subtitles containing variants like "fuckable" not explicitly enumerated.
+	- Verify masking detects and masks variants under per-word aggressive configuration.
+	- Verify QC shows zero residuals; report includes per-term threshold/strategy.
+
+- [ ] Documentation updates
+	- contracts and quickstart: document profanity list format (strings vs objects), fields, defaults, and examples for aggressive variant families.
+	- README: short section on tuning per-word thresholds and when to use aggressive mode.
 # Tasks (Phase 2+)
 
 This checklist will guide the implementation using TDD. It maps to requirements and constitution gates.

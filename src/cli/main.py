@@ -174,6 +174,14 @@ def process(
         False, "--continue-on-audio-qc-fail",
         help="Continue pipeline execution despite audio QC failures (insufficient muting)"
     ),
+    audio_qc_threshold_db: Optional[float] = typer.Option(
+        None, "--audio-qc-threshold-db",
+        help="Audio QC: Minimum dB reduction required in muted windows (e.g., -15). More negative is stricter."
+    ),
+    audio_qc_control_window: Optional[float] = typer.Option(
+        None, "--audio-qc-control-window",
+        help="Audio QC: Duration in seconds for control segments (e.g., 0.5 to 2.0)"
+    ),
     subtitle_title_include: Optional[str] = typer.Option(
         None, "--subtitle-title-include",
         help="Include subtitle tracks with titles containing these substrings (comma-separated)"
@@ -334,6 +342,8 @@ def process(
             jobs=jobs if jobs != 1 else None,  # Only override if not default
             continue_on_qc_fail=continue_on_qc_fail if continue_on_qc_fail else None,
             continue_on_audio_qc_fail=continue_on_audio_qc_fail if continue_on_audio_qc_fail else None,
+            audio_qc_threshold_db=audio_qc_threshold_db,
+            audio_qc_control_window=audio_qc_control_window,
             subtitle_title_include=subtitle_title_include,
             subtitle_title_exclude=subtitle_title_exclude,
             subtitle_title_regex=subtitle_title_regex,
@@ -355,6 +365,8 @@ def process(
         jobs = merged_args['jobs']
         continue_on_qc_fail = merged_args['continue_on_qc_fail']
         continue_on_audio_qc_fail = merged_args['continue_on_audio_qc_fail']
+        audio_qc_threshold_db = merged_args.get('audio_qc_threshold_db')
+        audio_qc_control_window = merged_args.get('audio_qc_control_window')
         subtitle_title_include = ','.join(merged_args['subtitle_title_include']) if merged_args['subtitle_title_include'] else None
         subtitle_title_exclude = ','.join(merged_args['subtitle_title_exclude']) if merged_args['subtitle_title_exclude'] else None
         subtitle_title_regex = ','.join(merged_args['subtitle_title_regex']) if merged_args['subtitle_title_regex'] else None
@@ -388,6 +400,23 @@ def process(
             if audio_channels is None and 'audio_channels' in preset_config.flags:
                 try:
                     audio_channels = int(preset_config.flags['audio_channels'])
+                except Exception:
+                    pass
+            # Continue on audio QC fail default from preset
+            if not continue_on_audio_qc_fail and 'continue_on_audio_qc_fail' in preset_config.flags:
+                try:
+                    continue_on_audio_qc_fail = bool(preset_config.flags['continue_on_audio_qc_fail'])
+                except Exception:
+                    pass
+            # Audio QC tuning from preset if provided
+            if audio_qc_threshold_db is None and 'audio_qc_threshold_db' in preset_config.flags:
+                try:
+                    audio_qc_threshold_db = float(preset_config.flags['audio_qc_threshold_db'])
+                except Exception:
+                    pass
+            if audio_qc_control_window is None and 'audio_qc_control_window' in preset_config.flags:
+                try:
+                    audio_qc_control_window = float(preset_config.flags['audio_qc_control_window'])
                 except Exception:
                     pass
         # Validate input file
@@ -497,6 +526,8 @@ def process(
             max_jobs=merged_args['jobs'],
             continue_on_qc_fail=merged_args['continue_on_qc_fail'],
             continue_on_audio_qc_fail=merged_args['continue_on_audio_qc_fail'],
+            audio_qc_threshold_db=audio_qc_threshold_db,
+            audio_qc_control_window=audio_qc_control_window,
             profanity_list_file=profanity_list_file,
             fuzzy_threshold=merged_args['fuzzy_threshold'],
             subtitle_mode=subtitle_mode,
@@ -670,7 +701,7 @@ def explain():
     rprint("")
     
     rprint("[bold cyan]3. Quality Control Phase[/bold cyan]")
-    rprint("   • audio_quality_check: Verify audio muting effectiveness through energy analysis")
+    rprint("   • audio_quality_check: Verify audio muting effectiveness through energy analysis (subtitle QC runs within mask_subtitles)")
     rprint("")
     
     rprint("[bold magenta]4. Export Phase[/bold magenta]")

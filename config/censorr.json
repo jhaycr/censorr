@@ -24,7 +24,10 @@
         "subtitle_mode": "none",
         "create_subtitle_sidecar": true,
         "profanity_list_file": "config/profanity_list.json",
-        "audio_transcode_to_original": true
+        "audio_transcode_to_original": true,
+        "continue_on_audio_qc_fail": true,
+        "audio_qc_threshold_db": -12.0,
+        "audio_qc_control_window": 0.5
       },
       "language_selector": { 
         "prefer_non_sdh": true 
@@ -50,7 +53,10 @@
         "subtitle_mode": "none",
         "create_subtitle_sidecar": true,
         "profanity_list_file": "config/profanity_list.json",
-        "audio_transcode_to_original": true
+        "audio_transcode_to_original": true,
+        "continue_on_audio_qc_fail": true,
+        "audio_qc_threshold_db": -12.0,
+        "audio_qc_control_window": 0.5
       },
       "language_selector": { 
         "prefer_non_sdh": true 

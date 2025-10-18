@@ -95,6 +95,12 @@ class AudioQualityCheckOperation(Operation):
                 if flags.verbose:
                     print(f"[audio_qc] Running energy analysis on: {audio_artifact.path}")
                 
+                # If CLI provided overrides, update thresholds for this run
+                if getattr(flags, 'audio_qc_threshold_db', None) is not None:
+                    self.energy_threshold_db = float(flags.audio_qc_threshold_db)
+                if getattr(flags, 'audio_qc_control_window', None) is not None:
+                    self.control_window_duration = float(flags.audio_qc_control_window)
+
                 # Run energy analysis
                 qc_results = self._analyze_audio_energy(audio_artifact, workdir, flags)
                 
@@ -145,6 +151,18 @@ class AudioQualityCheckOperation(Operation):
         from datetime import datetime
         
         audio_path = Path(audio_artifact.path)
+
+        # Determine effective QC parameters from flags or defaults
+        energy_threshold_db = (
+            flags.audio_qc_threshold_db
+            if getattr(flags, 'audio_qc_threshold_db', None) is not None
+            else self.energy_threshold_db
+        )
+        control_window_duration = (
+            flags.audio_qc_control_window
+            if getattr(flags, 'audio_qc_control_window', None) is not None
+            else self.control_window_duration
+        )
         if not audio_path.exists():
             # Return SKIPPED status for missing files
             return {
@@ -178,7 +196,7 @@ class AudioQualityCheckOperation(Operation):
                 duration = wf.getnframes() / rate
                 
                 if flags.verbose:
-                    print(f"[audio_qc] Audio: {rate}Hz, {width}B, {nchannels}ch, {duration:.1f}s")
+                    print(f"[audio_qc] Audio: {rate}Hz, {width}B, {nchannels}ch, {duration:.1f}s | threshold {energy_threshold_db} dB | control {control_window_duration}s")
                 
                 # Analyze each mute window
                 failed_windows = []
@@ -194,13 +212,13 @@ class AudioQualityCheckOperation(Operation):
                     muted_rms = self._get_rms(wf, window.start, window.end, width, nchannels)
                     
                     # Get RMS for control segment (after the window)
-                    control_start = min(window.end + 0.5, duration - self.control_window_duration)
-                    control_end = min(control_start + self.control_window_duration, duration)
+                    control_start = min(window.end + 0.5, duration - control_window_duration)
+                    control_end = min(control_start + control_window_duration, duration)
                     
                     if control_end <= control_start:
                         # No space for control segment, use before the window
                         control_end = max(window.start - 0.5, 0)
-                        control_start = max(control_end - self.control_window_duration, 0)
+                        control_start = max(control_end - control_window_duration, 0)
                     
                     if control_end <= control_start:
                         if flags.verbose:
@@ -225,7 +243,7 @@ class AudioQualityCheckOperation(Operation):
                         "muted_rms": muted_rms,
                         "control_rms": control_rms,
                         "db_reduction": db_reduction,
-                        "passed": db_reduction <= self.energy_threshold_db  # More negative means better muting
+                        "passed": db_reduction <= energy_threshold_db  # More negative means better muting
                     }
                     
                     window_results.append(window_result)
@@ -233,7 +251,7 @@ class AudioQualityCheckOperation(Operation):
                     if not window_result["passed"]:
                         failed_windows.append(window_result)
                         if flags.verbose:
-                            print(f"[audio_qc] Window {i} FAILED: {db_reduction:.1f}dB reduction (need ≤{self.energy_threshold_db}dB)")
+                            print(f"[audio_qc] Window {i} FAILED: {db_reduction:.1f}dB reduction (need ≤{energy_threshold_db}dB)")
                     elif flags.verbose:
                         print(f"[audio_qc] Window {i} passed: {db_reduction:.1f}dB reduction")
                 
@@ -243,7 +261,8 @@ class AudioQualityCheckOperation(Operation):
                     "total_windows": len(window_results),
                     "failed_windows": len(failed_windows),
                     "passed_windows": len(window_results) - len(failed_windows),
-                    "energy_threshold_db": self.energy_threshold_db,
+                    "energy_threshold_db": energy_threshold_db,
+                    "control_window_duration": control_window_duration,
                     "window_results": window_results,
                     "failed_details": failed_windows
                 }
@@ -265,7 +284,8 @@ class AudioQualityCheckOperation(Operation):
                     "failed_windows": len(failed_windows),
                     "total_windows": len(window_results),
                     "report_path": str(qc_report_path),
-                    "energy_threshold_db": self.energy_threshold_db,
+                    "energy_threshold_db": energy_threshold_db,
+                    "control_window_duration": control_window_duration,
                     "energy_analysis": {
                         "muted_segments_analyzed": len(window_results),
                         "control_segments_analyzed": len(window_results),
