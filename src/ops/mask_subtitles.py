@@ -1,12 +1,14 @@
 """Mask subtitles operation.
 
-Applies profanity filtering to subtitle content using fuzzy matching.
+Applies profanity filtering to subtitle content using fuzzy matching with
+per-word threshold configuration and aggressive variant detection.
 """
 import json
 from pathlib import Path
-from typing import List, Set, Dict, Any, Optional
+from typing import List, Set, Dict, Any, Optional, Union
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import Operation, OperationFlags
+from src.models.profanity import ProfanityTerm, normalize_profanity_list
 from src.utils.subtitle_parser import SubtitleParser, SubtitleEntry, SubtitleError
 from src.utils.fuzzy_matcher import FuzzyMatcher
 
@@ -14,11 +16,11 @@ from src.utils.fuzzy_matcher import FuzzyMatcher
 class MaskSubtitlesOperation(Operation):
     """Operation to mask profanity in subtitle files."""
     
-    def __init__(self, profanity_list: List[str] = None):
+    def __init__(self, profanity_list: Union[List[str], List[ProfanityTerm]] = None):
         """Initialize the operation.
         
         Args:
-            profanity_list: Optional list of profanity terms to filter
+            profanity_list: Optional list of profanity terms (strings or ProfanityTerm objects) to filter
         """
         super().__init__("mask_subtitles")
         self.description = "Apply profanity filtering to subtitle content using fuzzy matching"
@@ -90,9 +92,14 @@ class MaskSubtitlesOperation(Operation):
 
                 if profanity_path is not None:
                     loaded_terms = self._load_profanity_list(profanity_path)
-                    self.matcher.allow_list = loaded_terms
+                    self.matcher._initialize_profanity_terms(loaded_terms)
                     if flags.verbose:
                         print(f"[mask_subtitles] Loaded {len(loaded_terms)} profanity terms from {profanity_path}")
+                        # Print effective configuration summary
+                        aggressive_count = sum(1 for term in self.matcher.profanity_terms if term.is_aggressive_variant_enabled())
+                        custom_threshold_count = sum(1 for term in self.matcher.profanity_terms if term.fuzzy_threshold is not None)
+                        if aggressive_count > 0 or custom_threshold_count > 0:
+                            print(f"[mask_subtitles] Per-word config: {custom_threshold_count} custom thresholds, {aggressive_count} aggressive variants")
                 else:
                     if flags.verbose:
                         print("[mask_subtitles] No profanity list found; proceeding with empty allow_list")
@@ -401,18 +408,19 @@ class MaskSubtitlesOperation(Operation):
         # Fallback to the first available subtitle
         return subtitle_artifacts[0]
     
-    def _load_profanity_list(self, file_path: Path) -> List[str]:
+    def _load_profanity_list(self, file_path: Path) -> List[Union[str, Dict[str, Any]]]:
         """Load profanity terms from a JSON file.
 
-        The file format is an array of JSON objects, each including at least
-        a "word" key. Example:
-        [ {"word": "damn"}, {"word": "hell", "tier": "mild", "category": "profanity"} ]
+        The file format supports both legacy string arrays and new structured format:
+        Legacy: ["damn", "hell"]
+        New: [{"word": "damn"}, {"word": "hell", "fuzzy_threshold": 90, "variant_strategy": "aggressive"}]
+        Mixed: ["damn", {"word": "hell", "fuzzy_threshold": 90}]
         
         Args:
             file_path: Path to the JSON file
         
         Returns:
-            List of profanity words (strings)
+            List of profanity terms (strings or dicts) for normalization
         """
         if not file_path.exists():
             raise RuntimeError(f"Profanity list file not found: {file_path}")
@@ -422,15 +430,21 @@ class MaskSubtitlesOperation(Operation):
             raise RuntimeError(f"Invalid JSON in profanity list file {file_path}: {e}")
         if not isinstance(data, list):
             raise RuntimeError(f"Profanity list file must be a JSON array, got {type(data).__name__}")
-        words: List[str] = []
+        
+        # Validate entries but don't normalize here - let normalize_profanity_list handle it
         for i, item in enumerate(data):
-            if not isinstance(item, dict):
-                raise RuntimeError(f"Entry {i} in profanity list must be an object, got {type(item).__name__}")
-            word = item.get("word")
-            if not isinstance(word, str) or not word:
-                raise RuntimeError(f"Entry {i} missing valid 'word' string")
-            words.append(word)
-        return words
+            if isinstance(item, str):
+                if not item:
+                    raise RuntimeError(f"Entry {i} is an empty string")
+            elif isinstance(item, dict):
+                if "word" not in item:
+                    raise RuntimeError(f"Entry {i} missing required 'word' field")
+                if not isinstance(item["word"], str) or not item["word"]:
+                    raise RuntimeError(f"Entry {i} has invalid 'word' field")
+            else:
+                raise RuntimeError(f"Entry {i} must be string or object, got {type(item).__name__}")
+        
+        return data
 
     def _resolve_default_profanity_file(self) -> Optional[Path]:
         """Resolve default profanity list path if available.

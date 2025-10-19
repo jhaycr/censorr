@@ -14,9 +14,13 @@
     {"word": "dickheads"},
     {"word": "fuck around"},
     {"word": "fuck off"},
-    {"word": "fuck"},
+    {
+        "word": "fuck", 
+        "fuzzy_threshold": 75,
+        "variant_strategy": "aggressive",
+        "aliases": ["f*ck", "f**k"]
+    },
     {"word": "fuck-off"},
-    {"word": "fuckable"},
     {"word": "fucked up"},
     {"word": "fucked"},
     {"word": "fucker"},

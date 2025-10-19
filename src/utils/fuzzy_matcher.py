@@ -3,12 +3,16 @@
 Provides utilities for:
 - Window-based fuzzy string matching with configurable thresholds
 - Allow-list based profanity detection with morphology rules
+- Per-term threshold configuration and aggressive variant detection
 - Text normalization for better matching
 - Multi-word phrase support
 """
 import re
 import unicodedata
-from typing import List, Optional, Set, Dict, Any
+from typing import List, Optional, Set, Dict, Any, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.profanity import ProfanityTerm
 from pydantic import BaseModel, Field, field_validator
 from rapidfuzz import fuzz
 
@@ -31,18 +35,18 @@ class MatchResult(BaseModel):
 
 
 class FuzzyMatcher:
-    """Window-based fuzzy string matcher using RapidFuzz."""
+    """Window-based fuzzy string matcher using RapidFuzz with per-term configuration."""
     
     def __init__(self, 
                  similarity_threshold: float = 80.0,
-                 allow_list: Optional[List[str]] = None,
+                 allow_list: Optional[Union[List[str], List['ProfanityTerm']]] = None,
                  normalization_enabled: bool = True,
                  strategy: str = "window"):
         """Initialize fuzzy matcher.
         
         Args:
-            similarity_threshold: Minimum similarity score to consider a match (0-100)
-            allow_list: List of strings to match against
+            similarity_threshold: Default minimum similarity score to consider a match (0-100)
+            allow_list: List of strings or ProfanityTerm objects to match against
             normalization_enabled: Whether to normalize text before matching
             strategy: Matching strategy ("window" for new approach, "legacy" for old)
             
@@ -52,13 +56,28 @@ class FuzzyMatcher:
         if not 0 <= similarity_threshold <= 100:
             raise FuzzyMatchError("Similarity threshold must be between 0 and 100")
         
-        self.similarity_threshold = similarity_threshold
-        self.allow_list = allow_list or []
+        self.global_similarity_threshold = similarity_threshold
         self.normalization_enabled = normalization_enabled
         self.strategy = strategy
         
+        # Initialize profanity terms and configuration
+        self._initialize_profanity_terms(allow_list or [])
+        
         # Morphology rules for single-word targets (allows fuck → fucking, fucker, etc.)
         self._allowed_suffixes = {"", "s", "ed", "er", "ing", "in"}
+        
+        # Aggressive variant detection suffixes for compound and morphological forms
+        self._aggressive_suffixes = {
+            "", "s", "ed", "er", "ing", "in", "ly", "ness", "able", "ible", 
+            "ful", "less", "ward", "wise", "like", "ish", "ment", "tion", "sion"
+        }
+        
+        # Common compound prefixes/suffixes for aggressive matching
+        self._compound_patterns = {
+            "un", "re", "pre", "mis", "dis", "over", "under", "out", "up", "down",
+            "back", "fore", "anti", "pro", "semi", "multi", "non", "sub", "super",
+            "inter", "intra", "extra", "ultra", "mega", "mini", "micro", "macro"
+        }
         
         # Minimal English stopword set to prevent spurious matches
         self._stopwords: Set[str] = {
@@ -68,6 +87,71 @@ class FuzzyMatcher:
             "he", "she", "they", "we", "you", "i", "me", "him", "her",
             "them", "us", "my", "your", "his", "their", "our"
         }
+    
+    def _initialize_profanity_terms(self, allow_list: Union[List[str], List['ProfanityTerm']]):
+        """Initialize profanity terms and build lookup maps."""
+        # Import here to avoid circular import
+        from src.models.profanity import ProfanityTerm, normalize_profanity_list
+        
+        # Handle already normalized ProfanityTerm objects
+        if isinstance(allow_list, list) and len(allow_list) > 0 and isinstance(allow_list[0], ProfanityTerm):
+            self.profanity_terms = allow_list
+        else:
+            # Normalize allow_list to ProfanityTerm objects for internal consistency
+            self.profanity_terms = normalize_profanity_list(allow_list, self.global_similarity_threshold)
+        
+        # Build lookup maps for efficient per-term configuration access
+        self._term_thresholds: Dict[str, float] = {}
+        self._aggressive_terms: Set[str] = set()
+        
+        for term in self.profanity_terms:
+            effective_threshold = term.get_effective_threshold(self.global_similarity_threshold)
+            for word in term.get_all_terms():
+                normalized_word = self.normalize_text(word)
+                self._term_thresholds[normalized_word] = effective_threshold
+                if term.is_aggressive_variant_enabled():
+                    self._aggressive_terms.add(normalized_word)
+    
+    @property
+    def allow_list(self) -> List[str]:
+        """Get legacy allow_list for backward compatibility.
+        
+        Returns all terms from profanity_terms as a flat string list.
+        """
+        result = []
+        for term in self.profanity_terms:
+            result.extend(term.get_all_terms())
+        return result
+    
+    @allow_list.setter  
+    def allow_list(self, value: List[str]):
+        """Set allow_list for backward compatibility.
+        
+        Converts string list to ProfanityTerm objects.
+        """
+        self._initialize_profanity_terms(value)
+    
+    @property
+    def similarity_threshold(self) -> float:
+        """Get legacy similarity_threshold for backward compatibility."""
+        return self.global_similarity_threshold
+    
+    @similarity_threshold.setter
+    def similarity_threshold(self, value: float):
+        """Set legacy similarity_threshold for backward compatibility."""
+        if not 0 <= value <= 100:
+            raise FuzzyMatchError("Similarity threshold must be between 0 and 100")
+        self.global_similarity_threshold = value
+    
+    def _get_effective_threshold(self, target: str) -> float:
+        """Get the effective similarity threshold for a target term."""
+        normalized_target = self.normalize_text(target)
+        return self._term_thresholds.get(normalized_target, self.global_similarity_threshold)
+    
+    def _is_aggressive_enabled(self, target: str) -> bool:
+        """Check if aggressive variant detection is enabled for a target term."""
+        normalized_target = self.normalize_text(target)
+        return normalized_target in self._aggressive_terms
     
     def normalize_text(self, text: str) -> str:
         """Normalize text for better matching.
@@ -168,19 +252,47 @@ class FuzzyMatcher:
         )
     
     def _morphology_match_score(self, query: str, target: str) -> float:
-        """Calculate score with morphology rules for single words."""
+        """Calculate score with morphology rules for single words.
+        
+        Supports both default and aggressive variant detection based on 
+        per-term configuration.
+        """
         # Exact match
         if query == target:
             return 100.0
         
+        # Get effective threshold and check if aggressive mode is enabled
+        effective_threshold = self._get_effective_threshold(target)
+        aggressive_enabled = self._is_aggressive_enabled(target)
+        
+        # Choose suffix set based on aggressive mode
+        suffixes = self._aggressive_suffixes if aggressive_enabled else self._allowed_suffixes
+        
         # Check if query is target + allowed suffix (target is root)
-        for suffix in self._allowed_suffixes:
+        for suffix in suffixes:
             if suffix and query == target + suffix:
                 return 100.0
         
-        # Check if target is query + allowed suffix (query is root)
-        for suffix in self._allowed_suffixes:
+        # Check if target is query + allowed suffix (query is root)  
+        for suffix in suffixes:
             if suffix and target == query + suffix:
+                return 100.0
+        
+        # Aggressive variant detection: check compound patterns
+        if aggressive_enabled:
+            # Check if query contains target as substring with compound affixes
+            query_lower = query.lower()
+            target_lower = target.lower()
+            
+            # Check compound patterns: prefix + target or target + suffix
+            for pattern in self._compound_patterns:
+                if query_lower == pattern + target_lower or query_lower == target_lower + pattern:
+                    return 100.0
+                
+            # Check for target embedded in query (e.g., "unfuckingbelievable" contains "fuck")
+            if len(target_lower) >= 3 and target_lower in query_lower:
+                # For embedded detection, we're more permissive about boundaries
+                # This catches cases like "unfuckingbelievable" where "fuck" is embedded
                 return 100.0
         
         # No morphological match - fall back to fuzzy ratio score
@@ -212,7 +324,7 @@ class FuzzyMatcher:
                 window_words = words[i:i + target_word_count]
                 window_text = ' '.join(window_words)
                 
-                # Calculate score
+                # Calculate score and check against per-term threshold
                 if self.strategy == "window":
                     # Apply short-token guard here too
                     if min(len(window_text), len(normalized_target)) <= 3:
@@ -225,7 +337,10 @@ class FuzzyMatcher:
                     # Multi-word or mixed: be strict — require exact normalized equality
                     score = 100.0 if window_text == normalized_target else 0.0
                 
-                if score >= self.similarity_threshold:
+                # Use per-term threshold instead of global threshold
+                effective_threshold = self._get_effective_threshold(target)
+                
+                if score >= effective_threshold:
                     # Skip stopwords
                     if window_text in self._stopwords:
                         continue
