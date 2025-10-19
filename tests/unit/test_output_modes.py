@@ -44,14 +44,14 @@ class TestOutputModeConfig:
     def test_preset_config_creation(self):
         """Test PresetConfig model creation."""
         preset = PresetConfig(
-            operations=["extract_subtitles", "mask_subtitles"],
+            operations=["subtitle_extract", "subtitle_mask"],
             flags={"create_subtitle_sidecar": True},
             output={"output_mode": "REMUX_NEW_FILE"},
             destination_policy=DestinationPolicy(policy="subfolder_tag"),
             backup_default=False
         )
         
-        assert preset.operations == ["extract_subtitles", "mask_subtitles"]
+        assert preset.operations == ["subtitle_extract", "subtitle_mask"]
         assert preset.flags["create_subtitle_sidecar"] is True
         assert preset.output["output_mode"] == "REMUX_NEW_FILE"
         assert preset.destination_policy.policy == "subfolder_tag"
@@ -64,11 +64,11 @@ class TestOutputModeConfig:
             destination_policy=DestinationPolicy(policy="separate_root"),
             presets={
                 "movies": PresetConfig(
-                    operations=["extract_subtitles", "remux"],
+                    operations=["subtitle_extract", "video_remux"],
                     output={"output_mode": "REMUX_NEW_FILE"}
                 ),
                 "tv": PresetConfig(
-                    operations=["extract_subtitles", "remux"],
+                    operations=["subtitle_extract", "video_remux"],
                     destination_policy=DestinationPolicy(policy="subfolder_tag")
                 )
             }

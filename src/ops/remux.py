@@ -39,7 +39,7 @@ class RemuxOperation(Operation):
     
     def __init__(self):
         """Initialize the remux operation."""
-        super().__init__("remux")
+        super().__init__("video_remux")
         self.ffmpeg = FFmpegAdapter()
     
     @property

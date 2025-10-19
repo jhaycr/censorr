@@ -23,7 +23,7 @@ class TestAudioQualityCheckOperation:
 
     def test_operation_metadata(self):
         """Test operation metadata."""
-        assert self.operation.name == "audio_quality_check"
+        assert self.operation.name == "audio_qc"
         assert self.operation.consumes == {ArtifactType.AUDIO}
         assert self.operation.produces == {ArtifactType.AUDIO}
 
@@ -81,7 +81,7 @@ class TestAudioQualityCheckOperation:
             
             # Check QC metadata
             qc_data = result.metadata.get("quality_check", {})
-            assert qc_data["operation"] == "audio_quality_check"
+            assert qc_data["operation"] == "audio_qc"
             assert qc_data["status"] == "FAIL"
             assert "energy_analysis" in qc_data
             

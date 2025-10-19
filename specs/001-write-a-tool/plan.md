@@ -32,7 +32,7 @@
 
 ## Summary
 Add a config-driven presets system in `config/censorr.json` enabling `--preset movies` and `--preset tv` to run a full default pipeline:
-extract_subtitles, merge_subtitles, mask_subtitles, extract_audio, mute_audio, audio_quality_check, remux.
+subtitle_extract, subtitle_merge, subtitle_mask, audio_extract, audio_mute, audio_qc, subtitle_qc, video_remux.
 Presets set defaults for: `--create-subtitle-sidecar` and `--profanity-list-file config/profanity_list.json`.
 Extend profanity list format to allow per-word overrides (custom fuzzy threshold and variant strategy), enabling aggressive variant detection for families such as "fuck" without enumerating every variant. Maintain backward compatibility with string lists.
 Language selection prefers non‑SDH/non‑CC tracks (by title/code/empty), merging same‑language Forced; falls back to SDH/CC when needed. Remux embeds muted audio as an additional track, preserves originals, and supports in-place replacement with optional `--backup`.

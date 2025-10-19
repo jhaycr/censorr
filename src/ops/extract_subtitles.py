@@ -15,7 +15,7 @@ class ExtractSubtitlesOperation(Operation):
     
     def __init__(self):
         """Initialize the operation."""
-        super().__init__("extract_subtitles")
+        super().__init__("subtitle_extract")
         self.description = "Extract subtitle tracks from video files"
         self.ffmpeg = FFmpegAdapter()
     

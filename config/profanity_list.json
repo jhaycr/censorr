@@ -1,45 +1,27 @@
 [
-    {"word": "apeshit"},
-    {"word": "bitch"},
-    {"word": "bullshit"},
-    {"word": "bullshitter"},
-    {"word": "bullshitters"},
-    {"word": "bullshitting"},
+    {
+        "word": "bitch",
+        "variant_strategy": "aggressive"
+    },
     {"word": "christ"},
     {"word": "cunt"},
-    {"word": "dick"},
-    {"word": "dickhead"},
-    {"word": "dickheads"},
+    {
+        "word": "dick",
+        "variant_strategy": "aggressive"
+    },
     {
         "word": "fuck", 
         "fuzzy_threshold": 75,
         "variant_strategy": "aggressive"
     },
-    {"word": "holy shit"},
-    {"word": "horseshit"},
     {"word": "god damn"},
     {"word": "goddamn"},
     {"word": "goddamnit"},
     {"word": "goddammit"},
     {"word": "jesus"},
-    {"word": "no shit"},
-    {"word": "no-shit"},
-    {"word": "piece of shit"},
     {
         "word": "shit",
         "fuzzy_threshold": 95,
         "variant_strategy": "aggressive"
-    },
-    {"word": "shitballs"},
-    {"word": "shitbox"},
-    {"word": "shitface"},
-    {"word": "shitfaced"},
-    {"word": "shithead"},
-    {"word": "shitheads"},
-    {"word": "shithole"},
-    {"word": "shitholes"},
-    {"word": "shitshow"},
-    {"word": "shitshows"},
-    {"word": "shitstorm"},
-    {"word": "shitstorms"}
+    }
 ]

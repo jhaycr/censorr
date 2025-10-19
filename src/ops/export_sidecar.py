@@ -28,7 +28,7 @@ class ExportSidecarOperation(Operation):
         Args:
             format: Export format for the sidecar file
         """
-        super().__init__("export_sidecar")
+        super().__init__("sidecar_export")
         self.description = "Export subtitles and metadata to external sidecar files"
         self.format = format
         self.parser = SubtitleParser()
@@ -114,12 +114,12 @@ class ExportSidecarOperation(Operation):
                 video_path = Path(video_artifacts[0].path)
                 output_path = video_path.parent / f"{video_path.stem}.{self.format.value}"
                 if flags.verbose:
-                    print(f"[export_sidecar] Placing sidecar next to video: {output_path}")
+                    print(f"[sidecar_export] Placing sidecar next to video: {output_path}")
             else:
                 # Fallback to working directory if no video artifacts
                 output_path = workdir / f"sidecar.{self.format.value}"
                 if flags.verbose:
-                    print(f"[export_sidecar] No video input; writing sidecar in workdir: {output_path}")
+                    print(f"[sidecar_export] No video input; writing sidecar in workdir: {output_path}")
             
             # Export in specified format
             if self.format == SidecarFormat.SRT:
@@ -134,7 +134,7 @@ class ExportSidecarOperation(Operation):
             # Write sidecar file
             output_path.write_text(content, encoding='utf-8')
             if flags.verbose:
-                print(f"[export_sidecar] Wrote sidecar to: {output_path}")
+                print(f"[sidecar_export] Wrote sidecar to: {output_path}")
             
             # Create sidecar artifact
             sidecar_artifact = Artifact(

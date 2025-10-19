@@ -330,8 +330,8 @@ Notes:
 	- Create audio utility module `src/utils/audio_utils.py` with functions for mono conversion and RMS calculation.
 	- Replace `audioop.tomono()` with custom stereo-to-mono mixer using struct unpacking.
 	- Replace `audioop.rms()` with manual RMS calculation (square root of mean squared amplitudes).
-	- Update `src/ops/audio_quality_check.py` to import from new utility instead of deprecated `audioop`.
-	- Update test files (`test_audio_quality_check.py`, `test_audio_flow.py`) to use new utility functions.
+	- Update `src/ops/audio_qc.py` to import from new utility instead of deprecated `audioop`.
+	- Update test files (`test_audio_qc.py`, `test_audio_flow.py`) to use new utility functions.
 	- Tests: verify RMS calculation accuracy within tolerance vs. original audioop values on sample data.
 	- Result: Full test suite green (366 passed / 10 skipped); no deprecation warnings.
 	- Rationale: `audioop` module deprecated in Python 3.11+ and removed in 3.13; maintain forward compatibility without external dependencies.
@@ -378,7 +378,7 @@ Notes:
 		- Validation: operations must be a subset of registered ops; unknown flags rejected.
 
 	81. Default presets: define `movies` and `tv`
-		- Pipeline: extract_subtitles, merge_subtitles, mask_subtitles, extract_audio, mute_audio, audio_quality_check, remux
+		- Pipeline: subtitle_extract, subtitle_merge, subtitle_mask, audio_extract, audio_mute, audio_qc, subtitle_qc, video_remux
 		- Flags: `create_subtitle_sidecar: true`, `profanity_list_file: config/profanity_list.json`
 		- Output: `in_place: true`, `embed_muted_audio: true`; `backup_default: false`
 

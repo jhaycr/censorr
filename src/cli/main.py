@@ -25,6 +25,7 @@ from src.ops.export_sidecar import ExportSidecarOperation
 from src.ops.extract_audio import ExtractAudioOperation
 from src.ops.mute_audio import MuteAudioOperation
 from src.ops.audio_quality_check import AudioQualityCheckOperation
+from src.ops.subtitle_qc import SubtitleQualityCheckOperation
 from src.ops.remux import RemuxOperation
 
 # Create the main CLI app
@@ -48,6 +49,7 @@ def create_operation_registry() -> OperationRegistry:
     registry.register(ExtractAudioOperation())
     registry.register(MuteAudioOperation())
     registry.register(AudioQualityCheckOperation())
+    registry.register(SubtitleQualityCheckOperation())
     registry.register(RemuxOperation())
     
     return registry
@@ -78,25 +80,27 @@ def version_callback(value: bool):
 
 # Available operations
 AVAILABLE_OPERATIONS = [
-    "extract_subtitles",
-    "merge_subtitles", 
-    "mask_subtitles",
-    "export_sidecar",
-    "extract_audio",
-    "mute_audio",
-    "audio_quality_check",
-    "remux"
+    "subtitle_extract",
+    "subtitle_merge", 
+    "subtitle_mask",
+    "sidecar_export",
+    "audio_extract",
+    "audio_mute",
+    "audio_qc",
+    "subtitle_qc",
+    "video_remux"
 ]
 
 OPERATION_DESCRIPTIONS = {
-    "extract_subtitles": "Extract subtitle tracks from video files",
-    "merge_subtitles": "Combine multiple subtitle files into one",
-    "mask_subtitles": "Apply profanity filtering to subtitle content",
-    "export_sidecar": "Create external subtitle/metadata files",
-    "extract_audio": "Extract audio tracks from video files",
-    "mute_audio": "Apply mute windows to audio tracks",
-    "audio_quality_check": "Verify audio muting effectiveness through energy analysis",
-    "remux": "Combine processed tracks into final video"
+    "subtitle_extract": "Extract subtitle tracks from video files",
+    "subtitle_merge": "Combine multiple subtitle files into one",
+    "subtitle_mask": "Apply profanity filtering to subtitle content",
+    "sidecar_export": "Create external subtitle/metadata files",
+    "audio_extract": "Extract audio tracks from video files",
+    "audio_mute": "Apply mute windows to audio tracks",
+    "audio_qc": "Verify audio muting effectiveness through energy analysis",
+    "subtitle_qc": "Verify subtitle masking effectiveness and detect residual profanity",
+    "video_remux": "Combine processed tracks into final video"
 }
 
 @app.callback()
@@ -690,23 +694,24 @@ def explain():
     rprint("")
     
     rprint("[bold green]1. Extraction Phase[/bold green]")
-    rprint("   • extract_subtitles: Extract subtitle tracks from video")
-    rprint("   • extract_audio: Extract audio tracks from video")
+    rprint("   • subtitle_extract: Extract subtitle tracks from video")
+    rprint("   • audio_extract: Extract audio tracks from video")
     rprint("")
     
     rprint("[bold yellow]2. Processing Phase[/bold yellow]")
-    rprint("   • merge_subtitles: Combine multiple subtitle files")
-    rprint("   • mask_subtitles: Apply profanity filtering to subtitles")
-    rprint("   • mute_audio: Apply mute windows to audio tracks")
+    rprint("   • subtitle_merge: Combine multiple subtitle files")
+    rprint("   • subtitle_mask: Apply profanity filtering to subtitles")
+    rprint("   • audio_mute: Apply mute windows to audio tracks")
     rprint("")
     
     rprint("[bold cyan]3. Quality Control Phase[/bold cyan]")
-    rprint("   • audio_quality_check: Verify audio muting effectiveness through energy analysis (subtitle QC runs within mask_subtitles)")
+    rprint("   • audio_qc: Verify audio muting effectiveness through energy analysis")
+    rprint("   • subtitle_qc: Verify subtitle masking effectiveness and detect residual profanity")
     rprint("")
     
     rprint("[bold magenta]4. Export Phase[/bold magenta]")
-    rprint("   • export_sidecar: Create external subtitle/metadata files")
-    rprint("   • remux: Combine all processed tracks into final video")
+    rprint("   • sidecar_export: Create external subtitle/metadata files")
+    rprint("   • video_remux: Combine all processed tracks into final video")
     rprint("")
     
     rprint("[bold blue]Example Usage:[/bold blue]")

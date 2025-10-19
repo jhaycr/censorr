@@ -85,7 +85,7 @@ full_processing_example() {
         --create-subtitle-sidecar \
         --sidecar-tag clean \
         --final-dest /app/workdir/final \
-        --operations extract_subtitles,merge_subtitles,mask_subtitles,extract_audio,mute_audio,remux \
+        --operations subtitle_extract,subtitle_merge,subtitle_mask,audio_extract,audio_mute,audio_qc,subtitle_qc,video_remux \
         --verbose
 }
 
@@ -105,7 +105,7 @@ subtitle_only_example() {
         process "/media/bullet_train_backup.mkv" \
         --output /app/workdir \
         --language en \
-        --operations extract_subtitles,mask_subtitles,export_sidecar \
+        --operations subtitle_extract,subtitle_mask,sidecar_export \
         --create-subtitle-sidecar \
         --sidecar-tag censorr \
         --verbose

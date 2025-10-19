@@ -160,13 +160,14 @@ Create `config/censorr.json` in your project:
   "presets": {
     "movies": {
       "operations": [
-        "extract_subtitles",
-        "merge_subtitles",
-        "mask_subtitles",
-        "extract_audio",
-        "mute_audio",
-        "audio_quality_check",
-        "remux"
+        "subtitle_extract",
+        "subtitle_merge",
+        "subtitle_mask",
+        "audio_extract",
+        "audio_mute",
+        "audio_qc",
+        "subtitle_qc",
+        "video_remux"
       ],
       "flags": {
         "create_subtitle_sidecar": true,
@@ -178,13 +179,14 @@ Create `config/censorr.json` in your project:
     },
     "tv": {
       "operations": [
-        "extract_subtitles",
-        "merge_subtitles",
-        "mask_subtitles",
-        "extract_audio",
-        "mute_audio",
-        "audio_quality_check",
-        "remux"
+        "subtitle_extract",
+        "subtitle_merge",
+        "subtitle_mask",
+        "audio_extract",
+        "audio_mute",
+        "audio_qc",
+        "subtitle_qc",
+        "video_remux"
       ],
       "flags": {
         "create_subtitle_sidecar": true,

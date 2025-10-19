@@ -255,11 +255,11 @@ class Executor:
             )
             
             # Save manifest for caching
-            # Include applied audio encode settings (from remux op) when available
+            # Include applied audio encode settings (from video_remux op) when available
             manifest_params = operation_params.copy()
             try:
                 applied_audio = getattr(context.flags, "_applied_audio_encode", None)
-                if applied_audio is not None and operation.name == "remux":
+                if applied_audio is not None and operation.name == "video_remux":
                     manifest_params["audio_encode_applied"] = applied_audio
             except Exception:
                 pass
@@ -324,8 +324,8 @@ class Executor:
             # Prefer the most recently produced artifact for non-subtitle types
             chosen = None
 
-            # Special handling for audio_quality_check: prefer AUDIO with mute window metadata
-            if operation.name == "audio_quality_check" and required_type == ArtifactType.AUDIO:
+            # Special handling for audio_qc: prefer AUDIO with mute window metadata
+            if operation.name == "audio_qc" and required_type == ArtifactType.AUDIO:
                 for candidate in reversed(matching_artifacts):
                     meta = candidate.metadata or {}
                     if (

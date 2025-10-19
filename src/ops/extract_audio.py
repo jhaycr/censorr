@@ -20,7 +20,7 @@ class ExtractAudioOperation(Operation):
             audio_format: Output audio format (wav, mp3, flac, etc.)
             language_filter: Optional language filter for audio tracks
         """
-        super().__init__("extract_audio")
+        super().__init__("audio_extract")
         self.description = "Extract audio tracks from video files using FFmpeg"
         self.audio_format = audio_format
         self.language_filter = language_filter

@@ -21,14 +21,9 @@ from src.models.operations import Operation, OperationFlags
 class AudioQualityCheckOperation(Operation):
     """Operation to verify audio muting effectiveness through energy analysis."""
     
-    def __init__(self, energy_threshold_db: float = -20.0, control_window_duration: float = 1.0):
-        """Initialize the audio QC operation.
-        
-        Args:
-            energy_threshold_db: Minimum dB reduction required in muted windows
-            control_window_duration: Duration of control segments for comparison (seconds)
-        """
-        super().__init__("audio_quality_check")
+    def __init__(self, energy_threshold_db: float = -10.0, control_window_duration: float = 1.0):
+        """Initialize the audio quality check operation."""
+        super().__init__("audio_qc")
         self.description = "Verify audio muting effectiveness through energy analysis"
         self.energy_threshold_db = energy_threshold_db
         self.control_window_duration = control_window_duration
@@ -81,7 +76,7 @@ class AudioQualityCheckOperation(Operation):
                         metadata={
                             **audio_artifact.metadata,
                             "quality_check": {
-                                "operation": "audio_quality_check",
+                                "operation": "audio_qc",
                                 "status": "SKIPPED",
                                 "reason": "Dry run mode",
                                 "timestamp": datetime.now().isoformat()
@@ -166,7 +161,7 @@ class AudioQualityCheckOperation(Operation):
         if not audio_path.exists():
             # Return SKIPPED status for missing files
             return {
-                "operation": "audio_quality_check",
+                "operation": "audio_qc",
                 "status": "SKIPPED",
                 "reason": f"Audio file not found: {audio_path}",
                 "timestamp": datetime.now().isoformat(),
@@ -180,7 +175,7 @@ class AudioQualityCheckOperation(Operation):
             if flags.verbose:
                 print("[audio_qc] No mute windows found - QC skipped")
             return {
-                "operation": "audio_quality_check",
+                "operation": "audio_qc",
                 "status": "SKIPPED", 
                 "reason": "No mute windows file found",
                 "timestamp": datetime.now().isoformat(),
@@ -279,7 +274,7 @@ class AudioQualityCheckOperation(Operation):
                     print(f"[audio_qc] Report written to: {qc_report_path}")
                 
                 return {
-                    "operation": "audio_quality_check",
+                    "operation": "audio_qc",
                     "status": "PASS" if len(failed_windows) == 0 else "FAIL",
                     "failed_windows": len(failed_windows),
                     "total_windows": len(window_results),

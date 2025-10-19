@@ -22,7 +22,7 @@ class MaskSubtitlesOperation(Operation):
         Args:
             profanity_list: Optional list of profanity terms (strings or ProfanityTerm objects) to filter
         """
-        super().__init__("mask_subtitles")
+        super().__init__("subtitle_mask")
         self.description = "Apply profanity filtering to subtitle content using fuzzy matching"
         self.parser = SubtitleParser()
 
@@ -77,7 +77,7 @@ class MaskSubtitlesOperation(Operation):
                     "merged" if ('merged_from' in input_artifact.metadata or Path(input_artifact.path).name == 'merged_subtitles.srt')
                     else "extracted"
                 )
-                print(f"[mask_subtitles] Using {source_kind} subtitle: {input_artifact.path}")
+                print(f"[subtitle_mask] Using {source_kind} subtitle: {input_artifact.path}")
             
             if flags.dry_run:
                 return self._handle_dry_run(input_artifact, workdir)
@@ -94,18 +94,18 @@ class MaskSubtitlesOperation(Operation):
                     loaded_terms = self._load_profanity_list(profanity_path)
                     self.matcher._initialize_profanity_terms(loaded_terms)
                     if flags.verbose:
-                        print(f"[mask_subtitles] Loaded {len(loaded_terms)} profanity terms from {profanity_path}")
+                        print(f"[subtitle_mask] Loaded {len(loaded_terms)} profanity terms from {profanity_path}")
                         # Print effective configuration summary
                         aggressive_count = sum(1 for term in self.matcher.profanity_terms if term.is_aggressive_variant_enabled())
                         custom_threshold_count = sum(1 for term in self.matcher.profanity_terms if term.fuzzy_threshold is not None)
                         if aggressive_count > 0 or custom_threshold_count > 0:
-                            print(f"[mask_subtitles] Per-word config: {custom_threshold_count} custom thresholds, {aggressive_count} aggressive variants")
+                            print(f"[subtitle_mask] Per-word config: {custom_threshold_count} custom thresholds, {aggressive_count} aggressive variants")
                 else:
                     if flags.verbose:
-                        print("[mask_subtitles] No profanity list found; proceeding with empty allow_list")
+                        print("[subtitle_mask] No profanity list found; proceeding with empty allow_list")
             else:
                 if flags.verbose:
-                    print(f"[mask_subtitles] Using explicit profanity list with {len(self.matcher.allow_list)} terms")
+                    print(f"[subtitle_mask] Using explicit profanity list with {len(self.matcher.allow_list)} terms")
 
             # Parse subtitle file
             try:
@@ -151,8 +151,8 @@ class MaskSubtitlesOperation(Operation):
                 total_entries = len(entries)
                 unchanged = total_entries - entries_with_profanity
                 pct_masked = (entries_with_profanity / total_entries * 100.0) if total_entries else 0.0
-                print(f"[mask_subtitles] Entries: {total_entries} | Masked: {entries_with_profanity} ({pct_masked:.1f}%) | Unchanged: {unchanged}")
-                print(f"[mask_subtitles] Window-based matches: {total_matches} | Unique profane terms matched: {len(unique_terms)}")
+                print(f"[subtitle_mask] Entries: {total_entries} | Masked: {entries_with_profanity} ({pct_masked:.1f}%) | Unchanged: {unchanged}")
+                print(f"[subtitle_mask] Window-based matches: {total_matches} | Unique profane terms matched: {len(unique_terms)}")
             
             # Generate output path
             output_path = workdir / "masked_subtitles.srt"
@@ -161,7 +161,7 @@ class MaskSubtitlesOperation(Operation):
             srt_content = self._generate_srt_content(masked_entries)
             output_path.write_text(srt_content, encoding='utf-8')
             if flags.verbose:
-                print(f"[mask_subtitles] Wrote masked subtitles to: {output_path}")
+                print(f"[subtitle_mask] Wrote masked subtitles to: {output_path}")
 
             # Run quality check on masked content
             qc_results = self._run_quality_check(masked_entries, workdir, flags)
