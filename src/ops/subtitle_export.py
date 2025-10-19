@@ -1,6 +1,6 @@
-"""Export sidecar operation.
+"""Subtitle export operation.
 
-Exports subtitles and metadata to external sidecar files in various formats.
+Exports subtitles and metadata to external files in various formats.
 """
 import json
 import xml.etree.ElementTree as ET
@@ -12,24 +12,24 @@ from src.models.operations import Operation, OperationFlags
 from src.utils.subtitle_parser import SubtitleParser, SubtitleEntry, SubtitleError
 
 
-class SidecarFormat(Enum):
-    """Supported sidecar export formats."""
+class SubtitleFormat(Enum):
+    """Supported subtitle export formats."""
     SRT = "srt"
     JSON = "json"
     XML = "xml"
 
 
-class ExportSidecarOperation(Operation):
-    """Operation to export subtitles and metadata to external sidecar files."""
+class SubtitleExportOperation(Operation):
+    """Operation to export subtitles and metadata to external files."""
     
-    def __init__(self, format: SidecarFormat = SidecarFormat.SRT):
+    def __init__(self, format: SubtitleFormat = SubtitleFormat.SRT):
         """Initialize the operation.
         
         Args:
-            format: Export format for the sidecar file
+            format: Export format for the subtitle file
         """
-        super().__init__("sidecar_export")
-        self.description = "Export subtitles and metadata to external sidecar files"
+        super().__init__("subtitle_export")
+        self.description = "Export subtitles and metadata to external files"
         self.format = format
         self.parser = SubtitleParser()
     
@@ -66,7 +66,7 @@ class ExportSidecarOperation(Operation):
             ]
             
             if not subtitle_artifacts and not video_artifacts:
-                raise ValueError("No subtitle or video artifacts found for sidecar export")
+                raise ValueError("No subtitle or video artifacts found for subtitle export")
             
             if flags.dry_run:
                 return self._handle_dry_run(workdir, subtitle_artifacts, video_artifacts)
@@ -106,7 +106,7 @@ class ExportSidecarOperation(Operation):
                 source_artifacts.append(artifact.path)
             
             if flags.verbose:
-                print(f"Exporting sidecar in {self.format.value} format with {len(all_subtitle_entries)} subtitle entries")
+                print(f"Exporting subtitle in {self.format.value} format with {len(all_subtitle_entries)} subtitle entries")
             
             # Generate output path - prefer alongside original video file if available
             if video_artifacts:
@@ -114,19 +114,19 @@ class ExportSidecarOperation(Operation):
                 video_path = Path(video_artifacts[0].path)
                 output_path = video_path.parent / f"{video_path.stem}.{self.format.value}"
                 if flags.verbose:
-                    print(f"[sidecar_export] Placing sidecar next to video: {output_path}")
+                    print(f"[subtitle_export] Placing sidecar next to video: {output_path}")
             else:
                 # Fallback to working directory if no video artifacts
                 output_path = workdir / f"sidecar.{self.format.value}"
                 if flags.verbose:
-                    print(f"[sidecar_export] No video input; writing sidecar in workdir: {output_path}")
+                    print(f"[subtitle_export] No video input; writing sidecar in workdir: {output_path}")
             
             # Export in specified format
-            if self.format == SidecarFormat.SRT:
+            if self.format == SubtitleFormat.SRT:
                 content = self._export_srt_format(all_subtitle_entries)
-            elif self.format == SidecarFormat.JSON:
+            elif self.format == SubtitleFormat.JSON:
                 content = self._export_json_format(all_subtitle_entries, video_metadata, source_artifacts)
-            elif self.format == SidecarFormat.XML:
+            elif self.format == SubtitleFormat.XML:
                 content = self._export_xml_format(all_subtitle_entries, video_metadata, source_artifacts)
             else:
                 raise ValueError(f"Unsupported sidecar format: {self.format}")
@@ -134,7 +134,7 @@ class ExportSidecarOperation(Operation):
             # Write sidecar file
             output_path.write_text(content, encoding='utf-8')
             if flags.verbose:
-                print(f"[sidecar_export] Wrote sidecar to: {output_path}")
+                print(f"[subtitle_export] Wrote sidecar to: {output_path}")
             
             # Create sidecar artifact
             sidecar_artifact = Artifact(
@@ -154,7 +154,7 @@ class ExportSidecarOperation(Operation):
             # Re-raise expected exceptions
             raise
         except Exception as e:
-            raise RuntimeError(f"Unexpected error during sidecar export: {e}")
+            raise RuntimeError(f"Unexpected error during subtitle export: {e}")
     
     def _export_srt_format(self, entries: List[SubtitleEntry]) -> str:
         """Export subtitle entries in SRT format.

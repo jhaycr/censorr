@@ -17,7 +17,7 @@ from src.models.common import MuteWindow
 from src.models.operations import OperationFlags
 from src.ops.extract_audio import ExtractAudioOperation
 from src.ops.mute_audio import MuteAudioOperation
-from src.ops.export_sidecar import ExportSidecarOperation, SidecarFormat
+from src.ops.subtitle_export import SubtitleExportOperation, SubtitleFormat
 from src.caching import CacheManager
 from src.logging import ExecutionLogger
 
@@ -299,7 +299,7 @@ class TestAudioOnlyFlow:
             # Setup operations
             extract_op = ExtractAudioOperation(audio_format="wav")
             mute_op = MuteAudioOperation()
-            export_op = ExportSidecarOperation(format=SidecarFormat.JSON)
+            export_op = SubtitleExportOperation(format=SubtitleFormat.JSON)
             
             with patch.object(extract_op.ffmpeg, 'probe') as mock_probe, \
                  patch.object(extract_op.ffmpeg, 'extract_audio') as mock_extract, \

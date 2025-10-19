@@ -20,7 +20,7 @@ from src.ops.audio_extract import ExtractAudioOperation
 from src.ops.subtitle_mask import MaskSubtitlesOperation
 from src.ops.audio_mute import MuteAudioOperation
 from src.ops.video_remux import RemuxOperation
-from src.ops.sidecar_export import ExportSidecarOperation, SidecarFormat
+from src.ops.subtitle_export import SubtitleExportOperation, SubtitleFormat
 from src.caching import CacheManager
 from src.logging import ExecutionLogger
 
@@ -308,7 +308,7 @@ class TestFullPipelineFlow:
                 with pytest.raises(RuntimeError):
                     extract_subs_op.run([video_artifact], workdir, flags)
     
-    def test_pipeline_with_sidecar_export(self):
+    def test_pipeline_with_subtitle_export(self):
         """Test pipeline including sidecar export."""
         with tempfile.TemporaryDirectory() as temp_dir:
             workdir = Path(temp_dir)
@@ -335,7 +335,7 @@ class TestFullPipelineFlow:
             
             # Setup operations including export
             mask_subs_op = MaskSubtitlesOperation(profanity_list=["test"])
-            export_op = ExportSidecarOperation(format=SidecarFormat.JSON)
+            export_op = SubtitleExportOperation(format=SubtitleFormat.JSON)
             
             flags = OperationFlags(verbose=True)
             

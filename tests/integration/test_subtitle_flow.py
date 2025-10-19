@@ -16,9 +16,9 @@ import pytest
 from src.cli.main import main as cli_main
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
-from src.ops.extract_subtitles import ExtractSubtitlesOperation
-from src.ops.mask_subtitles import MaskSubtitlesOperation  
-from src.ops.export_sidecar import ExportSidecarOperation, SidecarFormat
+from src.ops.subtitle_extract import ExtractSubtitlesOperation
+from src.ops.subtitle_mask import MaskSubtitlesOperation  
+from src.ops.subtitle_export import SubtitleExportOperation, SubtitleFormat
 from src.planner.executor import Executor
 from src.planner.registry import OperationRegistry
 from src.planner.planner import Planner, ExecutionPlan
@@ -130,7 +130,7 @@ Clean content without issues.
             assert "ugly" not in masked_content
             assert "Clean content" in masked_content  # Should remain unchanged
     
-    def test_subtitle_flow_export_sidecar(self):
+    def test_subtitle_flow_export_subtitle(self):
         """Test exporting sidecar files with subtitle processing metadata."""
         with tempfile.TemporaryDirectory() as temp_dir:
             workdir = Path(temp_dir)
@@ -159,7 +159,7 @@ This content was processed
             (workdir / "masked_subtitles.srt").write_text(subtitle_srt_content)
             
             # Test export operation with JSON format for metadata
-            export_operation = ExportSidecarOperation(format=SidecarFormat.JSON)
+            export_operation = SubtitleExportOperation(format=SubtitleFormat.JSON)
             flags = OperationFlags()
             
             results = export_operation.run([subtitle_artifact], workdir, flags)
@@ -190,7 +190,7 @@ This content was processed
             # Setup operations with enhanced error handling
             extract_op = ExtractSubtitlesOperation()
             mask_op = MaskSubtitlesOperation(profanity_list=["damn", "hell"])
-            export_op = ExportSidecarOperation()
+            export_op = SubtitleExportOperation()
             
             # Create video artifact
             video_artifact = Artifact(

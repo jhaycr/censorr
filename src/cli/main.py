@@ -21,7 +21,7 @@ from src.planner.executor import Executor
 from src.ops.subtitle_extract import ExtractSubtitlesOperation
 from src.ops.subtitle_merge import MergeSubtitlesOperation
 from src.ops.subtitle_mask import MaskSubtitlesOperation
-from src.ops.sidecar_export import ExportSidecarOperation
+from src.ops.subtitle_export import SubtitleExportOperation
 from src.ops.audio_extract import ExtractAudioOperation
 from src.ops.audio_mute import MuteAudioOperation
 from src.ops.audio_qc import AudioQualityCheckOperation
@@ -45,7 +45,7 @@ def create_operation_registry() -> OperationRegistry:
     registry.register(ExtractSubtitlesOperation())
     registry.register(MergeSubtitlesOperation())
     registry.register(MaskSubtitlesOperation())
-    registry.register(ExportSidecarOperation())
+    registry.register(SubtitleExportOperation())
     registry.register(ExtractAudioOperation())
     registry.register(MuteAudioOperation())
     registry.register(AudioQualityCheckOperation())
@@ -83,7 +83,7 @@ AVAILABLE_OPERATIONS = [
     "subtitle_extract",
     "subtitle_merge", 
     "subtitle_mask",
-    "sidecar_export",
+    "subtitle_export",
     "audio_extract",
     "audio_mute",
     "audio_qc",
@@ -95,7 +95,7 @@ OPERATION_DESCRIPTIONS = {
     "subtitle_extract": "Extract subtitle tracks from video files",
     "subtitle_merge": "Combine multiple subtitle files into one",
     "subtitle_mask": "Apply profanity filtering to subtitle content",
-    "sidecar_export": "Create external subtitle/metadata files",
+    "subtitle_export": "Create external subtitle/metadata files",
     "audio_extract": "Extract audio tracks from video files",
     "audio_mute": "Apply mute windows to audio tracks",
     "audio_qc": "Verify audio muting effectiveness through energy analysis",
@@ -710,7 +710,7 @@ def explain():
     rprint("")
     
     rprint("[bold magenta]4. Export Phase[/bold magenta]")
-    rprint("   • sidecar_export: Create external subtitle/metadata files")
+    rprint("   • subtitle_export: Create external subtitle/metadata files")
     rprint("   • video_remux: Combine all processed tracks into final video")
     rprint("")
     
