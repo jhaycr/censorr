@@ -9,7 +9,7 @@ import tempfile
 import wave
 import json
 
-from src.ops.audio_quality_check import AudioQualityCheckOperation
+from src.ops.audio_qc import AudioQualityCheckOperation
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 

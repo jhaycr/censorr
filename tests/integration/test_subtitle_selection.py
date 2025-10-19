@@ -6,8 +6,8 @@ from src.models.artifacts import Artifact, ArtifactType
 from src.models.selectors import Selector
 from src.planner.planner import Planner
 from src.planner.registry import OperationRegistry
-from src.ops.extract_subtitles import ExtractSubtitlesOperation
-from src.ops.merge_subtitles import MergeSubtitlesOperation
+from src.ops.subtitle_extract import ExtractSubtitlesOperation
+from src.ops.subtitle_merge import MergeSubtitlesOperation
 
 
 class TestSubtitleSelectionIntegration:

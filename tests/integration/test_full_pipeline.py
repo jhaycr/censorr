@@ -15,12 +15,12 @@ import pytest
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
-from src.ops.extract_subtitles import ExtractSubtitlesOperation
-from src.ops.extract_audio import ExtractAudioOperation
-from src.ops.mask_subtitles import MaskSubtitlesOperation
-from src.ops.mute_audio import MuteAudioOperation
-from src.ops.remux import RemuxOperation
-from src.ops.export_sidecar import ExportSidecarOperation, SidecarFormat
+from src.ops.subtitle_extract import ExtractSubtitlesOperation
+from src.ops.audio_extract import ExtractAudioOperation
+from src.ops.subtitle_mask import MaskSubtitlesOperation
+from src.ops.audio_mute import MuteAudioOperation
+from src.ops.video_remux import RemuxOperation
+from src.ops.sidecar_export import ExportSidecarOperation, SidecarFormat
 from src.caching import CacheManager
 from src.logging import ExecutionLogger
 

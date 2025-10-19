@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 from src.models.config import Config, OutputMode, DestinationPolicy, PresetConfig
 from src.models.operations import OperationFlags
 from src.models.artifacts import Artifact, ArtifactType
-from src.ops.remux import RemuxOperation
+from src.ops.video_remux import RemuxOperation
 
 
 class TestOutputModesE2E:

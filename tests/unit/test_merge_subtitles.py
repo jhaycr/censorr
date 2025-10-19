@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 import tempfile
 from unittest.mock import Mock, patch
-from src.ops.merge_subtitles import MergeSubtitlesOperation
+from src.ops.subtitle_merge import MergeSubtitlesOperation
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 from src.utils.subtitle_parser import SubtitleEntry
@@ -15,7 +15,7 @@ class TestMergeSubtitlesOperation:
     def test_operation_creation(self):
         """Test operation creation."""
         op = MergeSubtitlesOperation()
-        assert op.name == "merge_subtitles"
+        assert op.name == "subtitle_merge"
         assert ArtifactType.SUBTITLE in op.consumes
         assert ArtifactType.SUBTITLE in op.produces
         assert op.description is not None

@@ -8,7 +8,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.ops.audio_quality_check import AudioQualityCheckOperation
+from src.ops.audio_qc import AudioQualityCheckOperation
 from src.utils import audio_utils
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags

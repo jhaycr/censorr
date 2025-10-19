@@ -62,7 +62,7 @@ class SubtitleQualityCheckOperation(Operation):
             raise FileNotFoundError(f"Subtitle file not found: {subtitle_path}")
         
         try:
-            entries = self.parser.parse(subtitle_path)
+            entries = self.parser.parse_file(subtitle_path)
         except Exception as e:
             raise ValueError(f"Failed to parse subtitle file {subtitle_path}: {e}")
         
@@ -124,8 +124,8 @@ class SubtitleQualityCheckOperation(Operation):
                     for match in matches:
                         residual_matches.append({
                             "entry_index": i,
-                            "start_time": entry.start_time,
-                            "end_time": entry.end_time,
+                            "start_time": entry.start,
+                            "end_time": entry.end,
                             "text": entry.text,
                             "matched_term": match["term"],
                             "matched_text": match["match"],

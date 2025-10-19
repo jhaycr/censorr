@@ -6,7 +6,7 @@ import json
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
-from src.ops.export_sidecar import ExportSidecarOperation, SidecarFormat
+from src.ops.sidecar_export import ExportSidecarOperation, SidecarFormat
 from src.utils.subtitle_parser import SubtitleEntry, SubtitleError
 
 
@@ -17,7 +17,7 @@ class TestExportSidecarOperation:
         """Test operation can be created with correct properties."""
         op = ExportSidecarOperation()
         
-        assert op.name == "export_sidecar"
+        assert op.name == "sidecar_export"
         assert op.description == "Export subtitles and metadata to external sidecar files"
         assert ArtifactType.SUBTITLE in op.consumes
         assert ArtifactType.VIDEO in op.consumes
@@ -33,7 +33,7 @@ class TestExportSidecarOperation:
         op = ExportSidecarOperation(format=SidecarFormat.XML)
         assert op.format == SidecarFormat.XML
     
-    @patch('src.ops.export_sidecar.SubtitleParser')
+    @patch('src.ops.sidecar_export.SubtitleParser')
     def test_run_with_subtitle_artifacts_srt_format(self, mock_parser_class):
         """Test operation exports subtitle in SRT format."""
         # Setup mocks
@@ -72,7 +72,7 @@ class TestExportSidecarOperation:
         assert "Hello world" in written_content
         assert "00:00:00,000 --> 00:00:02,000" in written_content
     
-    @patch('src.ops.export_sidecar.SubtitleParser')
+    @patch('src.ops.sidecar_export.SubtitleParser')
     def test_run_with_subtitle_artifacts_json_format(self, mock_parser_class):
         """Test operation exports subtitle in JSON format."""
         # Setup mocks
@@ -111,7 +111,7 @@ class TestExportSidecarOperation:
         assert len(data["subtitles"]) == 1
         assert data["subtitles"][0]["text"] == "Hello world"
     
-    @patch('src.ops.export_sidecar.SubtitleParser')
+    @patch('src.ops.sidecar_export.SubtitleParser')
     def test_run_with_multiple_subtitle_artifacts(self, mock_parser_class):
         """Test operation with multiple subtitle artifacts."""
         # Setup mocks
@@ -225,7 +225,7 @@ class TestExportSidecarOperation:
         with pytest.raises(ValueError, match="No subtitle or video artifacts found"):
             op.run([audio_artifact], workdir, flags)
     
-    @patch('src.ops.export_sidecar.SubtitleParser')
+    @patch('src.ops.sidecar_export.SubtitleParser')
     def test_run_with_parser_error(self, mock_parser_class):
         """Test operation with subtitle parser error."""
         # Setup mock to raise error
@@ -246,7 +246,7 @@ class TestExportSidecarOperation:
         with pytest.raises(RuntimeError, match="Failed to parse subtitle file"):
             op.run([subtitle_artifact], workdir, flags)
     
-    @patch('src.ops.export_sidecar.SubtitleParser')
+    @patch('src.ops.sidecar_export.SubtitleParser')
     def test_export_srt_format(self, mock_parser_class):
         """Test SRT format export."""
         mock_parser = mock_parser_class.return_value
@@ -344,7 +344,7 @@ class TestExportSidecarOperation:
         results = op.run([subtitle_artifact, video_artifact], workdir, flags)
         assert len(results) == 1
     
-    @patch('src.ops.export_sidecar.SubtitleParser')
+    @patch('src.ops.sidecar_export.SubtitleParser')
     def test_verbose_mode(self, mock_parser_class):
         """Test operation in verbose mode."""
         # Setup mocks

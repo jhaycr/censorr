@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from src.ops.remux import RemuxOperation
+from src.ops.video_remux import RemuxOperation
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 from src.utils.filename_utils import (

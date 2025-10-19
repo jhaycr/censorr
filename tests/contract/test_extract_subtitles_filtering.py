@@ -2,7 +2,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch
-from src.ops.extract_subtitles import ExtractSubtitlesOperation
+from src.ops.subtitle_extract import ExtractSubtitlesOperation
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 from src.models.selectors import Selector

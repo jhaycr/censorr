@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from src.ops.remux import RemuxOperation
+from src.ops.video_remux import RemuxOperation
 from src.adapters.ffmpeg import FFmpegAdapter, TrackInfo, MediaInfo
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags

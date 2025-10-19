@@ -18,15 +18,15 @@ from src.planner.registry import OperationRegistry
 from src.planner.executor import Executor
 
 # Import all available operations
-from src.ops.extract_subtitles import ExtractSubtitlesOperation
-from src.ops.merge_subtitles import MergeSubtitlesOperation
-from src.ops.mask_subtitles import MaskSubtitlesOperation
-from src.ops.export_sidecar import ExportSidecarOperation
-from src.ops.extract_audio import ExtractAudioOperation
-from src.ops.mute_audio import MuteAudioOperation
-from src.ops.audio_quality_check import AudioQualityCheckOperation
+from src.ops.subtitle_extract import ExtractSubtitlesOperation
+from src.ops.subtitle_merge import MergeSubtitlesOperation
+from src.ops.subtitle_mask import MaskSubtitlesOperation
+from src.ops.sidecar_export import ExportSidecarOperation
+from src.ops.audio_extract import ExtractAudioOperation
+from src.ops.audio_mute import MuteAudioOperation
+from src.ops.audio_qc import AudioQualityCheckOperation
 from src.ops.subtitle_qc import SubtitleQualityCheckOperation
-from src.ops.remux import RemuxOperation
+from src.ops.video_remux import RemuxOperation
 
 # Create the main CLI app
 app = typer.Typer(

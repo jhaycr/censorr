@@ -48,7 +48,7 @@ class TestSubtitleQualityCheckOperation:
             input_artifact = Artifact(
                 type=ArtifactType.SUBTITLE,
                 path=str(subtitle_file),
-                metadata={}
+                metadata={"language": "en"}
             )
             
             # Create operation flags
@@ -99,7 +99,7 @@ class TestSubtitleQualityCheckOperation:
             input_artifact = Artifact(
                 type=ArtifactType.SUBTITLE,
                 path=str(subtitle_file),
-                metadata={}
+                metadata={"language": "en"}
             )
             
             # Create operation flags with profanity list
@@ -140,7 +140,7 @@ class TestSubtitleQualityCheckOperation:
             input_artifact = Artifact(
                 type=ArtifactType.AUDIO,
                 path="/fake/path",
-                metadata={}
+                metadata={"language": "en"}
             )
             
             with pytest.raises(ValueError, match="No subtitle artifact found"):

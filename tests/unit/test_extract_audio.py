@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
-from src.ops.extract_audio import ExtractAudioOperation
+from src.ops.audio_extract import ExtractAudioOperation
 from src.adapters.ffmpeg import FFmpegError, MediaInfo, TrackInfo
 
 
@@ -16,7 +16,7 @@ class TestExtractAudioOperation:
         """Test operation can be created with correct properties."""
         op = ExtractAudioOperation()
         
-        assert op.name == "extract_audio"
+        assert op.name == "audio_extract"
         assert op.description == "Extract audio tracks from video files using FFmpeg"
         assert ArtifactType.VIDEO in op.consumes
         assert ArtifactType.AUDIO in op.produces
@@ -31,7 +31,7 @@ class TestExtractAudioOperation:
         op = ExtractAudioOperation(audio_format="flac")
         assert op.audio_format == "flac"
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_run_with_audio_tracks(self, mock_ffmpeg_class):
         """Test operation extracts audio tracks from video."""
         # Setup mocks
@@ -82,7 +82,7 @@ class TestExtractAudioOperation:
         # Verify FFmpeg was called correctly
         assert mock_ffmpeg.extract_audio.call_count == 2
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_run_with_track_filter(self, mock_ffmpeg_class):
         """Test operation with specific track selection."""
         # Setup mocks
@@ -128,7 +128,7 @@ class TestExtractAudioOperation:
         assert results[0].metadata["language"] == "en"
         assert mock_ffmpeg.extract_audio.call_count == 1
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_run_no_audio_tracks(self, mock_ffmpeg_class):
         """Test operation with video file containing no audio tracks."""
         # Setup mocks
@@ -158,7 +158,7 @@ class TestExtractAudioOperation:
         assert len(results) == 0
         mock_ffmpeg.extract_audio.assert_not_called()
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_run_dry_run(self, mock_ffmpeg_class):
         """Test operation in dry-run mode."""
         # Setup mocks
@@ -201,7 +201,7 @@ class TestExtractAudioOperation:
         # Verify FFmpeg extract was not called in dry run
         mock_ffmpeg.extract_audio.assert_not_called()
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_run_ffmpeg_error(self, mock_ffmpeg_class):
         """Test operation with FFmpeg error."""
         # Setup mock to raise error
@@ -238,7 +238,7 @@ class TestExtractAudioOperation:
         with pytest.raises(ValueError, match="No video artifacts found"):
             op.run([subtitle_artifact], workdir, flags)
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_extract_audio_with_custom_format(self, mock_ffmpeg_class):
         """Test audio extraction with custom format."""
         # Setup mocks
@@ -280,7 +280,7 @@ class TestExtractAudioOperation:
         call_args = mock_ffmpeg.extract_audio.call_args
         assert call_args[1]["audio_format"] == "mp3"
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_filter_audio_tracks_by_language(self, mock_ffmpeg_class):
         """Test _filter_audio_tracks method with language filter."""
         op = ExtractAudioOperation(language_filter="en")
@@ -297,7 +297,7 @@ class TestExtractAudioOperation:
         assert len(filtered_tracks) == 2
         assert all(track.language == "en" for track in filtered_tracks)
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_filter_audio_tracks_no_filter(self, mock_ffmpeg_class):
         """Test _filter_audio_tracks method without filter."""
         op = ExtractAudioOperation()  # No language filter
@@ -312,7 +312,7 @@ class TestExtractAudioOperation:
         # Should return all tracks
         assert len(filtered_tracks) == 2
     
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_validate_inputs(self, mock_ffmpeg_class):
         """Test input validation."""
         # Setup mock
@@ -347,8 +347,8 @@ class TestExtractAudioOperation:
         )
 
         with pytest.raises(ValueError, match="No video artifacts found"):
-            op.run([audio_artifact], workdir, flags)    @patch('src.ops.extract_audio.FFmpegAdapter')
-    @patch('src.ops.extract_audio.FFmpegAdapter')
+            op.run([audio_artifact], workdir, flags)    @patch('src.ops.audio_extract.FFmpegAdapter')
+    @patch('src.ops.audio_extract.FFmpegAdapter')
     def test_verbose_mode(self, mock_ffmpeg_class):
         """Test operation in verbose mode."""
         # Setup mocks

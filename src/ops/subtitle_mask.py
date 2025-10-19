@@ -163,23 +163,6 @@ class MaskSubtitlesOperation(Operation):
             if flags.verbose:
                 print(f"[subtitle_mask] Wrote masked subtitles to: {output_path}")
 
-            # Run quality check on masked content
-            qc_results = self._run_quality_check(masked_entries, workdir, flags)
-            
-            # Handle QC results
-            if qc_results["residual_matches"] > 0:
-                if not flags.continue_on_qc_fail:
-                    # Fail the pipeline by default
-                    qc_report_path = qc_results["report_path"]
-                    raise RuntimeError(
-                        f"Quality check failed: Found {qc_results['residual_matches']} residual profane matches. "
-                        f"See QC report at {qc_report_path}. Use --continue-on-qc-fail to proceed despite failures."
-                    )
-                else:
-                    # Log warning but continue
-                    if flags.verbose:
-                        print(f"Warning: QC found {qc_results['residual_matches']} residual matches, but continuing due to --continue-on-qc-fail flag")
-            
             # Create masked artifact
             masked_artifact = Artifact(
                 type=ArtifactType.SUBTITLE,
@@ -189,8 +172,7 @@ class MaskSubtitlesOperation(Operation):
                     "original_file": input_artifact.path,
                     "profanity_filtered": total_matches > 0,
                     "matches_found": total_matches,
-                    "entries_modified": entries_with_profanity,
-                    "qc": qc_results if qc_results["residual_matches"] > 0 else None
+                    "entries_modified": entries_with_profanity
                 }
             )
             
@@ -202,82 +184,6 @@ class MaskSubtitlesOperation(Operation):
         except Exception as e:
             raise RuntimeError(f"Unexpected error during subtitle masking: {e}")
 
-    def _run_quality_check(self, masked_entries: List[SubtitleEntry], workdir: Path, flags: OperationFlags) -> Dict[str, Any]:
-        """Run quality check to detect missed profanities in masked content.
-        
-        Since our masking operation uses the same matcher to detect profanities
-        and then masks them completely, the QC should find zero residual matches
-        if masking worked correctly. Any profanity still detectable after masking
-        indicates a bug in the masking logic.
-        
-        Args:
-            masked_entries: List of processed subtitle entries (after masking)
-            workdir: Working directory for QC report
-            flags: Execution flags
-            
-        Returns:
-            QC results dictionary with residual matches and report path
-        """
-        residual_matches = []
-        total_residual_count = 0
-        sample_limit = 3
-        
-        # Scan for residual matches in the masked text using the same matcher
-        for entry in masked_entries:
-            matches = self.matcher.find_matches_in_text(entry.text)
-            
-            if matches:
-                # This indicates a masking failure - profanity should have been masked
-                for match in matches:
-                    term_entry = next((rm for rm in residual_matches if rm["term"] == match.target), None)
-                    if not term_entry:
-                        term_entry = {"term": match.target, "count": 0, "samples": []}
-                        residual_matches.append(term_entry)
-                    
-                    term_entry["count"] += 1
-                    total_residual_count += 1
-                    
-                    if len(term_entry["samples"]) < sample_limit:
-                        term_entry["samples"].append({
-                            "cue_index": entry.index,
-                            "start": entry.start,
-                            "end": entry.end,
-                            "excerpt": entry.text[:160] + ("..." if len(entry.text) > 160 else ""),
-                            "matched_token": match.window_text or match.query,
-                            "matched_term": match.target
-                        })
-        
-        # Generate QC report
-        qc_report = {
-            "terms": residual_matches,
-            "totals": {
-                "matches": total_residual_count,
-                "terms": len(residual_matches)
-            },
-            "language": "unknown",
-            "policy": "partial", 
-            "sample_limit": sample_limit
-        }
-        
-        # Write QC report to file
-        qc_report_path = workdir / "qc_report.json"
-        qc_report_path.write_text(json.dumps(qc_report, indent=2), encoding='utf-8')
-        
-        # Log summary
-        if flags.verbose:
-            if total_residual_count > 0:
-                print(f"QC: Found {total_residual_count} residual matches across {len(residual_matches)} terms")
-                print(f"QC report written to: {qc_report_path}")
-            else:
-                print("QC: No residual matches found - quality check passed")
-        
-        return {
-            "residual_matches": total_residual_count,
-            "report_path": str(qc_report_path),
-            "terms_with_matches": len(residual_matches),
-            "continued": flags.continue_on_qc_fail if total_residual_count > 0 else False
-        }
-    
     def _mask_text_profanity(self, text: str, matches: List) -> str:
         """Mask profanity in text with asterisks using window matches.
         

@@ -78,7 +78,7 @@ class TestOutputModeConfig:
         assert config.destination_policy.policy == "separate_root"
         assert "movies" in config.presets
         assert "tv" in config.presets
-        assert config.presets["movies"].operations == ["extract_subtitles", "remux"]
+        assert config.presets["movies"].operations == ["subtitle_extract", "video_remux"]
 
 
 class TestPathBuilder:

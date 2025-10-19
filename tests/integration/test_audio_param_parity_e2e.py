@@ -13,7 +13,7 @@ import pytest
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
-from src.ops.remux import RemuxOperation
+from src.ops.video_remux import RemuxOperation
 
 
 class TestAudioParamParityE2E:
