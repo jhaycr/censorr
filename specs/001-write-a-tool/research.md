@@ -23,7 +23,7 @@ Decision: Use token_set_ratio (or token_sort_ratio) with normalization; threshol
 - Normalize text: lowercase, strip punctuation, collapse whitespace.
 - Word-boundary regex to avoid substring false positives.
 - Allow-list precedence: never censor whitelisted terms.
-- Aliases in dictionary: capture common misspellings and hyphenation.
+- Aggressive variant detection: capture morphological and compound variants automatically.
 
 Alternatives: python-Levenshtein based fuzzywuzzy (deprecated/slow); regex-only (too brittle).
 

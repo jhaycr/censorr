@@ -11,13 +11,8 @@ class ProfanityTerm(BaseModel):
     """A profanity term with optional per-word configuration."""
     
     word: str = Field(..., description="Base profane word or phrase")
-    aliases: List[str] = Field(default_factory=list, description="Alternative spellings or forms")
     fuzzy_threshold: Optional[float] = Field(None, description="Custom fuzzy threshold for this term (0-100)")
     variant_strategy: str = Field("default", description="Variant detection strategy: 'default' or 'aggressive'")
-    
-    def get_all_terms(self) -> List[str]:
-        """Get all terms including the main word and aliases."""
-        return [self.word] + self.aliases
     
     def get_effective_threshold(self, global_default: float) -> float:
         """Get the effective fuzzy threshold for this term.

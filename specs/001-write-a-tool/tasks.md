@@ -10,7 +10,7 @@
 ## Tasks: Per-word fuzzy threshold and aggressive variant detection
 
 - [ ] Profanity list schema and loader
-	- Accept entries as either strings or objects: `{ word, aliases?, fuzzy_threshold?, variant_strategy? }`.
+	- Accept entries as either strings or objects: `{ word, fuzzy_threshold?, variant_strategy? }`.
 	- Implement normalization to an internal model with effective (inherited) threshold and strategy.
 	- Back-compat test: legacy string lists load with global defaults.
 

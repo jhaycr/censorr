@@ -12,8 +12,7 @@
     {
         "word": "fuck", 
         "fuzzy_threshold": 75,
-        "variant_strategy": "aggressive",
-        "aliases": ["f*ck", "f**k"]
+        "variant_strategy": "aggressive"
     },
     {"word": "god damn"},
     {"word": "goddamn"},

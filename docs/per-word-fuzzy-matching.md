@@ -29,8 +29,7 @@ The profanity list now supports both legacy string format and new structured for
     {
         "word": "fuck",
         "fuzzy_threshold": 75,
-        "variant_strategy": "aggressive",
-        "aliases": ["f*ck", "f**k"]
+        "variant_strategy": "aggressive"
     },
     {"word": "shit"},
     "damn"
@@ -72,9 +71,6 @@ This prevents false positives like "shirt" matching "shit" (88.89% < 95%).
 Variant detection strategy. Valid values:
 - `"default"` (default) - Standard morphological matching (e.g., "fuck" → "fucking", "fucker")
 - `"aggressive"` - Enhanced detection including compound forms and embedded variants
-
-### `aliases` (optional)
-List of alternative spellings or forms that should be treated as equivalent to the main word.
 
 ## Aggressive Variant Detection
 

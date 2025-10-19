@@ -131,7 +131,7 @@ ios/ or android/
 1. Extend Config model to include `presets` map: name → { operations[], flags, selector config, output policies, backup(bool) }.
 2. Define default presets `movies` and `tv` with the specified pipeline and flags. Add language selection policy description.
 3. Update selector schema documentation to express the non‑SDH preference and forced merge behavior (configurable patterns).
-4. Profanity list contract: define a structured profanity entry object with fields `word`, optional `aliases[]`, optional `fuzzy_threshold`, optional `variant_strategy: default|aggressive`; specify global defaults and inheritance. Document backward compatibility with plain strings.
+4. Profanity list contract: define a structured profanity entry object with fields `word`, optional `fuzzy_threshold`, optional `variant_strategy: default|aggressive`; specify global defaults and inheritance. Document backward compatibility with plain strings.
 5. Add CLI contract for `--preset` and `--backup` flags; precedence: CLI > preset > config defaults.
 5. Output Mode contract: define enum `output_mode` with `REMUX_ORIGINAL_VIDEO` and `REMUX_NEW_FILE`; define destination policy contract with `policy: subfolder_tag|separate_root`, `{tag}`, `{root}`, and a templated path schema supporting `{library_root}`, `{collection}{tag}`, `{season}`, `{episode}` tokens. Specify idempotency and conflict resolution policies.
 6. Implementation milestone: Model changes — update Config presets to include `output_mode` and `destination_policy` (schema, validation, docs).

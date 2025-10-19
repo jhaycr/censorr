@@ -106,11 +106,10 @@ class FuzzyMatcher:
         
         for term in self.profanity_terms:
             effective_threshold = term.get_effective_threshold(self.global_similarity_threshold)
-            for word in term.get_all_terms():
-                normalized_word = self.normalize_text(word)
-                self._term_thresholds[normalized_word] = effective_threshold
-                if term.is_aggressive_variant_enabled():
-                    self._aggressive_terms.add(normalized_word)
+            normalized_word = self.normalize_text(term.word)
+            self._term_thresholds[normalized_word] = effective_threshold
+            if term.is_aggressive_variant_enabled():
+                self._aggressive_terms.add(normalized_word)
     
     @property
     def allow_list(self) -> List[str]:
@@ -120,7 +119,7 @@ class FuzzyMatcher:
         """
         result = []
         for term in self.profanity_terms:
-            result.extend(term.get_all_terms())
+            result.append(term.word)
         return result
     
     @allow_list.setter  
