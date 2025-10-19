@@ -1,0 +1,28 @@
+[
+    {
+        "word": "bitch",
+        "variant_strategy": "aggressive"
+    },
+    {"word": "christ"},
+    {"word": "cunt"},
+    {
+        "word": "dick",
+        "variant_strategy": "aggressive"
+    },
+    {
+        "word": "fuck", 
+        "fuzzy_threshold": 75,
+        "variant_strategy": "aggressive",
+        "aliases": ["f*ck", "f**k"]
+    },
+    {"word": "god damn"},
+    {"word": "goddamn"},
+    {"word": "goddamnit"},
+    {"word": "goddammit"},
+    {"word": "jesus"},
+    {
+        "word": "shit",
+        "fuzzy_threshold": 95,
+        "variant_strategy": "aggressive"
+    }
+]

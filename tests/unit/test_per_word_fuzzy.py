@@ -225,3 +225,233 @@ class TestVariantDetectionIntegration:
         
         # "strict" should NOT match due to high threshold (95%)  
         assert len(strict_matches) == 0
+
+
+class TestFalsePositivePrevention:
+    """Test comprehensive false positive prevention."""
+    
+    def test_shit_false_positives(self):
+        """Test that 'shit' doesn't match innocent words."""
+        profanity_terms = [
+            ProfanityTerm(word="shit", fuzzy_threshold=95, variant_strategy="aggressive")
+        ]
+        matcher = FuzzyMatcher(similarity_threshold=85, allow_list=profanity_terms)
+        
+        # These should NOT be caught (false positives)
+        false_positives = [
+            "shirt", "shirts", "shirted", "shirting",  # shirt variants
+            "sit", "sits", "sitting", "sat",           # sit variants  
+            "shift", "shifts", "shifted", "shifting",   # shift variants
+            "shot", "shots", "shooting",               # shot variants
+            "shut", "shuts", "shutting",               # shut variants
+            "shy", "shyly", "shyness",                 # shy variants
+            "ship", "ships", "shipped", "shipping",    # ship variants
+            "shop", "shops", "shopped", "shopping",    # shop variants
+            "show", "shows", "showed", "showing",      # show variants
+            "short", "shorter", "shortest", "shortly", # short variants
+        ]
+        
+        for word in false_positives:
+            assert not matcher.contains_profanity(word), f"'{word}' should NOT be caught as profanity"
+        
+        # These SHOULD be caught (legitimate profanity)
+        legitimate_profanity = [
+            "shit", "shits", "shitting", "shitted",   # exact and morphological
+            "shitty", "shittier", "shittiest",        # aggressive variants
+            "bullshit", "horseshit", "apeshit",       # compound forms
+            "shithead", "shithole", "shitshow",       # compound forms
+        ]
+        
+        for word in legitimate_profanity:
+            assert matcher.contains_profanity(word), f"'{word}' should be caught as profanity"
+    
+    def test_fuck_false_positives(self):
+        """Test that 'fuck' doesn't match innocent words."""
+        profanity_terms = [
+            ProfanityTerm(word="fuck", fuzzy_threshold=75, variant_strategy="aggressive")
+        ]
+        matcher = FuzzyMatcher(similarity_threshold=85, allow_list=profanity_terms)
+        
+        # These should NOT be caught (false positives)
+        false_positives = [
+            "duck", "ducks", "ducking",                # duck variants
+            "tuck", "tucks", "tucked", "tucking",      # tuck variants
+            "luck", "lucky", "luckily", "unlucky",     # luck variants  
+            "suck", "sucks", "sucked", "sucking",      # suck variants
+            "buck", "bucks", "bucking",                # buck variants
+            "muck", "mucks", "mucked", "mucking",      # muck variants
+            "stuck", "sticking",                       # stuck variants
+            "truck", "trucks", "trucking",             # truck variants
+            "pluck", "plucks", "plucked", "plucking",  # pluck variants
+        ]
+        
+        for word in false_positives:
+            assert not matcher.contains_profanity(word), f"'{word}' should NOT be caught as profanity"
+        
+        # These SHOULD be caught (legitimate profanity)
+        legitimate_profanity = [
+            "fuck", "fucks", "fucking", "fucked",     # exact and morphological
+            "fucker", "fuckers",                      # morphological
+            "fuckable", "fuckery", "fucktard",        # aggressive variants
+            "motherfucker", "clusterfuck",            # compound forms
+            "unfuckingbelievable",                    # embedded forms
+        ]
+        
+        for word in legitimate_profanity:
+            assert matcher.contains_profanity(word), f"'{word}' should be caught as profanity"
+    
+    def test_dick_false_positives(self):
+        """Test that 'dick' doesn't match innocent words."""
+        profanity_terms = [
+            ProfanityTerm(word="dick", variant_strategy="aggressive")
+        ]
+        matcher = FuzzyMatcher(similarity_threshold=85, allow_list=profanity_terms)
+        
+        # These should NOT be caught (false positives)
+        false_positives = [
+            "deck", "decks", "decked", "decking",      # deck variants
+            "sick", "sicker", "sickest", "sickly",     # sick variants
+            "pick", "picks", "picked", "picking",      # pick variants
+            "kick", "kicks", "kicked", "kicking",      # kick variants
+            "tick", "ticks", "ticked", "ticking",      # tick variants
+            "thick", "thicker", "thickest",            # thick variants
+            "quick", "quicker", "quickest", "quickly", # quick variants
+            "click", "clicks", "clicked", "clicking",  # click variants
+            "stick", "sticks", "sticked", "sticking",  # stick variants
+            "brick", "bricks",                         # brick variants
+        ]
+        
+        for word in false_positives:
+            assert not matcher.contains_profanity(word), f"'{word}' should NOT be caught as profanity"
+        
+        # These SHOULD be caught (legitimate profanity)
+        legitimate_profanity = [
+            "dick", "dicks",                          # exact and morphological
+            "dickhead", "dickheads",                  # aggressive variants
+            "dickwad", "dickish", "dickery",          # aggressive variants
+        ]
+        
+        for word in legitimate_profanity:
+            assert matcher.contains_profanity(word), f"'{word}' should be caught as profanity"
+    
+    def test_cunt_false_positives(self):
+        """Test that 'cunt' doesn't match innocent words."""
+        profanity_terms = [
+            ProfanityTerm(word="cunt")  # Using default settings
+        ]
+        matcher = FuzzyMatcher(similarity_threshold=85, allow_list=profanity_terms)
+        
+        # These should NOT be caught (false positives)
+        false_positives = [
+            "cant", "cannot",                          # can't variants
+            "hunt", "hunts", "hunted", "hunting",      # hunt variants
+            "punt", "punts", "punted", "punting",      # punt variants
+            "bunt", "bunts", "bunted", "bunting",      # bunt variants
+            "runt", "runts",                           # runt variants
+            "blunt", "blunts", "blunted", "blunting",  # blunt variants
+            "grunt", "grunts", "grunted", "grunting",  # grunt variants
+            "count", "counts", "counted", "counting",  # count variants
+            "mount", "mounts", "mounted", "mounting",  # mount variants
+            "front", "fronts", "fronted", "fronting",  # front variants
+        ]
+        
+        for word in false_positives:
+            assert not matcher.contains_profanity(word), f"'{word}' should NOT be caught as profanity"
+        
+        # This SHOULD be caught (legitimate profanity)
+        assert matcher.contains_profanity("cunt"), "'cunt' should be caught as profanity"
+    
+    def test_bitch_false_positives(self):
+        """Test that 'bitch' doesn't match innocent words."""
+        profanity_terms = [
+            ProfanityTerm(word="bitch", variant_strategy="aggressive")
+        ]
+        matcher = FuzzyMatcher(similarity_threshold=85, allow_list=profanity_terms)
+        
+        # These should NOT be caught (false positives)
+        false_positives = [
+            "batch", "batches", "batched", "batching", # batch variants
+            "catch", "catches", "caught", "catching",  # catch variants
+            "patch", "patches", "patched", "patching", # patch variants
+            "match", "matches", "matched", "matching", # match variants
+            "watch", "watches", "watched", "watching", # watch variants
+            "hatch", "hatches", "hatched", "hatching", # hatch variants
+            "latch", "latches", "latched", "latching", # latch variants
+            "witch", "witches",                        # witch variants
+            "switch", "switches", "switched", "switching", # switch variants
+            "pitch", "pitches", "pitched", "pitching", # pitch variants
+        ]
+        
+        for word in false_positives:
+            assert not matcher.contains_profanity(word), f"'{word}' should NOT be caught as profanity"
+        
+        # These SHOULD be caught (legitimate profanity)
+        legitimate_profanity = [
+            "bitch", "bitches",                       # exact and morphological
+            "bitchy", "bitching", "bitchiest",        # aggressive variants
+            "bitchass",                               # compound forms
+        ]
+        
+        for word in legitimate_profanity:
+            assert matcher.contains_profanity(word), f"'{word}' should be caught as profanity"
+    
+    def test_optimized_list_false_positives(self):
+        """Test false positives with the optimized profanity list."""
+        # Load the optimized list
+        import json
+        import os
+        
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'profanity_list_optimized.json')
+        with open(config_path, 'r') as f:
+            optimized_list = json.load(f)
+        
+        profanity_terms = normalize_profanity_list(optimized_list)
+        matcher = FuzzyMatcher(similarity_threshold=85, allow_list=profanity_terms)
+        
+        # Comprehensive false positive test suite
+        false_positives = [
+            # Shit false positives
+            "shirt", "shirts", "sit", "sits", "sitting", "shift", "shifts", "shot", "shots", "shut", "shuts",
+            "ship", "ships", "shop", "shops", "show", "shows", "short", "shorter", "shy", "shyly",
+            
+            # Fuck false positives  
+            "duck", "ducks", "tuck", "tucks", "luck", "lucky", "suck", "sucks", "buck", "bucks",
+            "stuck", "truck", "trucks", "pluck", "plucks", "muck", "mucks",
+            
+            # Dick false positives
+            "deck", "decks", "sick", "sicker", "pick", "picks", "kick", "kicks", "tick", "ticks",
+            "thick", "thicker", "quick", "quicker", "click", "clicks", "stick", "sticks", "brick", "bricks",
+            
+            # Cunt false positives
+            "cant", "cannot", "hunt", "hunts", "punt", "punts", "bunt", "bunts", "runt", "runts",
+            "blunt", "blunts", "grunt", "grunts", "count", "counts", "mount", "mounts", "front", "fronts",
+            
+            # Bitch false positives
+            "batch", "batches", "catch", "catches", "patch", "patches", "match", "matches", "watch", "watches",
+            "hatch", "hatches", "latch", "latches", "witch", "witches", "switch", "switches", "pitch", "pitches",
+            
+            # Additional common words that might trigger false positives
+            "sheet", "shell", "should", "class", "glass", "grass", "press", "dress", "stress",
+            "black", "track", "crack", "stack", "attack", "pack", "back", "lack", "rack",
+        ]
+        
+        failed_words = []
+        for word in false_positives:
+            if matcher.contains_profanity(word):
+                failed_words.append(word)
+        
+        assert len(failed_words) == 0, f"These innocent words were incorrectly flagged as profanity: {failed_words}"
+        
+        # Test that legitimate profanity is still caught
+        legitimate_profanity = [
+            "shit", "fuck", "dick", "cunt", "bitch",  # Base terms
+            "bullshit", "fuckface", "dickhead", "bitchy",  # Variants
+            "goddamn", "jesus", "christ",  # Religious terms
+        ]
+        
+        missed_words = []
+        for word in legitimate_profanity:
+            if not matcher.contains_profanity(word):
+                missed_words.append(word)
+        
+        assert len(missed_words) == 0, f"These profane words were incorrectly missed: {missed_words}"
