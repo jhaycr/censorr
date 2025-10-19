@@ -61,6 +61,13 @@ Custom fuzzy similarity threshold for this term (0-100). If not specified, uses 
 - **Lower values** = more permissive (catches more variants but may have false positives)
 - **Higher values** = more strict (fewer false positives but may miss variants)
 
+**Length-Based Threshold Protection**: Words with ≤4 characters automatically get a minimum threshold of 95% to prevent false positives. For example:
+- `"shit"` with `fuzzy_threshold: 80` → effective threshold becomes 95%
+- `"fuck"` with no custom threshold → effective threshold becomes 95% (not 85%)
+- `"bullshit"` with `fuzzy_threshold: 70` → effective threshold remains 70% (longer word)
+
+This prevents false positives like "shirt" matching "shit" (88.89% < 95%).
+
 ### `variant_strategy` (optional)
 Variant detection strategy. Valid values:
 - `"default"` (default) - Standard morphological matching (e.g., "fuck" → "fucking", "fucker")
@@ -145,6 +152,33 @@ This automatically catches: "fuckable", "fucking", "unfuckingbelievable", "fucku
         "fuzzy_threshold": 98
     }
 ]
+```
+
+## False Positive Prevention
+
+### Automatic Length-Based Protection
+Short words (≤4 characters) are automatically protected against false positives by enforcing a minimum 95% similarity threshold:
+
+**Example: "shit" false positive fix**
+```
+Before: "shirt" → 88.89% similarity → INCORRECTLY MATCHED (above 85% threshold)
+After:  "shirt" → 88.89% similarity → CORRECTLY REJECTED (below 95% threshold)
+```
+
+**Protected words include:**
+- `"shit"` - prevents matching "shirt", "sit", "shift"
+- `"fuck"` - prevents matching "duck", "tuck", "luck"  
+- `"dick"` - prevents matching "deck", "sick", "pick"
+- `"cunt"` - prevents matching "cant", "hunt", "punt"
+
+### Custom Threshold Override
+You can still set higher thresholds for short words if needed:
+```json
+{
+    "word": "shit",
+    "fuzzy_threshold": 98,  // Higher than 95% minimum
+    "variant_strategy": "aggressive"
+}
 ```
 
 ## Implementation Details

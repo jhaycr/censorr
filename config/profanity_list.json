@@ -26,7 +26,11 @@
     {"word": "no shit"},
     {"word": "no-shit"},
     {"word": "piece of shit"},
-    {"word": "shit"},
+    {
+        "word": "shit",
+        "fuzzy_threshold": 95,
+        "variant_strategy": "aggressive"
+    },
     {"word": "shitballs"},
     {"word": "shitbox"},
     {"word": "shitface"},

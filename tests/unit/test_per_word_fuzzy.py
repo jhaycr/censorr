@@ -15,7 +15,7 @@ class TestPerWordFuzzyThreshold:
         assert len(normalized) == 3
         assert all(isinstance(term, ProfanityTerm) for term in normalized)
         assert normalized[0].word == "fuck"
-        assert normalized[0].get_effective_threshold(85.0) == 85.0
+        assert normalized[0].get_effective_threshold(85.0) == 95.0  # Length-based minimum
         assert not normalized[0].is_aggressive_variant_enabled()
     
     def test_normalize_profanity_list_mixed(self):
@@ -29,20 +29,56 @@ class TestPerWordFuzzyThreshold:
         
         assert len(normalized) == 3
         
-        # String entry uses defaults
+        # String entry uses defaults but gets length-based minimum
         damn_term = next(term for term in normalized if term.word == "damn")
-        assert damn_term.get_effective_threshold(85.0) == 85.0
+        assert damn_term.get_effective_threshold(85.0) == 95.0  # Length-based minimum for 4-char word
         assert not damn_term.is_aggressive_variant_enabled()
         
-        # Custom threshold and aggressive strategy
+        # Custom threshold but length-based minimum applies
         fuck_term = next(term for term in normalized if term.word == "fuck")
-        assert fuck_term.get_effective_threshold(85.0) == 70
+        assert fuck_term.get_effective_threshold(85.0) == 95.0  # max(70, 95) due to length
         assert fuck_term.is_aggressive_variant_enabled()
         
-        # Custom threshold, default strategy
+        # Custom threshold already meets length-based minimum
         shit_term = next(term for term in normalized if term.word == "shit")
-        assert shit_term.get_effective_threshold(85.0) == 95
+        assert shit_term.get_effective_threshold(85.0) == 95.0
         assert not shit_term.is_aggressive_variant_enabled()
+    
+    def test_length_based_thresholds(self):
+        """Test length-based threshold rules."""
+        # Short words (≤4 chars) get 95% minimum
+        short_term = ProfanityTerm(word="shit", fuzzy_threshold=80)
+        assert short_term.get_effective_threshold(85.0) == 95.0
+        
+        # Short words with high custom threshold keep it
+        strict_short_term = ProfanityTerm(word="fuck", fuzzy_threshold=98)
+        assert strict_short_term.get_effective_threshold(85.0) == 98.0
+        
+        # Long words use custom or global threshold
+        long_term = ProfanityTerm(word="bullshit", fuzzy_threshold=70)
+        assert long_term.get_effective_threshold(85.0) == 70.0
+        
+        # Long words without custom threshold use global
+        long_default_term = ProfanityTerm(word="motherfucker")
+        assert long_default_term.get_effective_threshold(85.0) == 85.0
+    
+    def test_shit_false_positive_fix(self):
+        """Test that shit false positives are eliminated."""
+        profanity_terms = [
+            ProfanityTerm(word="shit", fuzzy_threshold=95, variant_strategy="aggressive")
+        ]
+        matcher = FuzzyMatcher(similarity_threshold=85, allow_list=profanity_terms)
+        
+        # False positives should be rejected
+        assert not matcher.contains_profanity("shirt")   # 88.89% < 95%
+        assert not matcher.contains_profanity("sit")     # 85.71% < 95%
+        assert not matcher.contains_profanity("shift")   # 88.89% < 95%
+        
+        # Actual profanity should be caught
+        assert matcher.contains_profanity("shit")        # 100% ≥ 95%
+        assert matcher.contains_profanity("shits")       # Morphology rule
+        assert matcher.contains_profanity("shitting")    # Morphology rule
+        assert matcher.contains_profanity("shitty")      # Aggressive strategy
     
     def test_fuzzy_matcher_per_term_thresholds(self):
         """Test that FuzzyMatcher respects per-term thresholds."""
@@ -117,7 +153,7 @@ class TestPerWordFuzzyThreshold:
     
     def test_backward_compatibility(self):
         """Test that legacy string lists still work."""
-        legacy_list = ["fuck", "shit", "damn"]
+        legacy_list = ["fuck", "shit", "bullshit"]  # Include a long word
         
         matcher = FuzzyMatcher(
             similarity_threshold=85.0,
@@ -128,9 +164,12 @@ class TestPerWordFuzzyThreshold:
         assert len(matcher.allow_list) == 3
         assert "fuck" in matcher.allow_list
         
-        # Should use global threshold for all terms
-        assert matcher._get_effective_threshold("fuck") == 85.0
-        assert matcher._get_effective_threshold("shit") == 85.0
+        # Short words get length-based minimum threshold
+        assert matcher._get_effective_threshold("fuck") == 95.0  # Length-based minimum
+        assert matcher._get_effective_threshold("shit") == 95.0  # Length-based minimum
+        
+        # Long words use global threshold
+        assert matcher._get_effective_threshold("bullshit") == 85.0  # Global threshold
         
         # Should not enable aggressive mode by default
         assert not matcher._is_aggressive_enabled("fuck")

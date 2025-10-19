@@ -20,8 +20,21 @@ class ProfanityTerm(BaseModel):
         return [self.word] + self.aliases
     
     def get_effective_threshold(self, global_default: float) -> float:
-        """Get the effective fuzzy threshold for this term."""
-        return self.fuzzy_threshold if self.fuzzy_threshold is not None else global_default
+        """Get the effective fuzzy threshold for this term.
+        
+        Applies length-based threshold rules:
+        - Words ≤4 characters: minimum 95% threshold
+        - Custom threshold takes precedence if higher than length-based minimum
+        """
+        # Start with custom threshold or global default
+        base_threshold = self.fuzzy_threshold if self.fuzzy_threshold is not None else global_default
+        
+        # Apply length-based minimum threshold for short words
+        if len(self.word) <= 4:
+            length_based_minimum = 95.0
+            return max(base_threshold, length_based_minimum)
+        
+        return base_threshold
     
     def is_aggressive_variant_enabled(self) -> bool:
         """Check if aggressive variant detection is enabled for this term."""
