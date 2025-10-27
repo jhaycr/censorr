@@ -1,8 +1,8 @@
 version: "3.9"
 
 services:
-  censorr:
-    container_name: censorr
+  censorr-cli:
+    container_name: censorr-cli
     build:
       context: .
       dockerfile: Dockerfile.tool
@@ -27,11 +27,11 @@ services:
       - ${CONFIG_PATH:-/srv/censorr/config}:/app/config:rw
       - ${QUEUE_PATH:-/srv/censorr/queue}:/app/queue:rw
     labels:
-      org.censorr.service: "censorr-daemon"
+      org.censorr.service: "censorr-cli"
       org.censorr.version: "local-build"
 
-  censorr-webhook:
-    container_name: censorr-webhook
+  censorr-listener:
+    container_name: censorr-listener
     build:
       context: .
       dockerfile: Dockerfile.web
@@ -57,7 +57,7 @@ services:
       - ${CONFIG_PATH:-/srv/censorr/config}:/app/config:rw
       - ${QUEUE_PATH:-/srv/censorr/queue}:/app/queue:rw
     depends_on:
-      - censorr
+      - censorr-cli
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8000/healthz >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -65,5 +65,5 @@ services:
       retries: 3
       start_period: 10s
     labels:
-      org.censorr.service: "censorr-webhook"
+      org.censorr.service: "censorr-listener"
       org.censorr.version: "local-build"
