@@ -62,8 +62,8 @@ As a media automation user running Censorr in a container with Radarr/Sonarr, I 
 2. Given a webhook is received without the 'censorr_preset' tag, when the event is evaluated, then the system must ignore it, take no processing action, and record an informational log indicating the reason (missing tag).
 3. Given a webhook is received with 'censorr_preset' set to a value that does not match any configured preset, when the event is evaluated, then the system must skip processing and record a warning stating the preset is unknown.
 4. Given a qualifying webhook references a media file that is not yet available to the container (e.g., path not mounted or file still moving), when the system attempts to schedule processing, then it must fail gracefully and log the error.
-5. Given a webhook is received that does not contain any allowlisted tags (default allowlist includes 'censor_profile'), when the server evaluates the event, then it must ignore it before invoking the CLI and record an informational log indicating the reason (allowlist miss).
-6. Given a webhook contains at least one allowlisted tag (e.g., 'censor_profile'), when the server evaluates the event, then it passes the event through to the CLI for further processing according to 'censorr_preset' mapping and records the decision.
+5. Given a webhook is received that does not contain any allowlisted tags (default allowlist includes 'censorr_profile'), when the server evaluates the event, then it must ignore it before invoking the CLI and record an informational log indicating the reason (allowlist miss).
+6. Given a webhook contains at least one allowlisted tag (e.g., 'censorr_profile'), when the server evaluates the event, then it passes the event through to the CLI for further processing according to 'censorr_preset' mapping and records the decision.
 
 ### Edge Cases
 - Webhook source sends an event type that is not relevant to completed downloads; the system should ignore it and log why.  
@@ -92,7 +92,7 @@ As a media automation user running Censorr in a container with Radarr/Sonarr, I 
 - FR-015: The system MUST treat the 'censorr_preset' key name as reserved by the product and MUST NOT allow end-users to remap or rename this key.
 - FR-016: Qualifying webhooks MUST be enqueued and processed asynchronously using best-effort FIFO ordering. The queue MUST be bounded; when capacity is reached, the system MUST fail gracefully (do not enqueue) and log a clear overload message.
 - FR-017: The server MUST implement a minimal tag allowlist filter: only events containing at least one allowlisted tag are forwarded to the CLI; all others are ignored and logged. Filtering occurs before any CLI invocation.
-- FR-018: The allowlist of tags MUST be configurable via configuration or environment and MUST default to including 'censor_profile'. When the allowlist is empty, filtering is disabled and all events are eligible to pass through (subject to other rules).
+- FR-018: The allowlist of tags MUST be configurable via configuration or environment and MUST default to including 'censorr_profile'. When the allowlist is empty, filtering is disabled and all events are eligible to pass through (subject to other rules).
 
 ### Key Entities (data)
 - Webhook Event: Represents a notification from an external automation tool; includes source, event type, media identifiers/paths, and tag set (including optional 'censorr_preset').

@@ -17,7 +17,7 @@ Spec: /home/josh/Code/Censorr2/specs/003-webhook/spec.md
 - Alternatives: Separate `/webhook/radarr` and `/webhook/sonarr` (more explicit but redundant).
 
 3) Security Posture & Ingress Filter
-- Decision: Optional shared secret header validation; on failure, respond as failed and log; add a minimal tag allowlist filter (default includes `censor_profile`) that drops events lacking any allowlisted tag before CLI invocation.
+- Decision: Optional shared secret header validation; on failure, respond as failed and log; add a minimal tag allowlist filter (default includes `censorr_profile`) that drops events lacking any allowlisted tag before CLI invocation.
 - Rationale: Provides a lightweight “firewall” to reduce load and scope while keeping all business logic in the CLI.
 - Alternatives: Mandatory HMAC signature, IP allowlists; deferred as future hardening.
 
