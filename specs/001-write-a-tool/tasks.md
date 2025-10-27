@@ -122,8 +122,8 @@ Notes:
 		- Environment variables mapping to CLI flags (demonstrate both approaches)
 		- A sample service using the built image and a dry-run command
 
-33. ✅ [P] Podman run example
-	- Add `examples/podman-run.sh` demonstrating an equivalent to the Compose example.
+33. ✅ [P] ~~Podman run example~~ (Removed: Docker-only)
+	- ~~Add `examples/podman-run.sh` demonstrating an equivalent to the Compose example.~~ (Docker-only approach)
 	- Include `--user` flag if needed and volume mappings for media and workdir.
 
 34. ✅ ENTRYPOINT/console script alignment
@@ -151,7 +151,7 @@ Notes:
 	- Add a step in `docs/container-build.md` for generating an SBOM (e.g., `docker scout`, `syft`, or `trivy`), storing artifacts under `dist/`.
 
 40. ✅ Docs: Quickstart container usage
-	- Update `specs/001-write-a-tool/quickstart.md` with container run examples (Docker/Podman), volume mounts, and env→flag mapping.
+	- Update `specs/001-write-a-tool/quickstart.md` with container run examples (Docker), volume mounts, and env→flag mapping.
 	- Add troubleshooting notes (permissions, SELinux on host, ffmpeg availability).
 
 41. ✅ CI build (optional enhancement)

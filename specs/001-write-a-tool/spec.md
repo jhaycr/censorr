@@ -279,7 +279,7 @@ Traceability for additional requirements
 - NFR-005 (Plugin-First Extensibility): New behaviors SHOULD be added via a registry-backed plugin API without modifying core planner/executor logic.
 - NFR-006 (YAGNI & Documented Complexity): Avoid speculative features. Any added abstraction MUST be justified and recorded in "Complexity Tracking" within the plan.
 - NFR-007 (Test-First & Doc-Driven): Features MUST land with tests and updated docs (spec/quickstart/contracts). No implementation without failing tests first in the workflow.
-- NFR-008 (Container-Native Compatibility): Tooling SHOULD run cleanly in common homelab contexts (Linux, Docker/Podman). CLI MUST be primary; any HTTP/automation layer MUST call the same contracts.
+- NFR-008 (Container-Native Compatibility): Tooling SHOULD run cleanly in common homelab contexts (Linux, Docker). CLI MUST be primary; any HTTP/automation layer MUST call the same contracts.
 - NFR-009 (Observability & Auditability): Structured logs and audit trails MUST be produced for operations and corrections; logs are written under workdir with stable fields.
 - NFR-010 (Idempotency & Dry-Run): Pipeline MUST be safe to re-run (outputs reproducible) and support a dry-run showing planned operations. Manifest supports debugging; skip optimization optional.
 - NFR-011 (Deterministic Outputs): Workdir layout and filenames MUST be deterministic based on inputs/op purpose.

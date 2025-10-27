@@ -4,7 +4,7 @@ This document provides instructions for building, testing, and publishing Censor
 
 ## Prerequisites
 
-- Docker or Podman with buildx support
+- Docker with buildx support
 - QEMU for multi-architecture emulation (if building non-native architectures)
 - Access to container registry (if publishing)
 
@@ -32,9 +32,6 @@ docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 ```bash
 # Build for current platform
 docker build -t censorr:latest .
-
-# Or with Podman
-podman build -t censorr:latest .
 ```
 
 ### Multi-Architecture Build Setup
@@ -66,18 +63,6 @@ docker buildx build \
   --tag your-registry.com/censorr:1.0.0 \
   --push \
   .
-```
-
-#### Podman Multi-Arch Build
-```bash
-# Podman multi-arch build (requires buildah)
-podman build \
-  --platform linux/amd64,linux/arm64 \
-  --manifest censorr:latest \
-  .
-
-# Push manifest list
-podman manifest push censorr:latest docker://your-registry.com/censorr:latest
 ```
 
 ## Supported Architectures

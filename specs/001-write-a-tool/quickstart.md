@@ -126,7 +126,7 @@ The QC process respects the same allow-list as the masking operation:
 
 ## Container Usage
 
-Censorr can be run in a container (Docker/Podman) for isolated execution:
+Censorr can be run in a container (Docker) for isolated execution:
 
 ## Configuration System
 
@@ -274,23 +274,6 @@ docker run --rm \
   --language en \
   --create-subtitle-sidecar \
   --continue-on-qc-fail
-```
-
-#### Podman
-```bash
-# Build the image
-podman build -t censorr .
-
-# Run with SELinux labels (recommended on RHEL/Fedora)
-podman run --rm \
-  --security-opt label=disable \
-  -v /path/to/media:/media:ro,Z \
-  -v $(pwd)/output:/app/workdir:Z \
-  censorr \
-  process /media/movie.mkv \
-  --output /app/workdir \
-  --language en \
-  --dry-run
 ```
 
 ### Volume Mounts
