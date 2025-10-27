@@ -26,7 +26,8 @@ RUN python -m pip install --no-cache-dir \
     pydantic==2.11.9 \
     typer[all]==0.19.1 \
     PyYAML==6.0.2 \
-    rich==14.1.0
+    rich==14.1.0 \
+    gunicorn==23.0.0
 
 # Runtime stage - Use same base for consistency
 FROM python:3.12-slim
@@ -34,6 +35,7 @@ FROM python:3.12-slim
 # Install runtime dependencies and clean up in single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    wget \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean \
     && apt-get autoremove -y \
@@ -41,10 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create non-root user with specific UID/GID for security
 RUN groupadd -g 1000 censorr && \
-    useradd -u 1000 -g censorr -m -s /bin/bash censorr && \
-    # Remove unnecessary packages and files
-    apt-get purge -y --auto-remove \
-    && rm -rf /var/cache/apt/archives/*
+    useradd -u 1000 -g censorr -m -s /bin/bash censorr
 
 # Copy Python packages from builder (minimal transfer)
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
