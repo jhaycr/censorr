@@ -328,7 +328,7 @@ Notes:
 
 77. ✅ Replace audioop usage with wave-based alternative
 	- Create audio utility module `src/utils/audio_utils.py` with functions for mono conversion and RMS calculation.
-	- Replace `audioop.tomono()` with custom stereo-to-mono mixer using struct unpacking.
+	- ~~Replace `audioop.tomono()` with custom stereo-to-mono mixer using struct unpacking.~~ (Removed: preserve original channel configuration)
 	- Replace `audioop.rms()` with manual RMS calculation (square root of mean squared amplitudes).
 	- Update `src/ops/audio_qc.py` to import from new utility instead of deprecated `audioop`.
 	- Update test files (`test_audio_qc.py`, `test_audio_flow.py`) to use new utility functions.
