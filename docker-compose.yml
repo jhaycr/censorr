@@ -3,7 +3,9 @@ version: "3.9"
 services:
   censorr:
     container_name: censorr
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.tool
     restart: unless-stopped
     command: worker
     user: "${UID:-1000}:${GID:-1000}"
@@ -30,7 +32,9 @@ services:
 
   censorr-webhook:
     container_name: censorr-webhook
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.web
     restart: unless-stopped
     command: webhook
     user: "${UID:-1000}:${GID:-1000}"

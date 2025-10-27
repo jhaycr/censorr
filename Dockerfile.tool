@@ -1,0 +1,63 @@
+# Dockerfile.tool - Censorr CLI/Worker image (includes ffmpeg)
+
+FROM python:3.12-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* && apt-get clean
+
+WORKDIR /build
+
+RUN python -m pip install --no-cache-dir --upgrade pip==24.3.1 setuptools==75.8.0 wheel==0.46.0
+
+# Install only python deps needed by the CLI and worker
+COPY pyproject.toml .
+RUN python -m pip install --no-cache-dir \
+    rapidfuzz==3.14.1 \
+    pysubs2==1.8.0 \
+    pydantic==2.11.9 \
+    typer[all]==0.19.1 \
+    PyYAML==6.0.2 \
+    rich==14.1.0 \
+    gunicorn==23.0.0
+
+FROM python:3.12-slim
+
+# CLI/worker requires ffmpeg; also keep wget for convenience/healthchecks if needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    wget \
+    && rm -rf /var/lib/apt/lists/* && apt-get clean && apt-get autoremove -y && rm -rf /tmp/* /var/tmp/*
+
+# Non-root user
+RUN groupadd -g 1000 censorr && useradd -u 1000 -g censorr -m -s /bin/bash censorr
+
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+WORKDIR /app
+
+COPY --chown=censorr:censorr src/ ./src/
+COPY --chown=censorr:censorr pyproject.toml ./
+COPY --chown=censorr:censorr README.md ./
+
+RUN python -m pip install --no-cache-dir -e . && \
+    mkdir -p /app/workdir /app/config && \
+    chown -R censorr:censorr /app && \
+    rm -rf /root/.cache/pip /tmp/* /var/tmp/*
+
+USER censorr
+
+ENV PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+VOLUME ["/media", "/app/workdir", "/app/config"]
+
+COPY --chown=censorr:censorr docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["worker"]

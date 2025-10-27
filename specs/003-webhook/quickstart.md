@@ -11,18 +11,22 @@ This quickstart shows how to run the standard-library WSGI webhook service (serv
 
 ## Run the services
 
-The `docker-compose.yml` defines two services that share a queue volume:
-- `censorr-webhook`: Webhook service on port 8000 (produces jobs)
-- `censorr`: Worker service (consumes jobs and runs the CLI)
+The `docker-compose.yml` defines two services that share a queue volume and are built from separate Dockerfiles:
+- `censorr-webhook` (Dockerfile.web): Webhook service on port 8000 (produces jobs). Minimal image; does NOT include ffmpeg.
+- `censorr` (Dockerfile.tool): Worker service (consumes jobs and runs the CLI). Includes ffmpeg for media processing.
 
 1) Build and start via Compose (from repo root):
 
 ```bash
-# Build and start both containers (webhook + worker)
+"# Build and start both containers (webhook + worker)
 docker compose up -d --build
 
-# Or start only the webhook service (and its dependency)
-docker compose up -d --build censorr-webhook
+# Or build specific images
+docker compose build censorr-webhook
+docker compose build censorr
+
+# Start services
+docker compose up -d censorr-webhook censorr
 ```
 
 The webhook service will be available at `http://localhost:8000` (configurable via `WEBHOOK_PORT` env var).
