@@ -31,11 +31,11 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Implement a lightweight Python HTTP service (Flask or stdlib WSGI) running inside the Docker container defined in spec-002. The server performs only minimal ingress logic: an allowlist filter that drops events lacking configured tags (default includes `censorr_profile`). Events that pass the filter are forwarded to the CLI, which handles all business rules: checking for the fixed tag key `censorr_preset`, mapping its value to a preset in `censorr.json`, enqueueing a processing job, and executing the pipeline asynchronously. The system explicitly does not implement idempotency for duplicate deliveries, fails gracefully and logs errors, maintains basic counters since process start, exposes health/readiness and status endpoints, and uses a bounded best-effort FIFO queue to preserve responsiveness under load.
+Implement a lightweight Python WSGI HTTP service using only the standard library, served by Gunicorn inside the Docker container defined in spec-002. The server performs only minimal ingress logic: a tag allowlist filter that drops events lacking configured tags (default includes `censorr_profile`). Events that pass the filter are forwarded to the CLI, which handles all business rules: checking for the fixed tag key `censorr_preset`, mapping its value to a preset in `censorr.json`, enqueueing a processing job, and executing the pipeline asynchronously. The system explicitly does not implement idempotency for duplicate deliveries, fails gracefully and logs errors, maintains basic counters since process start, exposes health/readiness and status endpoints, and uses a bounded best-effort FIFO queue to preserve responsiveness under load.
 
 ## Technical Context
 **Language/Version**: Python 3.12  
-**Primary Dependencies**: Flask or stdlib WSGI (HTTP server), Typer (existing CLI), standard library queue/threading; optional Gunicorn for production serving under Docker  
+**Primary Dependencies**: stdlib WSGI app (wsgiref) served by Gunicorn (HTTP), Typer (existing CLI), standard library queue/threading  
 **Storage**: None (in-memory queue and counters; persistent media via mounted volumes)  
 **Testing**: pytest (contract, integration, unit)  
 **Target Platform**: Linux (Docker, Compose), non-root container  
@@ -52,7 +52,7 @@ Implement a lightweight Python HTTP service (Flask or stdlib WSGI) running insid
 - Test‑First (III): Plan enumerates contract tests for endpoints and integration tests with Docker; docs (quickstart) generated alongside.
 - Realistic Integration (IV): Integration tests will target the Docker Compose service from spec‑002.
 - Safety/Observability/Versioning/Simplicity (V/VI): Structured logs with stable fields; simple FIFO queue; versioning deferred to merge; minimal design.
-- Non‑Root Container Deliverable (XII): Flask service runs as non‑root; healthcheck endpoint provided; volumes for media honored.
+- Non‑Root Container Deliverable (XII): WSGI service runs as non‑root; healthcheck endpoint provided; volumes for media honored.
 
 Potential deviation: Constitution’s “Idempotency” principle (Security & Operational Constraints) is relaxed specifically for duplicate webhook deliveries per spec‑003 FR‑007. Justification: duplicates are considered distinct notifications; avoiding idempotency simplifies the service and defers deduplication to upstream systems. Core CLI operations remain convergent/idempotent regarding media outputs.
 
@@ -112,8 +112,8 @@ ios/ or android/
 
 ## Phase 0: Outline & Research
 Key questions and decisions are consolidated in `research.md`:
-- Flask within Docker Compose (spec‑002) vs. alternative frameworks → choose Flask for simplicity and fit.
-- Production serving: run under Gunicorn in container vs Flask dev server → choose Gunicorn for robustness under compose; single worker/thread adequate for queueing model.
+- Flask vs stdlib WSGI within Docker Compose (spec‑002) → choose stdlib WSGI for zero framework dependency.
+- Production serving: run under Gunicorn in container; single worker/thread adequate for queueing model.
 - Queue strategy: in‑process bounded `queue.Queue` with best‑effort FIFO; capacity default 100; overflow policy is reject and log.
 - Endpoint surface: POST `/webhook` (source autodetect), or split `/webhook/radarr` and `/webhook/sonarr`; choose single `/webhook` with source field detection; apply allowlist filter before invoking CLI.
 - Counters semantics: in‑memory since process start.

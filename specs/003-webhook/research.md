@@ -7,9 +7,9 @@ Spec: /home/josh/Code/Censorr2/specs/003-webhook/spec.md
 ## Decisions
 
 1) Framework and Serving
-- Decision: Use Flask for the HTTP service; serve via Gunicorn in Docker for robustness.
-- Rationale: Minimal dependencies, easy to integrate with existing Python CLI and logging; Gunicorn handles signals and concurrency better than Flask dev server.
-- Alternatives: FastAPI (more features, higher overhead); aiohttp (async-first but unnecessary complexity here).
+- Decision: Use a Python standard-library WSGI app for the HTTP service; serve via Gunicorn in Docker for robustness.
+- Rationale: Zero framework dependency, tiny code footprint, easy to integrate with existing CLI/logging; Gunicorn handles signals and concurrency better than a bare dev server.
+- Alternatives: Flask or FastAPI (more features, extra dependency); aiohttp (async-first, unnecessary complexity here).
 
 2) Endpoint Surface
 - Decision: Single POST `/webhook` endpoint; detect source (Radarr/Sonarr) via payload fields; GET `/healthz`, `/readyz`, `/status` for ops.

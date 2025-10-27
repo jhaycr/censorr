@@ -1,6 +1,6 @@
-# Quickstart: Censorr Webhook Service (spec-003)
+# Quickstart: Censorr Webhook Service (WSGI + Gunicorn)
 
-This quickstart shows how to run the Flask-based webhook service inside the Docker Compose stack defined by spec‑002 and verify basic behavior.
+This quickstart shows how to run the standard-library WSGI webhook service (served by Gunicorn) inside the Docker Compose stack defined by spec‑002 and verify basic behavior.
 
 ## Prerequisites
 - Docker and Docker Compose
