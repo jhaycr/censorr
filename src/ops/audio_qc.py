@@ -354,8 +354,6 @@ class AudioQualityCheckOperation(Operation):
         if not data:
             return 0
         
-        # Convert to mono if stereo
-        if nchannels == 2:
-            data = audio_utils.tomono(data, width, 0.5, 0.5)
-        
+        # Calculate RMS directly on original channel configuration
+        # No need to convert stereo to mono - RMS works on all samples
         return audio_utils.rms(data, width)
