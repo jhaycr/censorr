@@ -138,6 +138,7 @@ Prerequisite met: `research.md` created.
 
 3) Contract tests (to be generated in /tasks phase):
 - Schema and status code assertions per endpoint.
+- Include unit tests that exercise representative Radarr and Sonarr media import/completed download example payloads to verify: allowlist filtering behavior, pass-through to the CLI, and response categories (accepted, ignored, failed).
 
 4) Quickstart (`quickstart.md`):
 - Compose integration (spec‑002): service runs non‑root, logs to stdout, exposes ports, healthcheck hitting `/healthz`.

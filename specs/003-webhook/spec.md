@@ -93,6 +93,7 @@ As a media automation user running Censorr in a container with Radarr/Sonarr, I 
 - FR-016: Qualifying webhooks MUST be enqueued and processed asynchronously using best-effort FIFO ordering. The queue MUST be bounded; when capacity is reached, the system MUST fail gracefully (do not enqueue) and log a clear overload message.
 - FR-017: The server MUST implement a minimal tag allowlist filter: only events containing at least one allowlisted tag are forwarded to the CLI; all others are ignored and logged. Filtering occurs before any CLI invocation.
 - FR-018: The allowlist of tags MUST be configurable via configuration or environment and MUST default to including 'censorr_profile'. When the allowlist is empty, filtering is disabled and all events are eligible to pass through (subject to other rules).
+- FR-019: The project MUST include unit tests that use representative example webhook payloads from Radarr and Sonarr for media import/completed download events, verifying allowlist filtering, pass-through to the CLI, and response categorization (accepted, ignored, failed).
 
 ### Key Entities (data)
 - Webhook Event: Represents a notification from an external automation tool; includes source, event type, media identifiers/paths, and tag set (including optional 'censorr_preset').
