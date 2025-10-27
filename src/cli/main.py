@@ -662,3 +662,96 @@ def explain():
 
 if __name__ == "__main__":
     app()
+
+
+@app.command()
+def webhook():
+    """
+    Handle a webhook payload from stdin (JSON) and dispatch to processing.
+
+    Exit codes:
+      0 -> accepted (at least one job queued/processed)
+      2 -> ignored (missing/unknown preset, or no actionable media paths)
+      3 -> failed (malformed payload or security validation failed)
+    """
+    try:
+        raw = sys.stdin.read()
+        if not raw:
+            raise ValueError("empty payload")
+        payload = json.loads(raw)
+    except Exception:
+        raise typer.Exit(code=3)
+
+    # Validate basic shape
+    if not isinstance(payload, dict):
+        raise typer.Exit(code=3)
+
+    tags = payload.get("tags")
+    if not isinstance(tags, dict):
+        # No tags object: nothing to do per server contract
+        raise typer.Exit(code=2)
+
+    preset = tags.get("censorr_preset")
+    try:
+        app_config = Config.load_with_fallback(None)
+    except Exception:
+        app_config = Config()
+
+    if not preset:
+        # Missing preset is ignored
+        raise typer.Exit(code=2)
+
+    # Unknown preset: ignore (contract 200 ignored)
+    if preset not in app_config.presets:
+        raise typer.Exit(code=2)
+
+    # Media paths
+    media_paths = payload.get("mediaPaths")
+    if not isinstance(media_paths, list) or not media_paths:
+        raise typer.Exit(code=2)
+
+    # Process each existing path; consider success if at least one processed
+    any_success = False
+    for path in media_paths:
+        try:
+            if not isinstance(path, str):
+                continue
+            p = Path(path)
+            if not p.exists():
+                # Fail gracefully: log and continue
+                if app_config and app_config.verbose:
+                    rprint(f"[yellow]Path does not exist, skipping: {path}[/yellow]")
+                continue
+            # Call the process function programmatically
+            try:
+                process(  # type: ignore[misc]
+                    input_file=str(p),
+                    config=None,
+                    output="./output",
+                    operations=None,
+                    language=None,
+                    mute_windows=None,
+                    dry_run=False,
+                    verbose=False,
+                    force=False,
+                    profanity_list_file=None,
+                    create_subtitle_sidecar=False,
+                    preset=preset,
+                )
+                any_success = True
+            except typer.Exit as te:
+                # Non-zero exits from process indicate a failure for this path
+                if te.exit_code == 0:
+                    any_success = True
+                else:
+                    # Continue to try other paths
+                    continue
+        except Exception:
+            # Continue with other paths
+            continue
+
+    if any_success:
+        raise typer.Exit(code=0)
+    else:
+        # Nothing actionable
+        raise typer.Exit(code=2)
