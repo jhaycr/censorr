@@ -186,8 +186,8 @@ class TestCLIMain:
     @patch('src.cli.main.Path.exists')
     @patch('src.cli.main.Executor')
     @patch('src.cli.main.Planner')
-    def test_process_with_selectors(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test processing with artifact selectors."""
+    def test_process_with_config(self, mock_planner_class, mock_executor_class, mock_exists):
+        """Test processing with configuration file (replaces complex CLI selectors)."""
         # Setup mocks
         mock_exists.return_value = True
         mock_planner = mock_planner_class.return_value
@@ -200,9 +200,7 @@ class TestCLIMain:
         result = runner.invoke(app, [
             "process",
             "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--language", "en",
-            "--track-index", "0"
+            "--config", "/tmp/test_config.json"
         ])
         
         assert result.exit_code == 0

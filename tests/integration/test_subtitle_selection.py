@@ -109,10 +109,10 @@ class TestSubtitleSelectionIntegration:
         
         # Should have extract and merge operations
         assert len(plan.operations) >= 1  # At least extract
-        assert any(op.name == "extract_subtitles" for op in plan.operations)
+        assert any(op.name == "subtitle_extract" for op in plan.operations)
         
         # The selector should be passed to the operations
-        extract_op = next(op for op in plan.operations if op.name == "extract_subtitles")
+        extract_op = next(op for op in plan.operations if op.name == "subtitle_extract")
         # Operations should receive selectors through planner context
         # (Implementation detail - actual passing happens in executor)
     

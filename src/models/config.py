@@ -65,7 +65,22 @@ class Config(BaseModel):
     # Quality control defaults
     continue_on_qc_fail: bool = Field(False, description="Default continue on QC failure")
     continue_on_audio_qc_fail: bool = Field(False, description="Default continue on audio QC failure")
+    audio_qc_threshold_db: Optional[float] = Field(-15.0, description="Default audio QC threshold in dB")
+    audio_qc_control_window: Optional[float] = Field(1.0, description="Default audio QC control window duration")
     strict_audio_parity: bool = Field(False, description="Default strict audio parity")
+    
+    # File management defaults
+    persist_intermediate: bool = Field(False, description="Default persist intermediate files")
+    final_dest: Optional[str] = Field(None, description="Default final destination directory")
+    
+    # Advanced options (removed from CLI but configurable)
+    track_index: Optional[int] = Field(None, description="Default track index filter")
+    
+    # Audio encoding defaults (smart defaults that preserve original)
+    audio_transcode_to_original: bool = Field(False, description="Default transcode to original codec")
+    audio_target_codec: Optional[str] = Field(None, description="Default target audio codec")
+    audio_bitrate: Optional[str] = Field(None, description="Default audio bitrate (None = preserve original)")
+    audio_channels: Optional[int] = Field(None, description="Default audio channels (None = preserve original)")
     
     # File paths
     profanity_list_file: Optional[str] = Field(None, description="Default profanity list file path")

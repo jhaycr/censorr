@@ -1,4 +1,4 @@
-"""Unit tests for enhanced CLI functionality (skip/force/parallel controls)."""
+"""Unit tests for simplified CLI functionality."""
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, call
@@ -10,8 +10,8 @@ from src.models.operations import OperationResult
 from src.planner.planner import ExecutionPlan
 
 
-class TestCLIEnhancedControls:
-    """Test cases for enhanced CLI control flags."""
+class TestCLISimplified:
+    """Test cases for simplified CLI interface."""
 
     @patch('src.cli.main.Path.exists')
     @patch('src.cli.main.Executor')
@@ -37,7 +37,6 @@ class TestCLIEnhancedControls:
         result = runner.invoke(app, [
             "process",
             "/path/to/video.mp4",
-            "--output", "/tmp/test",
             "--force"
         ])
         
@@ -47,157 +46,28 @@ class TestCLIEnhancedControls:
         if mock_executor.execute.called:
             call_args = mock_executor.execute.call_args
             flags = call_args.kwargs['flags']  # Third argument should be flags
-            assert flags.force is True
-
-    @patch('src.cli.main.Path.exists')
-    @patch('src.cli.main.Executor')
-    @patch('src.cli.main.Planner')
-    def test_skip_existing_flag(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test that --skip-existing flag skips processing when output exists."""
-        # Setup mocks
-        mock_exists.return_value = True  # Both input and output exist
-        mock_planner = mock_planner_class.return_value
-        mock_executor = mock_executor_class.return_value
-        
-        # Mock planner to return empty plan when skipping
-        mock_planner.plan.return_value = ExecutionPlan(operations=[])
-        
-        runner = CliRunner()
-        result = runner.invoke(app, [
-            "process",
-            "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--skip-existing"
-        ])
-        
-        assert result.exit_code == 0
-        
-        # Should check for existing outputs and potentially skip
-        mock_planner.plan.assert_called_once()
-
-    @patch('src.cli.main.Path.exists')
-    @patch('src.cli.main.Executor')
-    @patch('src.cli.main.Planner')
-    def test_parallel_flag(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test that --parallel flag enables parallel execution."""
-        # Setup mocks
-        mock_exists.return_value = True
-        mock_planner = mock_planner_class.return_value
-        mock_executor = mock_executor_class.return_value
-        
-        mock_planner.plan.return_value = ExecutionPlan(operations=[])
-        mock_executor.execute.return_value = []
-        
-        runner = CliRunner()
-        result = runner.invoke(app, [
-            "process",
-            "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--parallel"
-        ])
-        
-        assert result.exit_code == 0
-        
-        # Verify executor was called with parallel=True
-        if mock_executor.execute.called:
-            call_args = mock_executor.execute.call_args
-            flags = call_args.kwargs['flags']  # Third argument should be flags
-            assert flags.parallel is True
-
-    @patch('src.cli.main.Path.exists')
-    @patch('src.cli.main.Executor')
-    @patch('src.cli.main.Planner')
-    def test_parallel_jobs_flag(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test that --jobs flag sets the number of parallel jobs."""
-        # Setup mocks
-        mock_exists.return_value = True
-        mock_planner = mock_planner_class.return_value
-        mock_executor = mock_executor_class.return_value
-        
-        mock_planner.plan.return_value = ExecutionPlan(operations=[])
-        mock_executor.execute.return_value = []
-        
-        runner = CliRunner()
-        result = runner.invoke(app, [
-            "process",
-            "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--jobs", "4"
-        ])
-        
-        assert result.exit_code == 0
-        
-        # Verify executor was called with jobs=4
-        if mock_executor.execute.called:
-            call_args = mock_executor.execute.call_args
-            flags = call_args.kwargs['flags']  # Third argument should be flags
-            assert flags.max_jobs == 4
-
-    @patch('src.cli.main.Path.exists')
-    @patch('src.cli.main.Executor')
-    @patch('src.cli.main.Planner')
-    def test_force_and_skip_existing_conflict(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test that --force and --skip-existing flags conflict."""
-        mock_exists.return_value = True
-        
-        runner = CliRunner()
-        result = runner.invoke(app, [
-            "process",
-            "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--force",
-            "--skip-existing"
-        ])
-        
-        assert result.exit_code != 0
-        assert "cannot be used together" in result.stdout.lower() or "conflicting" in result.stdout.lower()
-
-    @patch('src.cli.main.Path.exists')
-    @patch('src.cli.main.Executor')
-    @patch('src.cli.main.Planner')
-    def test_parallel_with_jobs_auto_enables_parallel(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test that --jobs automatically enables parallel mode."""
-        # Setup mocks
-        mock_exists.return_value = True
-        mock_planner = mock_planner_class.return_value
-        mock_executor = mock_executor_class.return_value
-        
-        mock_planner.plan.return_value = ExecutionPlan(operations=[])
-        mock_executor.execute.return_value = []
-        
-        runner = CliRunner()
-        result = runner.invoke(app, [
-            "process",
-            "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--jobs", "2"
-        ])
-        
-        assert result.exit_code == 0
-        
-        # Verify both parallel and jobs are set
-        if mock_executor.execute.called:
-            call_args = mock_executor.execute.call_args
-            flags = call_args.kwargs['flags']
-            assert flags.parallel is True
-            assert flags.max_jobs == 2
-
-    def test_help_shows_new_flags(self):
-        """Test that help shows the new control flags."""
+    def test_help_shows_simplified_flags(self):
+        """Test that help shows the simplified CLI flags."""
         runner = CliRunner()
         result = runner.invoke(app, ["process", "--help"])
         
         assert result.exit_code == 0
         assert "--force" in result.stdout
-        assert "--skip-existing" in result.stdout
-        assert "--parallel" in result.stdout
-        assert "--jobs" in result.stdout
+        assert "--verbose" in result.stdout
+        assert "--dry-run" in result.stdout
+        assert "--config" in result.stdout
+        assert "--preset" in result.stdout
+        
+        # These should NOT be present (removed as part of simplification)
+        assert "--skip-existing" not in result.stdout
+        assert "--parallel" not in result.stdout
+        assert "--jobs" not in result.stdout
 
     @patch('src.cli.main.Path.exists')
     @patch('src.cli.main.Executor')
     @patch('src.cli.main.Planner')
-    def test_verbose_mode_with_control_flags(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test verbose output includes information about control flags."""
+    def test_config_driven_execution(self, mock_planner_class, mock_executor_class, mock_exists):
+        """Test that complex options are handled via config instead of CLI."""
         # Setup mocks
         mock_exists.return_value = True
         mock_planner = mock_planner_class.return_value
@@ -210,44 +80,56 @@ class TestCLIEnhancedControls:
         result = runner.invoke(app, [
             "process",
             "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--verbose",
-            "--parallel",
-            "--jobs", "3"
+            "--config", "/tmp/test_config.json"
         ])
         
         assert result.exit_code == 0
-        # Verbose mode should mention parallel execution
-        assert "parallel" in result.stdout.lower() or "jobs" in result.stdout.lower()
+        # Config path should be used
+        mock_planner.plan.assert_called_once()
 
     @patch('src.cli.main.Path.exists')
-    def test_invalid_jobs_number(self, mock_exists):
-        """Test error handling for invalid jobs number."""
+    @patch('src.cli.main.Executor')
+    @patch('src.cli.main.Planner')
+    def test_preset_usage(self, mock_planner_class, mock_executor_class, mock_exists):
+        """Test preset functionality."""
+        # Setup mocks
         mock_exists.return_value = True
+        mock_planner = mock_planner_class.return_value
+        mock_executor = mock_executor_class.return_value
+        
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
+        mock_executor.execute.return_value = []
         
         runner = CliRunner()
         result = runner.invoke(app, [
             "process",
             "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--jobs", "0"
+            "--preset", "movies"
         ])
         
-        assert result.exit_code != 0
-        assert "jobs" in result.stdout.lower() and ("positive" in result.stdout.lower() or "greater" in result.stdout.lower())
+        assert result.exit_code == 0
+        mock_planner.plan.assert_called_once()
 
     @patch('src.cli.main.Path.exists')
-    def test_negative_jobs_number(self, mock_exists):
-        """Test error handling for negative jobs number."""
+    @patch('src.cli.main.Executor')
+    @patch('src.cli.main.Planner')
+    def test_smart_defaults_applied(self, mock_planner_class, mock_executor_class, mock_exists):
+        """Test that smart defaults work without explicit configuration."""
+        # Setup mocks
         mock_exists.return_value = True
+        mock_planner = mock_planner_class.return_value
+        mock_executor = mock_executor_class.return_value
+        
+        mock_planner.plan.return_value = ExecutionPlan(operations=[])
+        mock_executor.execute.return_value = []
         
         runner = CliRunner()
         result = runner.invoke(app, [
             "process",
-            "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--jobs", "-1"
+            "/path/to/video.mp4"
         ])
         
-        assert result.exit_code != 0
-        assert "jobs" in result.stdout.lower() and ("positive" in result.stdout.lower() or "greater" in result.stdout.lower())
+        assert result.exit_code == 0
+        # Should work with just the input file, using smart defaults
+        mock_planner.plan.assert_called_once()
+        mock_executor.execute.assert_called_once()

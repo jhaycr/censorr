@@ -138,10 +138,6 @@ def process(
         None, "--language", "-l",
         help="Filter by language code (e.g., 'en', 'es')"
     ),
-    track_index: Optional[int] = typer.Option(
-        None, "--track-index", "-t",
-        help="Filter by track index (not yet supported)"
-    ),
     mute_windows: Optional[str] = typer.Option(
         None, "--mute-windows", "-m",
         help="Path to external mute windows JSON file"
@@ -158,117 +154,17 @@ def process(
         False, "--force", "-f",
         help="Overwrite existing output files"
     ),
-    skip_existing: bool = typer.Option(
-        False, "--skip-existing", "-s",
-        help="Skip processing if output already exists"
-    ),
-    parallel: bool = typer.Option(
-        False, "--parallel", "-p",
-        help="Enable parallel execution of operations"
-    ),
-    jobs: int = typer.Option(
-        1, "--jobs", "-j",
-        help="Number of parallel jobs (automatically enables parallel mode)"
-    ),
-    continue_on_qc_fail: bool = typer.Option(
-        False, "--continue-on-qc-fail",
-        help="Continue pipeline execution despite QC failures (residual profane matches)"
-    ),
-    continue_on_audio_qc_fail: bool = typer.Option(
-        False, "--continue-on-audio-qc-fail",
-        help="Continue pipeline execution despite audio QC failures (insufficient muting)"
-    ),
-    audio_qc_threshold_db: Optional[float] = typer.Option(
-        None, "--audio-qc-threshold-db",
-        help="Audio QC: Minimum dB reduction required in muted windows (e.g., -15). More negative is stricter."
-    ),
-    audio_qc_control_window: Optional[float] = typer.Option(
-        None, "--audio-qc-control-window",
-        help="Audio QC: Duration in seconds for control segments (e.g., 0.5 to 2.0)"
-    ),
-    subtitle_title_include: Optional[str] = typer.Option(
-        None, "--subtitle-title-include",
-        help="Include subtitle tracks with titles containing these substrings (comma-separated)"
-    ),
-    subtitle_title_exclude: Optional[str] = typer.Option(
-        None, "--subtitle-title-exclude", 
-        help="Exclude subtitle tracks with titles containing these substrings (comma-separated)"
-    ),
-    subtitle_title_regex: Optional[str] = typer.Option(
-        None, "--subtitle-title-regex",
-        help="Include subtitle tracks with titles matching these regex patterns (comma-separated)"
-    ),
     profanity_list_file: Optional[str] = typer.Option(
         None, "--profanity-list-file",
         help="Path to JSON file with an array of {word: string, ...} objects for profanity masking"
-    ),
-    fuzzy_threshold: Optional[float] = typer.Option(
-        None, "--fuzzy-threshold",
-        help="Similarity threshold (0-100) for fuzzy profanity matching"
-    ),
-    subtitle_mode: str = typer.Option(
-        "masked_only", "--subtitle-mode",
-        help="How to handle subtitles in remux: 'all', 'masked_only', or 'none'"
     ),
     create_subtitle_sidecar: bool = typer.Option(
         False, "--create-subtitle-sidecar",
         help="Create sidecar subtitle files alongside remuxed video"
     ),
-    sidecar_tag: str = typer.Option(
-        "censorr", "--sidecar-tag",
-        help="Tag to use in sidecar subtitle filenames (censorr or clean)"
-    ),
-    strict_audio_parity: bool = typer.Option(
-        False, "--strict-audio-parity",
-        help="Fail on audio codec/format mismatches in remux; default warn only"
-    ),
-    persist_intermediate: bool = typer.Option(
-        False, "--persist-intermediate",
-        help="Keep intermediate artifacts after successful completion"
-    ),
-    final_dest: Optional[str] = typer.Option(
-        None, "--final-dest",
-        help="Final destination directory to move completed outputs"
-    ),
     preset: Optional[str] = typer.Option(
         None, "--preset",
         help="Use a named preset configuration (e.g., 'movies', 'tv')"
-    ),
-    backup: bool = typer.Option(
-        False, "--backup",
-        help="Create backup of original file before in-place remux (REMUX_ORIGINAL_VIDEO only)"
-    ),
-    output_mode: Optional[str] = typer.Option(
-        None, "--output-mode",
-        help="Output mode: REMUX_ORIGINAL_VIDEO (in-place) or REMUX_NEW_FILE (new file)"
-    ),
-    dest_policy: Optional[str] = typer.Option(
-        None, "--dest-policy",
-        help="Destination policy for REMUX_NEW_FILE: subfolder_tag or separate_root"
-    ),
-    dest_policy_tag: Optional[str] = typer.Option(
-        None, "--dest-policy-tag",
-        help="Tag for subfolder_tag policy (e.g., '[Censorr]')"
-    ),
-    dest_separate_root: Optional[str] = typer.Option(
-        None, "--dest-separate-root",
-        help="Root directory for separate_root policy"
-    ),
-    audio_transcode_to_original: bool = typer.Option(
-        False, "--audio-transcode-to-original",
-        help="Transcode processed audio to the original codec (e.g., E-AC-3) in remux"
-    ),
-    audio_target_codec: Optional[str] = typer.Option(
-        None, "--audio-target-codec",
-        help="Explicit target audio codec for remuxed processed audio (e.g., eac3, ac3, aac)"
-    ),
-    audio_bitrate: Optional[str] = typer.Option(
-        None, "--audio-bitrate",
-        help="Target audio bitrate for re-encode (e.g., 640k)"
-    ),
-    audio_channels: Optional[int] = typer.Option(
-        None, "--audio-channels",
-        help="Target channel count for re-encode (e.g., 6 for 5.1). Default preserves original"
     )
 ):
     """
@@ -299,29 +195,61 @@ def process(
                 rprint(f"[red]Error: Preset '{preset}' not found in configuration[/red]")
                 raise typer.Exit(1)
         
-        # Apply preset defaults first, then CLI args (CLI precedence: CLI > preset > config)
-        effective_output_mode = output_mode
-        effective_dest_policy = dest_policy
-        effective_dest_policy_tag = dest_policy_tag
-        effective_dest_separate_root = dest_separate_root
-        effective_backup = backup
+        # Smart defaults for removed CLI options
+        # These values come from config/preset or intelligent defaults
+        
+        # Output and destination settings - smart defaults from config/preset
+        effective_output_mode = None
+        effective_dest_policy = None
+        effective_dest_policy_tag = None
+        effective_dest_separate_root = None
+        effective_backup = False
+        
+        # Audio encoding - always preserve original (per user requirement)
+        audio_transcode_to_original = False  # Don't transcode by default
+        audio_target_codec = None  # Auto-detect from original
+        audio_bitrate = None  # Always preserve original bitrate
+        audio_channels = None  # Preserve original channel count
+        
+        # QC settings - intelligent defaults
+        continue_on_qc_fail = False  # Conservative default
+        continue_on_audio_qc_fail = False  # Conservative default
+        audio_qc_threshold_db = -15.0  # Reasonable strictness
+        audio_qc_control_window = 1.0  # 1 second control window
+        
+        # Execution settings - auto-detect based on system
+        parallel = False  # Default to sequential for reliability
+        jobs = 1  # Single job by default
+        skip_existing = False  # Process by default
+        
+        # Subtitle filtering - sensible defaults
+        subtitle_title_include = None
+        subtitle_title_exclude = None
+        subtitle_title_regex = None
+        subtitle_mode = "masked_only"  # Default from config
+        
+        # File management - conservative defaults
+        persist_intermediate = False  # Clean up by default
+        final_dest = None  # No automatic moving
+        track_index = None  # No track filtering
+        strict_audio_parity = False  # Warn only by default
+        fuzzy_threshold = None  # Use config default
+        sidecar_tag = "censorr"  # Default tag
         
         if preset_config:
             # Apply preset output settings
             preset_output = preset_config.output
-            if not effective_output_mode and 'output_mode' in preset_output:
+            if 'output_mode' in preset_output:
                 effective_output_mode = preset_output['output_mode']
-            if not effective_backup and preset_config.backup_default:
+            if preset_config.backup_default:
                 effective_backup = preset_config.backup_default
             
             # Apply preset destination policy if set
-            if preset_config.destination_policy and not dest_policy:
+            if preset_config.destination_policy:
                 policy_obj = preset_config.destination_policy
                 effective_dest_policy = policy_obj.policy
-                if not effective_dest_policy_tag:
-                    effective_dest_policy_tag = policy_obj.tag
-                if not effective_dest_separate_root:
-                    effective_dest_separate_root = policy_obj.separate_root
+                effective_dest_policy_tag = policy_obj.tag
+                effective_dest_separate_root = policy_obj.separate_root
         
         # Apply config defaults if still not set
         if not effective_output_mode:
@@ -341,21 +269,7 @@ def process(
             dry_run=dry_run if dry_run else None,  # Only override if True
             verbose=verbose if verbose else None,  # Only override if True
             force=force if force else None,  # Only override if True
-            skip_existing=skip_existing if skip_existing else None,  # Only override if True
-            parallel=parallel if parallel else None,  # Only override if True
-            jobs=jobs if jobs != 1 else None,  # Only override if not default
-            continue_on_qc_fail=continue_on_qc_fail if continue_on_qc_fail else None,
-            continue_on_audio_qc_fail=continue_on_audio_qc_fail if continue_on_audio_qc_fail else None,
-            audio_qc_threshold_db=audio_qc_threshold_db,
-            audio_qc_control_window=audio_qc_control_window,
-            subtitle_title_include=subtitle_title_include,
-            subtitle_title_exclude=subtitle_title_exclude,
-            subtitle_title_regex=subtitle_title_regex,
             language=language,
-            fuzzy_threshold=fuzzy_threshold,
-            subtitle_mode=subtitle_mode if subtitle_mode != "masked_only" else None,
-            sidecar_tag=sidecar_tag if sidecar_tag != "censorr" else None,
-            strict_audio_parity=strict_audio_parity if strict_audio_parity else None,
             profanity_list_file=profanity_list_file
         )
         
@@ -364,22 +278,39 @@ def process(
         dry_run = merged_args['dry_run']
         verbose = merged_args['verbose']
         force = merged_args['force']
-        skip_existing = merged_args['skip_existing']
-        parallel = merged_args['parallel']
-        jobs = merged_args['jobs']
-        continue_on_qc_fail = merged_args['continue_on_qc_fail']
-        continue_on_audio_qc_fail = merged_args['continue_on_audio_qc_fail']
-        audio_qc_threshold_db = merged_args.get('audio_qc_threshold_db')
-        audio_qc_control_window = merged_args.get('audio_qc_control_window')
-        subtitle_title_include = ','.join(merged_args['subtitle_title_include']) if merged_args['subtitle_title_include'] else None
-        subtitle_title_exclude = ','.join(merged_args['subtitle_title_exclude']) if merged_args['subtitle_title_exclude'] else None
-        subtitle_title_regex = ','.join(merged_args['subtitle_title_regex']) if merged_args['subtitle_title_regex'] else None
         language = merged_args['language']
-        fuzzy_threshold = merged_args['fuzzy_threshold']
-        subtitle_mode = merged_args['subtitle_mode']
-        sidecar_tag = merged_args['sidecar_tag']
-        strict_audio_parity = merged_args['strict_audio_parity']
         profanity_list_file = merged_args['profanity_list_file']
+        
+        # Get additional values from config with smart defaults
+        skip_existing = merged_args.get('skip_existing', app_config.skip_existing)
+        parallel = merged_args.get('parallel', app_config.parallel)
+        jobs = merged_args.get('jobs', app_config.jobs)
+        continue_on_qc_fail = merged_args.get('continue_on_qc_fail', app_config.continue_on_qc_fail)
+        continue_on_audio_qc_fail = merged_args.get('continue_on_audio_qc_fail', app_config.continue_on_audio_qc_fail)
+        audio_qc_threshold_db = app_config.audio_qc_threshold_db
+        audio_qc_control_window = app_config.audio_qc_control_window
+        subtitle_mode = merged_args.get('subtitle_mode', app_config.subtitle_mode)
+        sidecar_tag = merged_args.get('sidecar_tag', app_config.sidecar_tag)
+        strict_audio_parity = merged_args.get('strict_audio_parity', app_config.strict_audio_parity)
+        fuzzy_threshold = merged_args.get('fuzzy_threshold', app_config.fuzzy_threshold)
+        persist_intermediate = app_config.persist_intermediate
+        final_dest = app_config.final_dest
+        track_index = app_config.track_index
+        
+        # Apply config defaults for audio encoding (these preserve original by default)
+        if not audio_transcode_to_original:
+            audio_transcode_to_original = app_config.audio_transcode_to_original
+        if not audio_target_codec:
+            audio_target_codec = app_config.audio_target_codec
+        if not audio_bitrate:
+            audio_bitrate = app_config.audio_bitrate
+        if not audio_channels:
+            audio_channels = app_config.audio_channels
+        
+        # Initialize subtitle filter defaults from config
+        subtitle_title_include = ','.join(app_config.subtitle_title_include) if app_config.subtitle_title_include else None
+        subtitle_title_exclude = ','.join(app_config.subtitle_title_exclude) if app_config.subtitle_title_exclude else None
+        subtitle_title_regex = ','.join(app_config.subtitle_title_regex) if app_config.subtitle_title_regex else None
         # Apply preset flag defaults when not set via CLI (CLI > preset > config)
         if preset_config and isinstance(preset_config.flags, dict):
             if not create_subtitle_sidecar and 'create_subtitle_sidecar' in preset_config.flags:
@@ -394,35 +325,35 @@ def process(
                 # If CLI didn't change it (still default), honor preset
                 if subtitle_mode == app_config.subtitle_mode:
                     subtitle_mode = preset_config.flags['subtitle_mode']
-            # Audio-related defaults from preset (only if CLI didn't provide)
-            if not audio_transcode_to_original and 'audio_transcode_to_original' in preset_config.flags:
-                audio_transcode_to_original = bool(preset_config.flags['audio_transcode_to_original'])
-            if audio_target_codec is None and 'audio_target_codec' in preset_config.flags:
-                audio_target_codec = preset_config.flags['audio_target_codec']
-            if audio_bitrate is None and 'audio_bitrate' in preset_config.flags:
-                audio_bitrate = preset_config.flags['audio_bitrate']
-            if audio_channels is None and 'audio_channels' in preset_config.flags:
+            
+            # Apply preset defaults for removed CLI options (via smart defaults)
+            if 'parallel' in preset_config.flags:
+                parallel = bool(preset_config.flags['parallel'])
+            if 'jobs' in preset_config.flags:
                 try:
-                    audio_channels = int(preset_config.flags['audio_channels'])
+                    jobs = int(preset_config.flags['jobs'])
                 except Exception:
                     pass
-            # Continue on audio QC fail default from preset
-            if not continue_on_audio_qc_fail and 'continue_on_audio_qc_fail' in preset_config.flags:
-                try:
-                    continue_on_audio_qc_fail = bool(preset_config.flags['continue_on_audio_qc_fail'])
-                except Exception:
-                    pass
-            # Audio QC tuning from preset if provided
-            if audio_qc_threshold_db is None and 'audio_qc_threshold_db' in preset_config.flags:
+            if 'continue_on_qc_fail' in preset_config.flags:
+                continue_on_qc_fail = bool(preset_config.flags['continue_on_qc_fail'])
+            if 'continue_on_audio_qc_fail' in preset_config.flags:
+                continue_on_audio_qc_fail = bool(preset_config.flags['continue_on_audio_qc_fail'])
+            if 'audio_qc_threshold_db' in preset_config.flags:
                 try:
                     audio_qc_threshold_db = float(preset_config.flags['audio_qc_threshold_db'])
                 except Exception:
                     pass
-            if audio_qc_control_window is None and 'audio_qc_control_window' in preset_config.flags:
+            if 'audio_qc_control_window' in preset_config.flags:
                 try:
                     audio_qc_control_window = float(preset_config.flags['audio_qc_control_window'])
                 except Exception:
                     pass
+            if 'subtitle_title_include' in preset_config.flags:
+                subtitle_title_include = preset_config.flags['subtitle_title_include']
+            if 'subtitle_title_exclude' in preset_config.flags:
+                subtitle_title_exclude = preset_config.flags['subtitle_title_exclude']
+            if 'subtitle_title_regex' in preset_config.flags:
+                subtitle_title_regex = preset_config.flags['subtitle_title_regex']
         # Validate input file
         input_path = Path(input_file)
         if not input_path.exists():
@@ -455,7 +386,7 @@ def process(
         # Create selectors
         selectors = []
         
-        # Parse title filter lists
+        # Parse title filter lists with smart defaults
         title_include_list = []
         if subtitle_title_include:
             title_include_list = [s.strip() for s in subtitle_title_include.split(",")]
@@ -519,25 +450,25 @@ def process(
             rprint(f"[red]Error: --jobs must be a positive integer, got {jobs}[/red]")
             raise typer.Exit(1)
         
-        # Create operation flags using merged values
+        # Create operation flags using smart defaults and config values
         flags = OperationFlags(
-            dry_run=merged_args['dry_run'],
-            verbose=merged_args['verbose'],
+            dry_run=dry_run,
+            verbose=verbose,
             strategy="default",
-            force=merged_args['force'],
-            skip_existing=merged_args['skip_existing'],
-            parallel=merged_args['parallel'],
-            max_jobs=merged_args['jobs'],
-            continue_on_qc_fail=merged_args['continue_on_qc_fail'],
-            continue_on_audio_qc_fail=merged_args['continue_on_audio_qc_fail'],
+            force=force,
+            skip_existing=skip_existing,
+            parallel=parallel,
+            max_jobs=jobs,
+            continue_on_qc_fail=continue_on_qc_fail,
+            continue_on_audio_qc_fail=continue_on_audio_qc_fail,
             audio_qc_threshold_db=audio_qc_threshold_db,
             audio_qc_control_window=audio_qc_control_window,
             profanity_list_file=profanity_list_file,
-            fuzzy_threshold=merged_args['fuzzy_threshold'],
+            fuzzy_threshold=fuzzy_threshold,
             subtitle_mode=subtitle_mode,
             create_subtitle_sidecar=create_subtitle_sidecar,
-            sidecar_tag=merged_args['sidecar_tag'],
-            strict_audio_parity=merged_args['strict_audio_parity'],
+            sidecar_tag=sidecar_tag,
+            strict_audio_parity=strict_audio_parity,
             persist_intermediate=persist_intermediate,
             final_dest=final_dest,
             output_mode=effective_output_mode,
@@ -546,10 +477,11 @@ def process(
             dest_policy_tag=effective_dest_policy_tag or "[Censorr]",
             dest_separate_root=effective_dest_separate_root or "/data/media/TV/Censorr",
             conflict_policy="reuse_if_identical",
+            # Audio encoding smart defaults - always preserve original (per user requirement)
             audio_transcode_to_original=audio_transcode_to_original,
             audio_target_codec=audio_target_codec,
-            audio_bitrate=audio_bitrate,
-            audio_channels=audio_channels
+            audio_bitrate=audio_bitrate,  # None = preserve original
+            audio_channels=audio_channels  # None = preserve original
         )
         
         # Plan operations

@@ -401,7 +401,7 @@ class TestFalsePositivePrevention:
         import json
         import os
         
-        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'profanity_list_optimized.json')
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'profanity_list.json')
         with open(config_path, 'r') as f:
             optimized_list = json.load(f)
         
