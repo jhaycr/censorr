@@ -30,8 +30,8 @@ services:
       org.censorr.service: "censorr-cli"
       org.censorr.version: "local-build"
 
-  censorr-listener:
-    container_name: censorr-listener
+  censorr-webhook:
+    container_name: censorr-webhook
     build:
       context: .
       dockerfile: Dockerfile.web
@@ -65,5 +65,5 @@ services:
       retries: 3
       start_period: 10s
     labels:
-      org.censorr.service: "censorr-listener"
+      org.censorr.service: "censorr-webhook"
       org.censorr.version: "local-build"

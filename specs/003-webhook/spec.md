@@ -91,7 +91,7 @@ As a media automation user running Censorr in a container with Radarr/Sonarr, I 
 - FR-014: The system MUST respond to webhook requests with a clear status categorized as one of: accepted, ignored, or failed; the response MUST NOT disclose sensitive internal details.
 - FR-015: The system MUST treat the 'censorr_preset' key name as reserved by the product and MUST NOT allow end-users to remap or rename this key.
  - FR-016: Qualifying webhooks MUST be enqueued and processed asynchronously using best-effort FIFO ordering via a file-based queue (no external services). The queue persistence is the filesystem under a shared volume; when the filesystem is full/unwritable, the system MUST fail gracefully (do not enqueue) and log a clear overload/error message.
- - FR-024: The deployment MUST use separate container images with distinct Dockerfiles: a minimal webhook image (no ffmpeg) and a CLI/worker image (includes ffmpeg). The compose configuration MUST build them separately. Service names MUST reflect roles: `censorr-listener` (webhook) and `censorr-cli` (worker).
+ - FR-024: The deployment MUST use separate container images with distinct Dockerfiles: a minimal webhook image (no ffmpeg) and a CLI/worker image (includes ffmpeg). The compose configuration MUST build them separately. Service names MUST reflect roles: `censorr-webhook` (webhook) and `censorr-cli` (worker).
 - FR-020: The queue MUST be concurrency-safe for multiple producers and consumers using atomic file moves on the same filesystem.
 - FR-021: The queue MUST implement crash recovery by re-queuing jobs left in processing after a lease timeout.
 - FR-022: The worker MUST bound retries via configuration (max_retries) and record final state under done/ or failed/ directories with metadata.
