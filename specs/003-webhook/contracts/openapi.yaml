@@ -8,7 +8,7 @@ paths:
   /webhook:
     post:
       summary: Accept webhook from Radarr/Sonarr
-      description: Processes only when 'censorr_preset' tag is present and valid; otherwise ignored or failed.
+      description: Server applies a minimal allowlist filter (default includes 'censor_profile'); if no allowlisted tags are present, the event is ignored. If passed through, processing occurs only when 'censorr_preset' tag is present and valid; otherwise ignored or failed.
       requestBody:
         required: true
         content:
@@ -44,7 +44,7 @@ paths:
                   preset:
                     type: string
         '200':
-          description: Ignored (missing or unknown preset tag)
+          description: Ignored (allowlist miss, or missing/unknown preset tag)
           content:
             application/json:
               schema:

@@ -31,11 +31,11 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Implement a lightweight Python Flask HTTP service running inside the Docker container defined in spec-002. The service handles Radarr and Sonarr webhooks, only processes events that include the fixed tag key `censorr_preset`, maps its value to a preset in `censorr.json`, enqueues a processing job, and triggers the existing CLI pipeline asynchronously. The system explicitly does not implement idempotency for duplicate deliveries, fails gracefully and logs errors, maintains basic counters since process start, exposes health/readiness and status endpoints, and uses a bounded best-effort FIFO queue to preserve responsiveness under load.
+Implement a lightweight Python HTTP service (Flask or stdlib WSGI) running inside the Docker container defined in spec-002. The server performs only minimal ingress logic: an allowlist filter that drops events lacking configured tags (default includes `censor_profile`). Events that pass the filter are forwarded to the CLI, which handles all business rules: checking for the fixed tag key `censorr_preset`, mapping its value to a preset in `censorr.json`, enqueueing a processing job, and executing the pipeline asynchronously. The system explicitly does not implement idempotency for duplicate deliveries, fails gracefully and logs errors, maintains basic counters since process start, exposes health/readiness and status endpoints, and uses a bounded best-effort FIFO queue to preserve responsiveness under load.
 
 ## Technical Context
 **Language/Version**: Python 3.12  
-**Primary Dependencies**: Flask (HTTP server), Typer (existing CLI), standard library queue/threading; optional Gunicorn for production serving under Docker  
+**Primary Dependencies**: Flask or stdlib WSGI (HTTP server), Typer (existing CLI), standard library queue/threading; optional Gunicorn for production serving under Docker  
 **Storage**: None (in-memory queue and counters; persistent media via mounted volumes)  
 **Testing**: pytest (contract, integration, unit)  
 **Target Platform**: Linux (Docker, Compose), non-root container  
@@ -115,7 +115,7 @@ Key questions and decisions are consolidated in `research.md`:
 - Flask within Docker Compose (spec‑002) vs. alternative frameworks → choose Flask for simplicity and fit.
 - Production serving: run under Gunicorn in container vs Flask dev server → choose Gunicorn for robustness under compose; single worker/thread adequate for queueing model.
 - Queue strategy: in‑process bounded `queue.Queue` with best‑effort FIFO; capacity default 100; overflow policy is reject and log.
-- Endpoint surface: POST `/webhook` (source autodetect), or split `/webhook/radarr` and `/webhook/sonarr`; choose single `/webhook` with source field detection.
+- Endpoint surface: POST `/webhook` (source autodetect), or split `/webhook/radarr` and `/webhook/sonarr`; choose single `/webhook` with source field detection; apply allowlist filter before invoking CLI.
 - Counters semantics: in‑memory since process start.
 - Health and readiness: `/healthz` (liveness) and `/readyz` (queue worker up; config loaded).
 - Security posture: shared secret header optional; if invalid/missing → fail gracefully and log (no 500s); no IP allowlist in this feature.
