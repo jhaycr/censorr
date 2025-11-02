@@ -1,63 +1,59 @@
-# Dockerfile.tool - Censorr CLI/Worker image (includes ffmpeg)
+# Dockerfile for Censorr CLI/Worker image (with ffmpeg)
 
+# ---------- Builder: build wheel ----------
 FROM python:3.12-slim AS builder
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/* && apt-get clean
 
 WORKDIR /build
 
-RUN python -m pip install --no-cache-dir --upgrade pip==24.3.1 setuptools==75.8.0 wheel==0.46.0
+# Tools to build a wheel
+RUN python -m pip install --no-cache-dir --upgrade pip==24.3.1 build==1.2.2
 
-# Install only python deps needed by the CLI and worker
-COPY pyproject.toml .
-RUN python -m pip install --no-cache-dir \
-    rapidfuzz==3.14.1 \
-    pysubs2==1.8.0 \
-    pydantic==2.11.9 \
-    typer[all]==0.19.1 \
-    PyYAML==6.0.2 \
-    rich==14.1.0 \
-    gunicorn==23.0.0
+# Copy only what is needed to build the package
+COPY pyproject.toml ./
+COPY src ./src
 
+# Build a wheel for the project (dependencies are resolved at install time)
+RUN python -m build --wheel --outdir /dist
+
+# ---------- Runtime: slim with ffmpeg ----------
 FROM python:3.12-slim
 
-# CLI/worker requires ffmpeg; also keep wget for convenience/healthchecks if needed
+# Install ffmpeg only; keep image minimal
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
-    wget \
-    && rm -rf /var/lib/apt/lists/* && apt-get clean && apt-get autoremove -y && rm -rf /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && apt-get autoremove -y \
+    && rm -rf /tmp/* /var/tmp/* /var/cache/apt/archives/*
 
-# Non-root user
+# Create non-root user matching compose (UID:GID 1000:1000)
 RUN groupadd -g 1000 censorr && useradd -u 1000 -g censorr -m -s /bin/bash censorr
-
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
 
 WORKDIR /app
 
+# Copy code (module entry points rely on src.*) and wheel artifact
 COPY --chown=censorr:censorr src/ ./src/
-COPY --chown=censorr:censorr pyproject.toml ./
-COPY --chown=censorr:censorr README.md ./
+COPY --from=builder /dist /tmp/dist
 
-RUN python -m pip install --no-cache-dir -e . && \
-    mkdir -p /app/workdir /app/config && \
-    chown -R censorr:censorr /app && \
-    rm -rf /root/.cache/pip /tmp/* /var/tmp/*
+# Install the built package from wheel (non-editable) with no cache
+RUN python -m pip install --no-cache-dir /tmp/dist/*.whl \
+    && rm -rf /tmp/dist \
+    && mkdir -p /app/workdir /app/config \
+    && chown -R censorr:censorr /app
 
-USER censorr
-
+# Environment
 ENV PYTHONPATH=/app \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-VOLUME ["/media", "/app/workdir", "/app/config"]
-
+# Entrypoint
 COPY --chown=censorr:censorr docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Run as root to initialize queue volume; worker runs as root unless dropped in entrypoint
+USER root
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["worker"]

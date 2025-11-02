@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile.tool
     restart: unless-stopped
     command: worker
-    user: "${UID:-1000}:${GID:-1000}"
+  # run as root so entrypoint can init/chown queue volume; worker process is started by entrypoint
     env_file:
       - .env
     environment:
@@ -25,7 +25,7 @@ services:
       - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/data/media/movies
       - ${WORKDIR_PATH:-/srv/censorr/work}:/app/workdir:rw
       - ${CONFIG_PATH:-/srv/censorr/config}:/app/config:rw
-      - ${QUEUE_PATH:-/srv/censorr/queue}:/app/queue:rw
+      - ${QUEUE_VOLUME:-censorr_queue}:/app/queue:rw
     labels:
       org.censorr.service: "censorr-cli"
       org.censorr.version: "local-build"
@@ -51,13 +51,11 @@ services:
     ports:
       - "${WEBHOOK_PORT:-8000}:8000"
     volumes:
-      - ${MEDIA_PATH_TV:-/mnt/media/tv}:/data/media/tv
-      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/data/media/movies
-      - ${WORKDIR_PATH:-/srv/censorr/work}:/app/workdir:rw
-      - ${CONFIG_PATH:-/srv/censorr/config}:/app/config:rw
-      - ${QUEUE_PATH:-/srv/censorr/queue}:/app/queue:rw
+      - ${QUEUE_VOLUME:-censorr_queue}:/app/queue:rw
     depends_on:
-      - censorr-cli
+      censorr-cli:
+        condition: service_started
+        required: true
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8000/healthz >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -67,3 +65,6 @@ services:
     labels:
       org.censorr.service: "censorr-webhook"
       org.censorr.version: "local-build"
+
+volumes:
+  censorr_queue:
