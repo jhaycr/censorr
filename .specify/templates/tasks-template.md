@@ -104,6 +104,12 @@ Task: "Integration test auth in tests/integration/test_auth.py"
 - No Behavior Without Tasks: If code changes behavior, there MUST be a task first; add a task before implementing.
 - Artifact Hygiene: Never commit generated artifacts, media samples, workdir, or test-output directories.
 
+## Feature-Sized & Slice Execution Guidance (Constitution v0.5.0)
+- Group tasks into slices that map 1:1 with small PRs (single behavior + tests + docs).
+- Keep each slice small (target ≤10 files; ≤400 additions/≤400 deletions). Split further if estimates exceed caps.
+- For mechanical refactors, include the script path in the task and isolate in a dedicated PR.
+- If a sandbox is used, note it in the task description and link in the PR body when implementing.
+
 ## Task Generation Rules
 *Applied during main() execution*
 

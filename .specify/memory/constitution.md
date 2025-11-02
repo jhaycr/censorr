@@ -1,19 +1,20 @@
 <!--
 Sync Impact Report
-- Version change: 0.3.0 → 0.4.0 (MINOR: added immutable task ledger & commit traceability + artifact hygiene enforcement)
+- Version change: 0.4.0 → 0.5.0 (MINOR: add Feature-Sized AI Change Requests & Sandbox Validation + PR size gates)
 - Modified sections:
-	* Development Workflow & Quality Gates (added commit/task ledger gates)
+	* Development Workflow & Quality Gates (add Feature-Sized PR gate summary)
 	* Governance (version/date line)
 - Added sections:
-	* XIII. Immutable Task Ledger & Commit Traceability
+	* XIV. Feature-Sized AI Change Requests & Sandbox Validation
 - Removed sections: None
 - Templates requiring updates:
-	* ✅ .specify/templates/plan-template.md (footer bumped to v0.4.0)
-	* ✅ .specify/templates/spec-template.md (no textual update required)
-	* ✅ .specify/templates/tasks-template.md (added ledger & commit rules)
+	* ✅ .specify/templates/plan-template.md (add Slice plan + Sandbox section and gates)
+	* ✅ .specify/templates/spec-template.md (add Review & Release Strategy with slice/sandbox prompts)
+	* ✅ .specify/templates/tasks-template.md (note slice-aligned commits/PR guidance)
 	* ✅ .specify/memory/constitution.md (this file)
-*- agent-file-template.md: no changes
-- Follow-up TODOs: Consider adding automated pre-commit hook to validate task ledger invariants (Deferred)
+- Follow-up TODOs:
+	* Consider CI guard to enforce PR size caps and required PR body checkboxes
+	* Add helper script `scripts/check-pr-size.sh` (Deferred)
 -->
 
 # Censorr Homelab Service Constitution
@@ -94,6 +95,24 @@ To preserve historical accuracy and ensure every change is transparent and revie
 - Review Gate: Reviewers MUST block merges that (a) remove or rewrite historical tasks, (b) introduce behavior without task references, or (c) include prohibited artifacts.
 - Future Automation: A future guard script may enforce these invariants automatically; until implemented, manual review enforces them.
 
+### XIV. Feature-Sized AI Change Requests & Sandbox Validation
+To keep changes reviewable and safe when using AI agents and automation:
+- PR Size Caps: Each PR MUST remain small and focused.
+	- Lines changed caps: ≤ 400 additions and ≤ 400 deletions total, excluding lockfiles and vendored dirs. If exceeded, split into stacked PRs.
+	- File count cap: ≤ 10 files changed, unless a mechanical refactor; mechanical refactors MUST include the exact script used and be isolated in their own PR.
+	- Exemptions require an “Oversized Change Justification” section in the PR body and maintainer approval.
+- Single-Slice Scope: Each PR MUST implement a single behavior slice (feature, fix, or refactor) with its tests and docs. The slice MUST be independently verifiable by CI.
+- Stacked PRs: Large efforts MUST be split into a series of small, stacked PRs, each based on the previous. Use branch names like `feature/NNN-topic/part-k-of-n`. Keep each PR green.
+- Sandbox First for Risky/Large Work: For broad or risky changes, the agent MUST first implement and validate in a disposable sandbox repository (no secrets; private if needed). The ported PR MUST:
+	- Link to sandbox repo/commit(s) and describe the “porting plan” mapping to tasks.
+	- Port only the minimal slice with equivalent tests reproduced in this repo.
+	- Avoid copy‑pasting large blobs; prefer fresh, minimal diffs aligned to local conventions.
+- Dependency Hygiene: Introducing a new dependency requires a short justification (purpose, size impact). Prefer separate, dedicated “deps: add X” PRs. Lockfile diffs MAY be excluded from line caps if isolated.
+- AI Agent Constraints: AI agents MUST NOT alter CI/CD secrets, repository settings, or unrelated modules. Avoid repo‑wide pattern rewrites unless justified as mechanical with a provided script.
+- Review Gates (enforced by CI or reviewers):
+	- PR body MUST include: slice scope, acceptance tests added, risk notes, sandbox link (if used), size stats.
+	- Commits MUST reference completed task IDs; no prohibited artifacts; size/file caps respected or justified.
+
 ## Security & Operational Constraints
 
 - Runtime scope: Support Docker first; Compose/K8s support is additive and must not break the CLI contract.
@@ -117,6 +136,8 @@ To preserve historical accuracy and ensure every change is transparent and revie
 	- No task modifications other than adding completion markers.
 	- CI / review MUST verify no prohibited artifacts are staged (sync with `.gitignore`).
 	- Commits missing task references are rejected.
+- Feature-Sized PR Gate:
+	- Enforce XIV: PR size caps, single-slice scope, stacked PR strategy, sandbox linkage for risky/large work, and dependency hygiene.
 
 ## Governance
 
@@ -128,4 +149,4 @@ This constitution supersedes other practices for this repository. Amendments req
 
 All reviews must verify compliance with the Core Principles and Quality Gates. Complexity must be justified in the plan/spec. Deviations are recorded in "Complexity Tracking" within plans.
 
-**Version**: 0.4.0 | **Ratified**: 2025-09-14 | **Last Amended**: 2025-09-28
+**Version**: 0.5.0 | **Ratified**: 2025-09-14 | **Last Amended**: 2025-11-02

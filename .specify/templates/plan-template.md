@@ -44,10 +44,28 @@
 **Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
+## Change Sizing & PR Strategy (Feature-Sized)
+- Slice Plan: List small, reviewable slices you will ship as separate PRs. Each slice should have:
+   - Scope: [single behavior/refactor]
+   - Files Touched (expected): [list]
+   - Tests Added: [contract/integration/unit]
+   - Est. Diff Size: [~adds/~dels]
+   - Sandbox Needed?: [Yes/No; link rationale if Yes]
+- Stacked PRs: [describe order if more than one slice]
+
+## Sandbox Validation Plan (if applicable)
+- Risk factors requiring sandbox: [why]
+- Sandbox repo/branch: [link or plan]
+- Validation steps to reproduce here: [tests, scripts]
+
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 [Gates determined based on constitution file]
+Additional feature-sized & sandbox gates (XIV):
+- [ ] Slice plan defined with ≤10 files and ≤400+/≤400- per PR (estimates)
+- [ ] Single-slice scope per PR; stacked PR order defined (if >1)
+- [ ] Sandbox plan provided for risky/large work (or N/A with rationale)
 
 ## Project Structure
 
@@ -153,6 +171,9 @@ ios/ or android/
    - Output to repository root
 
 **Output**: data-model.md, /contracts/*, failing tests, quickstart.md, agent-specific file
+
+### Phase 1.1: Slice Definition & Reviewability
+Produce or refine the "Change Sizing & PR Strategy" slice plan above with exact test files and paths per slice. Ensure each slice is independently testable and maps to task IDs.
 
 ## Phase 2: Task Planning Approach
 *This section describes what the /tasks command will do - DO NOT execute during /plan*
