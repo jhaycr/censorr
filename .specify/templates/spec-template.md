@@ -84,12 +84,24 @@ When creating this spec from a user prompt:
 
 ---
 
+## Traceability Matrix
+- Map each Functional Requirement (FR-XXX) to: tests (files/cases), docs (pages/sections), and (optionally) code modules.
+- Example:
+   - FR-001 → tests/integration/[file].py::[case], docs/quickstart.md#[section]
+
+---
+
 ## Review & Release Strategy (feature-sized changes)
 - Slices (intended PRs):
    - Slice 1: [scope, tests, files, est size]
    - Slice 2: [if applicable]
 - Stacked order: [if >1 slice]
 - Sandbox needed?: [Yes/No]. If Yes, describe risks and validation steps to mirror in-repo.
+
+### Exit Criteria
+- All FRs covered by tests (see Traceability Matrix)
+- Docs updated (quickstart/spec snippets)
+- CI green, size caps met (or justified)
 
 ---
 

@@ -83,4 +83,37 @@ Guidelines:
 - Editorial changes (typos, formatting) may be committed directly with a short conventional commit message.
 
 ---
-Last updated: 2025-09-27 (Added heartbeat & commit message conventions)
+Last updated: 2025-11-02 (Add Feature-Sized PR gates & Sandbox validation; align with .specify/memory/constitution.md v0.5.0)
+
+---
+
+## 11. Feature-Sized AI Change Requests & Sandbox Validation
+
+To keep changes reviewable and safe when using AI agents and automation:
+
+- PR Size Caps:
+  - Lines changed caps: ≤ 400 additions and ≤ 400 deletions total, excluding lockfiles and vendored dirs. If exceeded, split into stacked PRs.
+  - File count cap: ≤ 10 files changed, unless a mechanical refactor; mechanical refactors MUST include the exact script used and be isolated in their own PR.
+  - Exemptions require an “Oversized Change Justification” section in the PR body and maintainer approval.
+
+- Single-Slice Scope:
+  - Each PR MUST implement a single behavior slice (feature, fix, or refactor) with its tests and docs. The slice MUST be independently verifiable by CI.
+
+- Stacked PRs:
+  - Large efforts MUST be split into a series of small, stacked PRs, each based on the previous. Use branch names like `feature/NNN-topic/part-k-of-n`. Keep each PR green.
+
+- Sandbox First for Risky/Large Work:
+  - For broad or risky changes, first implement and validate in a disposable sandbox repository (no secrets; private if needed). The ported PR MUST:
+    - Link to sandbox repo/commit(s) and describe the “porting plan” mapping to tasks.
+    - Port only the minimal slice with equivalent tests reproduced in this repo.
+    - Avoid copy‑pasting large blobs; prefer fresh, minimal diffs aligned to local conventions.
+
+- Dependency Hygiene:
+  - Introducing a new dependency requires a short justification (purpose, size impact). Prefer separate, dedicated “deps: add X” PRs. Lockfile diffs MAY be excluded from line caps if isolated.
+
+- AI Agent Constraints:
+  - AI agents MUST NOT alter CI/CD secrets, repository settings, or unrelated modules. Avoid repo‑wide pattern rewrites unless justified as mechanical with a provided script.
+
+- Review Gates (enforced by CI or reviewers):
+  - PR body MUST include: slice scope, acceptance tests added, risk notes, sandbox link (if used), size stats.
+  - Commits MUST reference completed task IDs; no prohibited artifacts; size/file caps respected or justified.
