@@ -18,7 +18,6 @@ Environment variables:
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import sys
@@ -28,7 +27,7 @@ import uuid
 import time
 from pathlib import Path
 
-from src.queue.file_queue import FileJobQueue
+from src.models.config import Config
 
 
 # In-memory counters (since process start)
@@ -38,6 +37,32 @@ COUNTERS = {
     "failed": 0,
     "queued": 0,  # Placeholder: queue is owned by CLI per spec
 }
+
+
+def _resolve_config_path() -> str | None:
+    path = os.getenv("CENSORR_CONFIG_PATH")
+    if path:
+        return path
+    return None
+
+
+def _load_config() -> Config:
+    try:
+        return Config.load_with_fallback(_resolve_config_path())
+    except Exception as exc:  # pragma: no cover - defensive guard
+        _log_structured("ERROR", "Failed to load configuration", error=str(exc))
+        return Config()
+
+
+def _webhooks_enabled(config: Config) -> bool:
+    env_val = os.getenv("CENSORR_WEBHOOK_ENABLED")
+    if env_val is not None:
+        return env_val.strip().lower() not in {"0", "false", "no", "off"}
+    return bool(getattr(config, "webhooks_enabled", True))
+
+
+def _known_presets(config: Config) -> set[str]:
+    return set(config.presets.keys())
 
 
 def _log_structured(level: str, message: str, **kwargs):
@@ -120,13 +145,16 @@ def _apply_allowlist(payload: Dict) -> Tuple[bool, str]:
     return False, "allowlist_miss"
 
 
-def _enqueue_job(payload: Dict) -> str:
-    """Enqueue webhook payload as a job file in the queue/incoming directory.
-
-    Returns the job_id.
-    """
-    q = FileJobQueue.from_env()
-    return q.enqueue(payload)
+def _invoke_cli(payload: Dict) -> subprocess.CompletedProcess:
+    cmd = [sys.executable, "-m", os.getenv("CENSORR_CLI_MODULE", "src.cli.main"), "webhook"]
+    input_data = json.dumps(payload)
+    return subprocess.run(
+        cmd,
+        input=input_data,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
 
 
 def _validate_secret(environ: Dict) -> bool:
@@ -143,6 +171,21 @@ def _validate_secret(environ: Dict) -> bool:
 
 def _handle_webhook(environ: Dict, start_response: Callable[[str, list], None]) -> Iterable[bytes]:
     request_id = str(uuid.uuid4())
+    config = _load_config()
+
+    if not _webhooks_enabled(config):
+        _log_structured(
+            "INFO",
+            "Webhook processing disabled",
+            request_id=request_id,
+            decision="disabled",
+            status=503,
+        )
+        return _json_response(
+            "503 Service Unavailable",
+            {"status": "disabled", "reason": "webhook_disabled"},
+            start_response,
+        )
     
     # Validate shared secret if configured
     if not _validate_secret(environ):
@@ -191,13 +234,134 @@ def _handle_webhook(environ: Dict, start_response: Callable[[str, list], None]) 
                         request_id=request_id, source=source, decision="ignored", status=200, reason=reason)
         return _json_response("200 OK", {"status": "ignored", "reason": reason}, start_response)
 
-    # Enqueue and return 202 Accepted
-    job_id = _enqueue_job(payload)
-    COUNTERS["queued"] += 1
-    _log_structured("INFO", "Webhook event enqueued", 
-                    request_id=request_id, source=source, decision="queued", status=202, job_id=job_id)
-    body = {"status": "accepted", "job_id": job_id}
-    return _json_response("202 Accepted", body, start_response)
+    tags = payload.get("tags") if isinstance(payload.get("tags"), dict) else {}
+    preset = tags.get("censorr_preset") if isinstance(tags, dict) else None
+    if not preset:
+        COUNTERS["ignored"] += 1
+        _log_structured(
+            "INFO",
+            "Webhook event ignored due to missing preset tag",
+            request_id=request_id,
+            source=source,
+            decision="ignored",
+            status=200,
+            reason="missing_preset",
+        )
+        return _json_response(
+            "200 OK", {"status": "ignored", "reason": "missing_preset"}, start_response
+        )
+
+    presets = _known_presets(config)
+    if presets and preset not in presets:
+        COUNTERS["ignored"] += 1
+        _log_structured(
+            "WARNING",
+            "Webhook event ignored due to unknown preset",
+            request_id=request_id,
+            source=source,
+            decision="ignored",
+            status=200,
+            reason="unknown_preset",
+            preset=preset,
+        )
+        return _json_response(
+            "200 OK",
+            {"status": "ignored", "reason": "unknown_preset", "preset": preset},
+            start_response,
+        )
+
+    try:
+        result = _invoke_cli(payload)
+    except Exception as exc:
+        COUNTERS["failed"] += 1
+        _log_structured(
+            "ERROR",
+            "Webhook CLI invocation error",
+            request_id=request_id,
+            source=source,
+            decision="failed",
+            status=500,
+            reason="cli_invocation_error",
+            error=str(exc),
+            preset=preset,
+        )
+        return _json_response(
+            "500 Internal Server Error",
+            {"status": "failed", "reason": "cli_invocation_error"},
+            start_response,
+        )
+
+    exit_code = result.returncode
+    raw_stdout = result.stdout
+    raw_stderr = result.stderr
+    cli_stdout = str(raw_stdout) if raw_stdout else ""
+    cli_stderr = str(raw_stderr) if raw_stderr else ""
+
+    if exit_code == 0:
+        COUNTERS["processed"] += 1
+        COUNTERS["queued"] += 1
+        _log_structured(
+            "INFO",
+            "Webhook accepted by CLI",
+            request_id=request_id,
+            source=source,
+            decision="accepted",
+            status=202,
+            preset=preset,
+            exit_code=exit_code,
+        )
+        if cli_stdout:
+            _log_structured("DEBUG", "CLI stdout", request_id=request_id, stdout=cli_stdout)
+        if cli_stderr:
+            _log_structured("DEBUG", "CLI stderr", request_id=request_id, stderr=cli_stderr)
+        body = {"status": "accepted", "preset": preset}
+        return _json_response("202 Accepted", body, start_response)
+
+    if exit_code == 2:
+        COUNTERS["ignored"] += 1
+        _log_structured(
+            "INFO",
+            "Webhook ignored by CLI",
+            request_id=request_id,
+            source=source,
+            decision="ignored",
+            status=200,
+            preset=preset,
+            exit_code=exit_code,
+        )
+        body = {"status": "ignored", "reason": "cli_ignored", "preset": preset}
+        return _json_response("200 OK", body, start_response)
+
+    if exit_code == 3:
+        COUNTERS["failed"] += 1
+        _log_structured(
+            "WARNING",
+            "Webhook rejected by CLI",
+            request_id=request_id,
+            source=source,
+            decision="failed",
+            status=400,
+            preset=preset,
+            exit_code=exit_code,
+            stderr=cli_stderr,
+        )
+        body = {"status": "failed", "reason": "cli_failed", "preset": preset}
+        return _json_response("400 Bad Request", body, start_response)
+
+    COUNTERS["failed"] += 1
+    _log_structured(
+        "ERROR",
+        "Webhook CLI returned unexpected code",
+        request_id=request_id,
+        source=source,
+        decision="failed",
+        status=500,
+        preset=preset,
+        exit_code=exit_code,
+    stderr=cli_stderr,
+    )
+    body = {"status": "failed", "reason": "cli_error", "preset": preset}
+    return _json_response("500 Internal Server Error", body, start_response)
 
 
 def _handle_status(start_response: Callable[[str, list], None]) -> Iterable[bytes]:
@@ -206,7 +370,6 @@ def _handle_status(start_response: Callable[[str, list], None]) -> Iterable[byte
         "ignored": COUNTERS["ignored"],
         "failed": COUNTERS["failed"],
         "queued": COUNTERS["queued"],
-        # queue_depth unknown to server (owned by CLI) — expose queued as placeholder
         "queue_depth": COUNTERS["queued"],
     }
     return _json_response("200 OK", body, start_response)

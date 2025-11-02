@@ -50,6 +50,7 @@ class Config(BaseModel):
     skip_existing: bool = Field(False, description="Default skip existing files")
     parallel: bool = Field(False, description="Default parallel execution")
     jobs: int = Field(1, description="Default number of parallel jobs")
+    webhooks_enabled: bool = Field(True, description="Whether webhook-triggered processing is enabled")
     
     # Subtitle filtering defaults
     subtitle_title_include: List[str] = Field(default_factory=list, description="Default subtitle title include patterns")

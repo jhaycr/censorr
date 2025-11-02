@@ -32,7 +32,7 @@ def make_env(payload):
 def test_exit_code_0_maps_202(mock_run, monkeypatch):
     monkeypatch.setenv("CENSORR_WEBHOOK_ALLOWLIST", "censorr_profile")
     mock_run.return_value = Mock(returncode=0)
-    env = make_env({"tags": {"censorr_profile": "1"}, "mediaPaths": ["/a"]})
+    env = make_env({"tags": {"censorr_profile": "1", "censorr_preset": "movies"}, "mediaPaths": ["/a"]})
     res = run(env)
     assert res["status"].startswith("202")
 
@@ -41,7 +41,7 @@ def test_exit_code_0_maps_202(mock_run, monkeypatch):
 def test_exit_code_2_maps_200(mock_run, monkeypatch):
     monkeypatch.setenv("CENSORR_WEBHOOK_ALLOWLIST", "censorr_profile")
     mock_run.return_value = Mock(returncode=2)
-    env = make_env({"tags": {"censorr_profile": "1"}, "mediaPaths": ["/a"]})
+    env = make_env({"tags": {"censorr_profile": "1", "censorr_preset": "movies"}, "mediaPaths": ["/a"]})
     res = run(env)
     assert res["status"].startswith("200")
 
@@ -50,7 +50,7 @@ def test_exit_code_2_maps_200(mock_run, monkeypatch):
 def test_exit_code_3_maps_400(mock_run, monkeypatch):
     monkeypatch.setenv("CENSORR_WEBHOOK_ALLOWLIST", "censorr_profile")
     mock_run.return_value = Mock(returncode=3)
-    env = make_env({"tags": {"censorr_profile": "1"}, "mediaPaths": ["/a"]})
+    env = make_env({"tags": {"censorr_profile": "1", "censorr_preset": "movies"}, "mediaPaths": ["/a"]})
     res = run(env)
     assert res["status"].startswith("400")
 
@@ -59,6 +59,6 @@ def test_exit_code_3_maps_400(mock_run, monkeypatch):
 def test_exit_code_1_maps_500(mock_run, monkeypatch):
     monkeypatch.setenv("CENSORR_WEBHOOK_ALLOWLIST", "censorr_profile")
     mock_run.return_value = Mock(returncode=1)
-    env = make_env({"tags": {"censorr_profile": "1"}, "mediaPaths": ["/a"]})
+    env = make_env({"tags": {"censorr_profile": "1", "censorr_preset": "movies"}, "mediaPaths": ["/a"]})
     res = run(env)
     assert res["status"].startswith("500")

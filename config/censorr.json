@@ -1,6 +1,7 @@
 {
   "subtitle_title_exclude": ["sdh", "hi", "cc"],
   "verbose": true,
+  "webhooks_enabled": true,
   "output": "./output",
   "output_mode": "REMUX_ORIGINAL_VIDEO",
   "destination_policy": {
