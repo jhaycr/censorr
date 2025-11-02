@@ -26,7 +26,7 @@ class MuteAudioOperation(Operation):
     
     def __init__(self):
         """Initialize the mute audio operation."""
-        super().__init__("mute_audio")
+        super().__init__("audio_mute")
         self.ffmpeg = FFmpegAdapter()
     
     @property

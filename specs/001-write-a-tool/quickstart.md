@@ -38,10 +38,11 @@ censorr process "/path/movie.mkv" \
   --operations extract_audio,mute_audio \
   --dry-run
 
-# Select English full + forced tracks while excluding SDH
+# Select English full + forced while excluding SDH using structured selectors
+# (preferred over ad-hoc CLI toggles)
 censorr process "/path/movie.mkv" \
-  --language en --exclude-sdh \
-  --subtitle-title-include "forced" \
+  --language en \
+  --selectors-json selectors.en.full_plus_forced.json \
   --operations extract_subtitles,merge_subtitles,mask_subtitles \
   --dry-run
 
@@ -125,7 +126,7 @@ The QC process respects the same allow-list as the masking operation:
 
 ## Container Usage
 
-Censorr can be run in a container (Docker/Podman) for isolated execution:
+Censorr can be run in a container (Docker) for isolated execution:
 
 ## Configuration System
 
@@ -155,7 +156,51 @@ Create `config/censorr.json` in your project:
   "language": "en",
   "subtitle_mode": "masked_only",
   "sidecar_tag": "clean",
-  "jobs": 4
+  "jobs": 4,
+  "presets": {
+    "movies": {
+      "operations": [
+        "subtitle_extract",
+        "subtitle_merge",
+        "subtitle_mask",
+        "audio_extract",
+        "audio_mute",
+        "audio_qc",
+        "subtitle_qc",
+        "video_remux"
+      ],
+      "flags": {
+        "create_subtitle_sidecar": true,
+        "profanity_list_file": "config/profanity_list.json"
+      },
+      "language_selector": { "prefer_non_sdh": true },
+  "output": { "in_place": false, "embed_muted_audio": true, "output_mode": "REMUX_NEW_FILE" },
+      "backup_default": false
+    },
+    "tv": {
+      "operations": [
+        "subtitle_extract",
+        "subtitle_merge",
+        "subtitle_mask",
+        "audio_extract",
+        "audio_mute",
+        "audio_qc",
+        "subtitle_qc",
+        "video_remux"
+      ],
+      "flags": {
+        "create_subtitle_sidecar": true,
+        "profanity_list_file": "config/profanity_list.json"
+      },
+      "language_selector": { "prefer_non_sdh": true },
+      "output": { "in_place": false, "embed_muted_audio": true, "output_mode": "REMUX_NEW_FILE" },
+      "destination_policy": {
+        "policy": "subfolder_tag",
+        "tag": "[Censorr]"
+      },
+      "backup_default": false
+    }
+  }
 }
 ```
 
@@ -185,6 +230,23 @@ censorr process movie.mkv --config ./custom-config.json --verbose
 censorr process movie.mkv --subtitle-title-exclude "different,patterns"
 ```
 
+### Preset Examples
+
+```bash
+# Minimal default pipeline for movies preset
+censorr process "/data/media/movies/Movie (2024).mkv" --preset movies
+
+# TV preset, explicit language override (CLI overrides preset/config)
+censorr process "/data/media/tv/Show/S01E03.mkv" --preset tv --language es
+
+# In-place remux with backup of original
+censorr process "/data/media/movies/Movie (2024).mkv" --preset movies --backup
+
+# New-file to separate censored root
+censorr process "/data/media/tv/Show/S01E03.mkv" --preset tv --output-mode REMUX_NEW_FILE \
+  --dest-policy separate_root --dest-separate-root "/data/media/TV/Censorr"
+```
+
 ### Basic Container Examples
 
 #### Docker
@@ -212,23 +274,6 @@ docker run --rm \
   --language en \
   --create-subtitle-sidecar \
   --continue-on-qc-fail
-```
-
-#### Podman
-```bash
-# Build the image
-podman build -t censorr .
-
-# Run with SELinux labels (recommended on RHEL/Fedora)
-podman run --rm \
-  --security-opt label=disable \
-  -v /path/to/media:/media:ro,Z \
-  -v $(pwd)/output:/app/workdir:Z \
-  censorr \
-  process /media/movie.mkv \
-  --output /app/workdir \
-  --language en \
-  --dry-run
 ```
 
 ### Volume Mounts

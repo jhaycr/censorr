@@ -15,9 +15,9 @@ import pytest
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.common import MuteWindow
 from src.models.operations import OperationFlags
-from src.ops.extract_audio import ExtractAudioOperation
-from src.ops.mute_audio import MuteAudioOperation
-from src.ops.export_sidecar import ExportSidecarOperation, SidecarFormat
+from src.ops.audio_extract import ExtractAudioOperation
+from src.ops.audio_mute import MuteAudioOperation
+from src.ops.subtitle_export import SubtitleExportOperation, SubtitleFormat
 from src.caching import CacheManager
 from src.logging import ExecutionLogger
 
@@ -299,7 +299,7 @@ class TestAudioOnlyFlow:
             # Setup operations
             extract_op = ExtractAudioOperation(audio_format="wav")
             mute_op = MuteAudioOperation()
-            export_op = ExportSidecarOperation(format=SidecarFormat.JSON)
+            export_op = SubtitleExportOperation(format=SubtitleFormat.JSON)
             
             with patch.object(extract_op.ffmpeg, 'probe') as mock_probe, \
                  patch.object(extract_op.ffmpeg, 'extract_audio') as mock_extract, \
@@ -456,8 +456,7 @@ class TestAudioOnlyFlow:
                     count = max(0, int((t1 - t0) * rate))
                     wf.setpos(start)
                     data = wf.readframes(count)
-                    if nch == 2:
-                        data = audio_utils.tomono(data, width, 0.5, 0.5)
+                    # Calculate RMS directly on original channel configuration
                     return audio_utils.rms(data, width)
 
                 # Window was 1-3s; sample inside and outside

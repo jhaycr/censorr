@@ -2,7 +2,41 @@
 import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+from enum import Enum
 from pydantic import BaseModel, Field, field_validator
+
+
+class OutputMode(str, Enum):
+    """Output mode for remux operations."""
+    REMUX_ORIGINAL_VIDEO = "REMUX_ORIGINAL_VIDEO"
+    REMUX_NEW_FILE = "REMUX_NEW_FILE"
+
+
+class DestinationPolicy(BaseModel):
+    """Destination policy for REMUX_NEW_FILE output mode."""
+    policy: str = Field("subfolder_tag", description="Destination policy: subfolder_tag or separate_root")
+    tag: str = Field("[Censorr]", description="Tag to append for subfolder_tag policy")
+    separate_root: str = Field("/data/media/TV/Censorr", description="Root path for separate_root policy")
+    template: Optional[str] = Field(None, description="Optional path template with tokens")
+    
+    @field_validator('policy')
+    @classmethod
+    def validate_policy(cls, v):
+        """Ensure policy is valid."""
+        valid_policies = ['subfolder_tag', 'separate_root']
+        if v not in valid_policies:
+            raise ValueError(f'policy must be one of: {valid_policies}')
+        return v
+
+
+class PresetConfig(BaseModel):
+    """Configuration for a preset."""
+    operations: List[str] = Field(default_factory=list, description="Pipeline operations")
+    flags: Dict[str, Any] = Field(default_factory=dict, description="Default flags")
+    language_selector: Dict[str, Any] = Field(default_factory=dict, description="Language selection rules")
+    output: Dict[str, Any] = Field(default_factory=dict, description="Output configuration")
+    destination_policy: Optional[DestinationPolicy] = Field(None, description="Destination policy for new file output")
+    backup_default: bool = Field(False, description="Default backup behavior")
 
 
 class Config(BaseModel):
@@ -31,10 +65,32 @@ class Config(BaseModel):
     # Quality control defaults
     continue_on_qc_fail: bool = Field(False, description="Default continue on QC failure")
     continue_on_audio_qc_fail: bool = Field(False, description="Default continue on audio QC failure")
+    audio_qc_threshold_db: Optional[float] = Field(-15.0, description="Default audio QC threshold in dB")
+    audio_qc_control_window: Optional[float] = Field(1.0, description="Default audio QC control window duration")
     strict_audio_parity: bool = Field(False, description="Default strict audio parity")
+    
+    # File management defaults
+    persist_intermediate: bool = Field(False, description="Default persist intermediate files")
+    final_dest: Optional[str] = Field(None, description="Default final destination directory")
+    
+    # Advanced options (removed from CLI but configurable)
+    track_index: Optional[int] = Field(None, description="Default track index filter")
+    
+    # Audio encoding defaults (smart defaults that preserve original)
+    audio_transcode_to_original: bool = Field(False, description="Default transcode to original codec")
+    audio_target_codec: Optional[str] = Field(None, description="Default target audio codec")
+    audio_bitrate: Optional[str] = Field(None, description="Default audio bitrate (None = preserve original)")
+    audio_channels: Optional[int] = Field(None, description="Default audio channels (None = preserve original)")
     
     # File paths
     profanity_list_file: Optional[str] = Field(None, description="Default profanity list file path")
+    
+    # Output mode and destination policy
+    output_mode: OutputMode = Field(OutputMode.REMUX_ORIGINAL_VIDEO, description="Default output mode")
+    destination_policy: Optional[DestinationPolicy] = Field(None, description="Default destination policy")
+    
+    # Presets
+    presets: Dict[str, PresetConfig] = Field(default_factory=dict, description="Named presets")
     
     @field_validator('jobs')
     @classmethod

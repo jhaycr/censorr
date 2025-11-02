@@ -49,7 +49,7 @@ class TestCLIMain:
         mock_planner.plan.return_value = ExecutionPlan(operations=[])
         mock_executor.execute.return_value = [
             OperationResult(
-                operation="extract_subtitles",
+                operation="subtitle_extract",
                 inputs=["/path/to/video.mp4"],
                 outputs=["/tmp/test/subtitles.srt"],
                 success=True
@@ -61,7 +61,7 @@ class TestCLIMain:
             "process",
             "/path/to/video.mp4",
             "--output", "/tmp/test",
-            "--operations", "extract_subtitles,mask_subtitles"
+            "--operations", "subtitle_extract,subtitle_mask"
         ])
         
         assert result.exit_code == 0
@@ -148,12 +148,12 @@ class TestCLIMain:
         result = runner.invoke(app, ["list-operations"])
         
         assert result.exit_code == 0
-        assert "extract_subtitles" in result.stdout
-        assert "mask_subtitles" in result.stdout
-        assert "merge_subtitles" in result.stdout
-        assert "extract_audio" in result.stdout
-        assert "mute_audio" in result.stdout
-        assert "remux" in result.stdout
+        assert "subtitle_extract" in result.stdout
+        assert "subtitle_mask" in result.stdout
+        assert "subtitle_merge" in result.stdout
+        assert "audio_extract" in result.stdout
+        assert "audio_mute" in result.stdout
+        assert "video_remux" in result.stdout
 
     @patch('src.cli.main.Path.exists')
     @patch('src.cli.main.Executor')
@@ -173,7 +173,7 @@ class TestCLIMain:
             "process",
             "/path/to/video.mp4",
             "--output", "/tmp/test",
-            "--operations", "extract_subtitles,mask_subtitles"
+            "--operations", "subtitle_extract,subtitle_mask"
         ])
         
         assert result.exit_code == 0
@@ -186,8 +186,8 @@ class TestCLIMain:
     @patch('src.cli.main.Path.exists')
     @patch('src.cli.main.Executor')
     @patch('src.cli.main.Planner')
-    def test_process_with_selectors(self, mock_planner_class, mock_executor_class, mock_exists):
-        """Test processing with artifact selectors."""
+    def test_process_with_config(self, mock_planner_class, mock_executor_class, mock_exists):
+        """Test processing with configuration file (replaces complex CLI selectors)."""
         # Setup mocks
         mock_exists.return_value = True
         mock_planner = mock_planner_class.return_value
@@ -200,9 +200,7 @@ class TestCLIMain:
         result = runner.invoke(app, [
             "process",
             "/path/to/video.mp4",
-            "--output", "/tmp/test",
-            "--language", "en",
-            "--track-index", "0"
+            "--config", "/tmp/test_config.json"
         ])
         
         assert result.exit_code == 0
@@ -258,7 +256,7 @@ class TestCLIMain:
         result = runner.invoke(app, ["explain"])
         
         assert result.exit_code == 0
-        assert "extract_subtitles" in result.stdout
+        assert "subtitle_extract" in result.stdout
         assert "Operations available" in result.stdout or "Pipeline" in result.stdout
 
     @patch('src.cli.main.Path.exists')

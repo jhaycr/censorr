@@ -21,6 +21,9 @@ class OperationFlags(BaseModel):
     max_jobs: int = Field(1, description="Maximum number of parallel jobs (implies parallel=True)")
     continue_on_qc_fail: bool = Field(False, description="Continue pipeline on QC failure (residual matches found)")
     continue_on_audio_qc_fail: bool = Field(False, description="Continue pipeline on audio QC failure (insufficient muting)")
+    # Audio QC tuning
+    audio_qc_threshold_db: float | None = Field(None, description="Minimum dB reduction required in muted windows (more negative is stricter)")
+    audio_qc_control_window: float | None = Field(None, description="Duration in seconds for control segments used in audio QC comparisons")
     selectors: List['Selector'] = Field(default_factory=list, description="Track selectors for filtering operations")
     profanity_list_file: str | None = Field(None, description="Path to JSON profanity list file for subtitle masking")
     fuzzy_threshold: float | None = Field(None, description="Similarity threshold (0-100) for fuzzy profanity matching")
@@ -30,6 +33,20 @@ class OperationFlags(BaseModel):
     strict_audio_parity: bool = Field(False, description="Fail on audio codec/format mismatches; default warn only")
     persist_intermediate: bool = Field(False, description="Keep intermediate artifacts after successful completion")
     final_dest: str | None = Field(None, description="Final destination directory to move completed outputs")
+    
+    # Output mode and destination policy
+    output_mode: str = Field("REMUX_ORIGINAL_VIDEO", description="Output mode: REMUX_ORIGINAL_VIDEO or REMUX_NEW_FILE")
+    backup: bool = Field(False, description="Create backup for in-place remux (REMUX_ORIGINAL_VIDEO only)")
+    dest_policy: str = Field("subfolder_tag", description="Destination policy for REMUX_NEW_FILE: subfolder_tag or separate_root")
+    dest_policy_tag: str = Field("[Censorr]", description="Tag for subfolder_tag policy")
+    dest_separate_root: str = Field("/data/media/TV/Censorr", description="Root directory for separate_root policy")
+    conflict_policy: str = Field("reuse_if_identical", description="Conflict resolution: reuse_if_identical, overwrite, fail, suffix")
+
+    # Audio encoding/transcode controls (for maintaining surround/codec)
+    audio_transcode_to_original: bool = Field(False, description="Transcode processed audio to the original codec in remux")
+    audio_target_codec: str | None = Field(None, description="Explicit target audio codec (e.g., eac3, ac3, aac)")
+    audio_bitrate: str | None = Field(None, description="Target audio bitrate for re-encode (e.g., 640k)")
+    audio_channels: int | None = Field(None, description="Target audio channels for re-encode; None preserves original")
     
     @model_validator(mode='after')
     def validate_flags(self):

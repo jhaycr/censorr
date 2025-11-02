@@ -23,36 +23,20 @@ def docker_available():
         return False
 
 
-def podman_available():
-    """Check if Podman is available and accessible."""
-    try:
-        result = subprocess.run(
-            ["podman", "version", "--format", "{{.Server.Version}}"],
-            capture_output=True,
-            text=True,
-            timeout=10
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
-
-
 def get_container_runtime():
-    """Get available container runtime (docker or podman)."""
+    """Get Docker runtime if available."""
     if docker_available():
         return "docker"
-    elif podman_available():
-        return "podman"
     else:
         return None
 
 
 @pytest.fixture(scope="session")
 def container_runtime():
-    """Fixture providing container runtime command."""
+    """Fixture providing Docker runtime command."""
     runtime = get_container_runtime()
     if not runtime:
-        pytest.skip("No container runtime (Docker/Podman) available")
+        pytest.skip("Docker not available")
     return runtime
 
 

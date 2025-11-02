@@ -1,0 +1,106 @@
+openapi: 3.1.0
+info:
+  title: Censorr Webhook Service
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /webhook:
+    post:
+      summary: Accept webhook from Radarr/Sonarr
+      description: >
+        Server applies a minimal allowlist filter (default includes 'censorr_profile');
+        if no allowlisted tags are present, the event is ignored. If passed through,
+        processing occurs only when 'censorr_preset' tag is present and valid;
+        otherwise ignored or failed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source:
+                  type: string
+                  enum: [radarr, sonarr]
+                eventType:
+                  type: string
+                tags:
+                  type: object
+                  additionalProperties:
+                    type: string
+                mediaPaths:
+                  type: array
+                  items:
+                    type: string
+              required: [source, eventType]
+      responses:
+        '202':
+          description: Accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [accepted]
+                  preset:
+                    type: string
+        '200':
+          description: Ignored (allowlist miss, or missing/unknown preset tag)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ignored]
+                  reason:
+                    type: string
+        '400':
+          description: Failed (malformed payload, oversized, or security validation failed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [failed]
+                  reason:
+                    type: string
+  /status:
+    get:
+      summary: Service status and counters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                  ignored:
+                    type: integer
+                  failed:
+                    type: integer
+                  queued:
+                    type: integer
+                  queue_depth:
+                    type: integer
+  /healthz:
+    get:
+      summary: Liveness check
+      responses:
+        '200':
+          description: Alive
+  /readyz:
+    get:
+      summary: Readiness check
+      responses:
+        '200':
+          description: Ready (worker running, config loaded)

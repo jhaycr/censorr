@@ -14,7 +14,7 @@ class MergeSubtitlesOperation(Operation):
     
     def __init__(self):
         """Initialize the operation."""
-        super().__init__("merge_subtitles")
+        super().__init__("subtitle_merge")
         self.description = "Merge multiple subtitle files into chronologically ordered single file"
         self.parser = SubtitleParser()
     

@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch, call
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.common import MuteWindow
 from src.models.operations import OperationFlags
-from src.ops.mute_audio import MuteAudioOperation
+from src.ops.audio_mute import MuteAudioOperation
 
 
 class TestMuteAudioOperation:
@@ -19,7 +19,7 @@ class TestMuteAudioOperation:
         assert op.consumes == {ArtifactType.AUDIO, ArtifactType.SUBTITLE, ArtifactType.VIDEO}
         assert op.produces == {ArtifactType.AUDIO}
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_run_with_mute_windows(self, mock_ffmpeg_class):
         """Test running operation with mute windows."""
         # Setup mocks
@@ -59,7 +59,7 @@ class TestMuteAudioOperation:
         assert mute_windows[0].start == 10.0
         assert mute_windows[0].end == 15.0
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_run_no_mute_windows(self, mock_ffmpeg_class):
         """Test running operation with no mute windows."""
         # Setup mocks
@@ -91,7 +91,7 @@ class TestMuteAudioOperation:
         mute_windows = call_args.kwargs['mute_windows']
         assert len(mute_windows) == 0
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_run_dry_run(self, mock_ffmpeg_class):
         """Test operation in dry-run mode."""
         # Setup mocks
@@ -121,7 +121,7 @@ class TestMuteAudioOperation:
         # Verify FFmpeg was not called
         mock_ffmpeg.apply_mute_windows.assert_not_called()
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_run_ffmpeg_error(self, mock_ffmpeg_class):
         """Test handling FFmpeg errors."""
         # Setup mocks
@@ -160,7 +160,7 @@ class TestMuteAudioOperation:
         with pytest.raises(ValueError, match="No audio artifacts found"):
             op.run([video_artifact], workdir, flags)
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_run_with_external_mute_windows_file(self, mock_ffmpeg_class):
         """Test operation with external mute windows file."""
         # Setup mocks
@@ -200,7 +200,7 @@ class TestMuteAudioOperation:
                 # Verify file was read
                 mock_open.assert_called_with("/path/to/mute_windows.json", 'r')
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_run_with_both_metadata_and_file(self, mock_ffmpeg_class):
         """Test operation with both metadata mute windows and external file."""
         # Setup mocks
@@ -240,7 +240,7 @@ class TestMuteAudioOperation:
                 mute_windows = call_args.kwargs['mute_windows']
                 assert len(mute_windows) == 2
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_generate_output_path(self, mock_ffmpeg_class):
         """Test output path generation."""
         op = MuteAudioOperation()
@@ -286,7 +286,7 @@ class TestMuteAudioOperation:
         with pytest.raises(ValueError, match="Invalid mute window data"):
             op._parse_mute_windows_from_metadata(metadata)
 
-    @patch('src.ops.mute_audio.FFmpegAdapter')
+    @patch('src.ops.audio_mute.FFmpegAdapter')
     def test_verbose_mode(self, mock_ffmpeg_class):
         """Test operation in verbose mode."""
         # Setup mocks

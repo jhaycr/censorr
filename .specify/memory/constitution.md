@@ -18,7 +18,7 @@ Sync Impact Report
 
 # Censorr Homelab Service Constitution
 
-Guiding rules for a small script/webservice that orchestrates and observes containerized services in a self‑hosted homelab (Docker/Podman/Compose/K8s where applicable).
+Guiding rules for a small script/webservice that orchestrates and observes containerized services in a self‑hosted homelab (Docker/Compose/K8s where applicable).
 
 ## Core Principles
 
@@ -36,7 +36,7 @@ specs, quickstarts, and public contracts are authored or updated alongside tests
 No new feature is complete without docs that demonstrate usage and constraints.
 
 ### IV. Realistic Integration Testing
-Prefer contract and integration tests that run against real container runtimes (Docker/Podman) or ephemeral test environments. Validate inter‑service communication, shared schemas, and idempotent operations (create/update/delete) including dry‑run behavior.
+Prefer contract and integration tests that run against real container runtimes (Docker) or ephemeral test environments. Validate inter‑service communication, shared schemas, and idempotent operations (create/update/delete) including dry‑run behavior.
 
 ### V. Safety, Observability, Versioning, Simplicity
 - Safety: Least‑privilege by default; non‑destructive by default; dry‑run required for mutating commands; explicit --force for destructive actions.
@@ -73,12 +73,12 @@ justified in the plan/spec and tracked in “Complexity Tracking” with rationa
 alternatives considered.
 
 ### XII. Container‑Deployable Deliverables
-All solutions MUST be straightforward to deploy as containers (Docker/Podman):
-- Provide a working Dockerfile (Podman compatible) that builds a minimal, non‑root image.
+All solutions MUST be straightforward to deploy as containers (Docker):
+- Provide a working Dockerfile that builds a minimal, non‑root image.
 - Define a sensible ENTRYPOINT/CMD for the CLI, emitting logs to stdout/stderr.
 - Support configuration via flags and environment variables (env never required when a flag exists).
 - Include a HEALTHCHECK when applicable for long‑running modes; short‑lived CLI remains simple.
-- Document required volumes (e.g., media, workdir) and example Compose/Podman run invocations.
+- Document required volumes (e.g., media, workdir) and example Compose run invocations.
 - Ensure images are reproducible: pinned bases, deterministic builds; provide SBOM or dependency manifest.
 - Prefer multi‑arch builds (amd64, arm64) or document supported arches.
 - Security: run as non‑root, least privileges; no secrets baked into images.
@@ -96,13 +96,13 @@ To preserve historical accuracy and ensure every change is transparent and revie
 
 ## Security & Operational Constraints
 
-- Runtime scope: Support Docker or Podman first; Compose/K8s support is additive and must not break the CLI contract.
+- Runtime scope: Support Docker first; Compose/K8s support is additive and must not break the CLI contract.
 - Permissions: Run as non‑root where possible; require only the minimal socket/permissions needed; allow explicit context selection (e.g., DOCKER_HOST, kubeconfig).
 - Idempotency: All operations must be repeatable and converge to desired state. Provide --dry-run on mutating commands and surface planned actions before executing.
 - Configuration: Single source of truth via config file (YAML/TOML) and/or flags. Environment variables allowed but never required when a flag exists.
 - Failure modes: Timeouts for remote calls; retries with backoff for transient errors; clear, actionable error messages; no silent fallback behavior.
 - Backups and reversibility: Changes to persistent data must document backup/restore steps in quickstart/docs; destructive actions require confirmation.
-- Container images: Build minimal, non‑root images with pinned bases; publish or document build steps; provide Compose/Podman examples and healthcheck guidance where relevant; log to stdout/stderr only.
+- Container images: Build minimal, non‑root images with pinned bases; publish or document build steps; provide Compose examples and healthcheck guidance where relevant; log to stdout/stderr only.
 
 ## Development Workflow & Quality Gates
 

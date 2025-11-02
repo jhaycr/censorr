@@ -1,3 +1,36 @@
+## Tasks: Audio parameter parity via presets
+
+- [x] Extend ffprobe adapter to capture audio bitrate and sample rate for audio tracks.
+- [x] Persist original audio parameters (codec, channels, sample rate, bitrate) on the input VIDEO artifact during audio extraction.
+- [x] Add CLI/preset flag `audio_transcode_to_original` to enable transcode-to-original behavior by default for presets.
+- [x] Remux: When transcode-to-original is active, encode processed audio to match original parameters unless explicitly overridden via CLI (codec/bitrate/channels).
+- [x] Wire `sample_rate` and normalized `bitrate` into ffmpeg `-ar` and `-b:a` respectively.
+- [ ] E2E test: Verify that for a fixture with known original audio params, the remuxed audio matches codec, channels, sample rate, and bitrate when `audio_transcode_to_original` is enabled.
+
+## Tasks: Per-word fuzzy threshold and aggressive variant detection
+
+- [ ] Profanity list schema and loader
+	- Accept entries as either strings or objects: `{ word, fuzzy_threshold?, variant_strategy? }`.
+	- Implement normalization to an internal model with effective (inherited) threshold and strategy.
+	- Back-compat test: legacy string lists load with global defaults.
+
+- [ ] Matcher enhancements
+	- Allow per-term threshold overrides when evaluating matches.
+	- Implement `variant_strategy=aggressive` pathway that expands candidate phrases to capture common morphological/compounded variants (e.g., for "fuck": "fuckable", "fucking", "motherfucker", hyphenated forms), while respecting word boundaries and normalization.
+	- Add allow-list precedence and collision safeguards; unit tests for false-positive minimization.
+
+- [ ] QC alignment
+	- Ensure post-mask QC uses the same effective per-term thresholds and strategies as masking.
+	- Include effective threshold and strategy in QC report per matched term.
+
+- [ ] Integration tests
+	- Fixture subtitles containing variants like "fuckable" not explicitly enumerated.
+	- Verify masking detects and masks variants under per-word aggressive configuration.
+	- Verify QC shows zero residuals; report includes per-term threshold/strategy.
+
+- [ ] Documentation updates
+	- contracts and quickstart: document profanity list format (strings vs objects), fields, defaults, and examples for aggressive variant families.
+	- README: short section on tuning per-word thresholds and when to use aggressive mode.
 # Tasks (Phase 2+)
 
 This checklist will guide the implementation using TDD. It maps to requirements and constitution gates.
@@ -8,7 +41,14 @@ This checklist will guide the implementation using TDD. It maps to requirements 
 3. Implement registry and planner stubs with unit tests (P)
 4. Add executor with dry-run and explain (tests) (P)
 
-## Adapters & Utilities (P)
+## Adapter99. ✅ Implementation milestone: Config model changes
+   - Extend `src/models/config.py` presets to include `output_mode` and `destination_policy`; update validation (enum values, required fields per policy) and merge rules.
+
+100. ✅ Implementation milestone: CLI flags and precedence
+   - Add `--output-mode`, `--dest-policy`, `--dest-policy-tag`, `--dest-separate-root`; resolve effective config with precedence CLI > preset > config; unit tests for resolution logic.
+
+101. ✅ Implementation milestone: Path builders and conflict handling
+   - Implement `build_same_folder_new_name(src)` and `build_destination_path(src, policy)` helpers; integrate conflict handling policy (reuse/overwrite/fail/suffix) with checksum compare; wire into remux op; tests for path correctness and conflicts.ities (P)
 5. FFmpeg adapter: probe, extract audio/subs, mute windows, remux (tests with small fixtures) (P)
 6. Subtitle parser utils using pysubs2; normalization helpers (tests) (P)
 7. Fuzzy matcher using RapidFuzz with defaults and allow-list (tests) (P)
@@ -82,8 +122,8 @@ Notes:
 		- Environment variables mapping to CLI flags (demonstrate both approaches)
 		- A sample service using the built image and a dry-run command
 
-33. ✅ [P] Podman run example
-	- Add `examples/podman-run.sh` demonstrating an equivalent to the Compose example.
+33. ✅ [P] ~~Podman run example~~ (Removed: Docker-only)
+	- ~~Add `examples/podman-run.sh` demonstrating an equivalent to the Compose example.~~ (Docker-only approach)
 	- Include `--user` flag if needed and volume mappings for media and workdir.
 
 34. ✅ ENTRYPOINT/console script alignment
@@ -111,7 +151,7 @@ Notes:
 	- Add a step in `docs/container-build.md` for generating an SBOM (e.g., `docker scout`, `syft`, or `trivy`), storing artifacts under `dist/`.
 
 40. ✅ Docs: Quickstart container usage
-	- Update `specs/001-write-a-tool/quickstart.md` with container run examples (Docker/Podman), volume mounts, and env→flag mapping.
+	- Update `specs/001-write-a-tool/quickstart.md` with container run examples (Docker), volume mounts, and env→flag mapping.
 	- Add troubleshooting notes (permissions, SELinux on host, ffmpeg availability).
 
 41. ✅ CI build (optional enhancement)
@@ -288,10 +328,10 @@ Notes:
 
 77. ✅ Replace audioop usage with wave-based alternative
 	- Create audio utility module `src/utils/audio_utils.py` with functions for mono conversion and RMS calculation.
-	- Replace `audioop.tomono()` with custom stereo-to-mono mixer using struct unpacking.
+	- ~~Replace `audioop.tomono()` with custom stereo-to-mono mixer using struct unpacking.~~ (Removed: preserve original channel configuration)
 	- Replace `audioop.rms()` with manual RMS calculation (square root of mean squared amplitudes).
-	- Update `src/ops/audio_quality_check.py` to import from new utility instead of deprecated `audioop`.
-	- Update test files (`test_audio_quality_check.py`, `test_audio_flow.py`) to use new utility functions.
+	- Update `src/ops/audio_qc.py` to import from new utility instead of deprecated `audioop`.
+	- Update test files (`test_audio_qc.py`, `test_audio_flow.py`) to use new utility functions.
 	- Tests: verify RMS calculation accuracy within tolerance vs. original audioop values on sample data.
 	- Result: Full test suite green (366 passed / 10 skipped); no deprecation warnings.
 	- Rationale: `audioop` module deprecated in Python 3.11+ and removed in 3.13; maintain forward compatibility without external dependencies.
@@ -328,3 +368,105 @@ Notes:
 	- Update CLI integration tests to verify config defaults are applied correctly
 	- Update documentation to describe config file format and precedence rules
 	- Rationale: Provide convenient defaults for common use cases while maintaining CLI flexibility; users no longer need to specify --subtitle-title-exclude for basic SDH filtering.
+
+	---
+
+	## New: Presets (movies/tv), default pipeline, language rules, in-place remux with backup (FR-065..FR-070)
+
+	80. Config schema: add `presets` map in `src/models/config.py`
+		- Shape: name → { operations: [str], flags: {str: any}, language_selector: { prefer_non_sdh: bool, patterns: { include: [], exclude: [], regex: [] } }, output: { in_place: bool, embed_muted_audio: bool }, backup_default: bool }
+		- Validation: operations must be a subset of registered ops; unknown flags rejected.
+
+	81. Default presets: define `movies` and `tv`
+		- Pipeline: subtitle_extract, subtitle_merge, subtitle_mask, audio_extract, audio_mute, audio_qc, subtitle_qc, video_remux
+		- Flags: `create_subtitle_sidecar: true`, `profanity_list_file: config/profanity_list.json`
+		- Output: `in_place: true`, `embed_muted_audio: true`; `backup_default: false`
+
+	82. CLI wiring: add `--preset` and `--backup` flags
+		- Precedence: CLI > preset > config defaults
+		- Resolution: compute final plan (ops + flags + selector + output policy); emit summary in verbose logs
+
+	83. Language selection rules implementation
+		- Prefer non‑SDH/CC English (or requested language) by title/code/empty
+		- Merge same‑language Forced track with full track
+		- Fallback to SDH/CC only if no non‑SDH match
+		- Tests: unit tests for selector behavior; integration test verifying merged tracks composition
+
+	84. Remux in-place with backup
+		- Implement atomic replace: write to temp path, fsync, rename
+		- `--backup` or preset backup_default: copy original to `<name>.bak` (configurable suffix) prior to replace; skip if exists with identical size/hash
+		- Tests: simulate same-FS rename and cross-FS copy fallback; verify backup behavior and idempotency
+
+	85. Embed muted audio alongside originals
+		- Ensure remux maps include original audio + additional muted track; set language/metadata appropriately
+		- Tests: probe result tracks; assert counts and tags
+
+	86. Defaults when no preset provided
+		- Run the default movies/tv pipeline per spec with sidecar + profanity list defaults; document behavior
+		- Tests: CLI without --preset uses defaults; precedence still applies to explicit CLI flags
+
+	87. E2E tests on fixtures
+		- Add tiny video/subtitle/audio fixtures to exercise the full pipeline for both `movies` and `tv`
+		- Generate deterministic outputs and verify hashes/metadata
+
+	88. Docs update
+		- README and quickstart: add `--preset movies` and `--backup` examples; describe language rules and backup
+		- Add example `config/censorr.json` with presets
+
+	89. Validator extension (optional)
+		- If applicable, validate presets section: known operations, flags types, required files exist (profanity list)
+		- Warnings for missing optional config with sensible defaults
+
+	90. Observability and idempotency
+		- Log resolved preset and effective plan; include selection decisions and remux mapping
+		- Re-run on same inputs should not duplicate muted track or rewrite identical outputs
+
+	---
+
+	## New: Output modes and destination policy (FR-071..FR-074)
+
+	91. Model: OutputMode enum and DestinationPolicy
+		- Add `output_mode: REMUX_ORIGINAL_VIDEO|REMUX_NEW_FILE` to config and preset schema
+		- Add `destination_policy` object with fields: `policy: subfolder_tag|separate_root`, `tag: "[Censorr]"`, `separate_root: "/data/media/TV/Censorr"`, and optional `template` string with tokens `{library_root}`, `{collection}{tag}`, `{season}`, `{episode}`
+
+	92. CLI: flags for output mode and destination policy overrides
+		- `--output-mode {REMUX_ORIGINAL_VIDEO,REMUX_NEW_FILE}`
+		- `--dest-policy {subfolder_tag,separate_root}` plus `--dest-policy-tag` and `--dest-separate-root`
+		- Precedence: CLI > preset > config defaults; echo effective settings
+
+	93. Movies: REMUX_NEW_FILE behavior
+		- Implement edition filename `{edition-Censorr}` in same directory without overwriting original (FR-072)
+		- Validate no duplicate edition tags; idempotent reruns
+		- Tests: generate expected path; ensure original remains
+
+	94. Destination: subfolder_tag policy
+		- Compute destination `.../<Show Name> [Censorr]/Season N/<Episode>.mkv`
+		- Create missing directories; preserve original file
+		- Tests: nested directories creation, deterministic path building
+
+	95. Destination: separate_root policy
+		- Compute destination `TV/Censorr/<Show Name>/Season N/<Episode>.mkv`
+		- Configurable `separate_root`; create directories
+		- Tests: path correctness relative to configured root
+
+	96. Conflict handling for REMUX_NEW_FILE (FR-074)
+		- Configurable policy: `reuse_if_identical` (default), `overwrite`, `fail`, `suffix`
+		- Implement checksum compare for reuse; suffix format `-2`, `-3` before extension
+		- Tests: each policy path covered
+
+	97. Idempotency and logging
+		- Log computed destination, conflict decision, and final path
+		- Re-run produces no additional files when identical outputs exist (reuse)
+
+	98. Docs & quickstart updates
+		- Document output modes, destination policies, and examples for both variants
+		- Add config samples for `presets.movies` and `presets.tv` with output_mode and destination_policy
+
+	99. Implementation milestone: Config model changes
+		- Extend `src/models/config.py` presets to include `output_mode` and `destination_policy`; update validation (enum values, required fields per policy) and merge rules.
+
+	100. Implementation milestone: CLI flags and precedence
+		- Add `--output-mode`, `--dest-policy`, `--dest-policy-tag`, `--dest-separate-root`; resolve effective config with precedence CLI > preset > config; unit tests for resolution logic.
+
+	101. Implementation milestone: Path builders and conflict handling
+		- Implement `build_same_folder_new_name(src)` (edition pattern for movies preset) and `build_destination_path(src, policy)` helpers; integrate conflict handling policy (reuse/overwrite/fail/suffix) with checksum compare; wire into remux op; tests for path correctness and conflicts.

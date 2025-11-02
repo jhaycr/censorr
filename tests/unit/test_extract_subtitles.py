@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 import tempfile
 from unittest.mock import Mock, patch
-from src.ops.extract_subtitles import ExtractSubtitlesOperation
+from src.ops.subtitle_extract import ExtractSubtitlesOperation
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
 
@@ -14,7 +14,7 @@ class TestExtractSubtitlesOperation:
     def test_operation_creation(self):
         """Test operation creation."""
         op = ExtractSubtitlesOperation()
-        assert op.name == "extract_subtitles"
+        assert op.name == "subtitle_extract"
         assert ArtifactType.VIDEO in op.consumes
         assert ArtifactType.SUBTITLE in op.produces
         assert op.description is not None

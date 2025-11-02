@@ -57,7 +57,7 @@ cp env.template .env
 Add a Custom Script in your Arr application:
 
 **Path**: `/usr/local/bin/docker`  
-**Arguments**: `exec censorr censorr process "{{file_path}}" --operations extract_subtitles,merge_subtitles,mask_subtitles,extract_audio,mute_audio,remux --output /app/workdir/output --language en --create-subtitle-sidecar --force`
+**Arguments**: `exec censorr censorr process "{{file_path}}" --operations subtitle_extract,subtitle_merge,subtitle_mask,audio_extract,audio_mute,audio_qc,subtitle_qc,video_remux --output /app/workdir/output --language en --create-subtitle-sidecar --force`
 
 Or use webhook integration:
 ```bash

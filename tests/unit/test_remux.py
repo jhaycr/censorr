@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
-from src.ops.remux import RemuxOperation
+from src.ops.video_remux import RemuxOperation
 
 
 def _return_output_side_effect(*args, **kwargs):
@@ -24,7 +24,7 @@ class TestRemuxOperation:
         assert op.consumes == {ArtifactType.VIDEO, ArtifactType.AUDIO, ArtifactType.SUBTITLE}
         assert op.produces == {ArtifactType.VIDEO}
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_run_with_all_track_types(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect
@@ -52,7 +52,7 @@ class TestRemuxOperation:
         assert kwargs["audio_tracks"] == [audio_artifact.path]
         assert kwargs["subtitle_tracks"] == [subtitle_artifact.path]
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_run_video_only(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect
@@ -74,7 +74,7 @@ class TestRemuxOperation:
         kwargs = mock_ffmpeg.remux.call_args.kwargs
         assert kwargs["audio_tracks"] == [] and kwargs["subtitle_tracks"] == []
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_run_multiple_audio_tracks(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect
@@ -92,7 +92,7 @@ class TestRemuxOperation:
         audio_tracks = mock_ffmpeg.remux.call_args.kwargs["audio_tracks"]
         assert set(audio_tracks) == {audio1.path, audio2.path}
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_run_multiple_subtitle_tracks(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect
@@ -110,7 +110,7 @@ class TestRemuxOperation:
         subtitle_tracks = mock_ffmpeg.remux.call_args.kwargs["subtitle_tracks"]
         assert set(subtitle_tracks) == {sub1.path, sub2.path}
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_run_dry_run(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         # No side effect needed (dry run skips remux)
@@ -128,7 +128,7 @@ class TestRemuxOperation:
         assert results[0].metadata["audio_tracks"] == 1
         mock_ffmpeg.remux.assert_not_called()
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_run_ffmpeg_error(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = Exception("FFmpeg failed")
@@ -161,12 +161,15 @@ class TestRemuxOperation:
     def test_generate_output_path(self):
         op = RemuxOperation()
         workdir = Path("/tmp/test")
-        out = op._generate_output_path("/path/to/video.mp4", workdir)
+        flags = OperationFlags()  # Use default flags
+        
+        out = op._generate_output_path("/path/to/video.mp4", workdir, flags)
         assert out.startswith("/tmp/test/remuxed_") and out.endswith(".mp4")
-        out2 = op._generate_output_path("/path/to/video.mkv", workdir)
+        
+        out2 = op._generate_output_path("/path/to/video.mkv", workdir, flags)
         assert out2.endswith(".mkv")
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_verbose_mode(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect
@@ -186,7 +189,7 @@ class TestRemuxOperation:
         assert "subtitle tracks" in printed
         assert "Remuxing video" in printed
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_preserve_video_metadata(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect
@@ -220,7 +223,7 @@ class TestRemuxOperation:
         r4 = op._prioritize_audio_artifacts([], workdir)
         assert len(r4) == 0
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_run_prioritizes_muted_audio(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect
@@ -249,7 +252,7 @@ class TestRemuxOperation:
         r3 = op._get_masked_subtitles_only([extracted])
         assert len(r3) == 0
 
-    @patch('src.ops.remux.FFmpegAdapter')
+    @patch('src.ops.video_remux.FFmpegAdapter')
     def test_subtitle_modes(self, mock_ffmpeg_class):
         mock_ffmpeg = mock_ffmpeg_class.return_value
         mock_ffmpeg.remux.side_effect = _return_output_side_effect

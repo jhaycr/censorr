@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from src.models.artifacts import Artifact, ArtifactType
 from src.models.operations import OperationFlags
-from src.ops.mute_audio import MuteAudioOperation
+from src.ops.audio_mute import MuteAudioOperation
 
 
 def _write_srt(tmp: Path, name: str, content: str) -> Path:
@@ -18,7 +18,7 @@ def _write_srt(tmp: Path, name: str, content: str) -> Path:
     return p
 
 
-@patch("src.ops.mute_audio.FFmpegAdapter")
+@patch("src.ops.audio_mute.FFmpegAdapter")
 def test_derive_mute_windows_from_subtitles(mock_ffmpeg, tmp_path: Path):
     # Create a simple SRT with one profane line between 1s and 3s
     srt = _write_srt(
@@ -53,7 +53,7 @@ def test_derive_mute_windows_from_subtitles(mock_ffmpeg, tmp_path: Path):
     assert any(w.start <= 1.0 and w.end >= 3.0 for w in windows)
 
 
-@patch("src.ops.mute_audio.FFmpegAdapter")
+@patch("src.ops.audio_mute.FFmpegAdapter")
 def test_masked_subtitle_uses_original_when_available(mock_ffmpeg, tmp_path: Path):
     # Create original and masked subtitles
     orig = _write_srt(

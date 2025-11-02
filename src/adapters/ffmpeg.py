@@ -31,6 +31,7 @@ class TrackInfo(BaseModel):
     forced: Optional[bool] = Field(None, description="Forced flag (subtitle disposition)")
     channels: Optional[int] = Field(None, description="Number of audio channels")
     sample_rate: Optional[str] = Field(None, description="Audio sample rate")
+    bitrate: Optional[str] = Field(None, description="Audio bit rate in bits per second (string from ffprobe)")
 
 
 class MediaInfo(BaseModel):
@@ -122,7 +123,8 @@ class FFmpegAdapter:
                     title=stream.get("tags", {}).get("title"),
                     forced=forced,
                     channels=stream.get("channels") if stream.get("codec_type") == "audio" else None,
-                    sample_rate=stream.get("sample_rate") if stream.get("codec_type") == "audio" else None
+                    sample_rate=stream.get("sample_rate") if stream.get("codec_type") == "audio" else None,
+                    bitrate=stream.get("bit_rate") if stream.get("codec_type") == "audio" else None
                 )
                 tracks.append(track)
             
@@ -133,7 +135,7 @@ class FFmpegAdapter:
         except subprocess.SubprocessError as e:
             raise FFmpegError(f"FFprobe command failed: {e}")
     
-    def extract_audio(self, input_path: str, output_path: str, track_index: int = 0, audio_format: str = "wav") -> str:
+    def extract_audio(self, input_path: str, output_path: str, track_index: int = 0, audio_format: str = "wav", channels: Optional[int] = None) -> str:
         """Extract audio track from media file.
         
         Args:
@@ -164,11 +166,13 @@ class FFmpegAdapter:
             "-i", input_path,
             "-map", f"0:a:{track_index}",
             "-acodec", codec,
-            "-ac", "2",  # Stereo
-            "-ar", "48000",  # 48kHz sample rate
-            "-y",  # Overwrite output
-            output_path
         ]
+        # Preserve original channel layout if channels is None; otherwise enforce
+        if channels is not None:
+            cmd.extend(["-ac", str(channels)])
+        # Keep 48kHz sample rate for consistency
+        cmd.extend(["-ar", "48000"])
+        cmd.extend(["-y", output_path])
         
         # Use heartbeat for audio extraction (can be slow for large files)
         heartbeat_context = f"extracting audio track {track_index} to {audio_format}"
@@ -297,7 +301,8 @@ class FFmpegAdapter:
 
     def remux(self, video_input: str, output: str, 
               audio_tracks: Optional[List[str]] = None,
-              subtitle_tracks: Optional[List[str]] = None) -> str:
+              subtitle_tracks: Optional[List[str]] = None,
+              audio_encode: Optional[Dict[str, Any]] = None) -> str:
         """Remux video with new audio and subtitle tracks.
         
         Args:
@@ -342,9 +347,30 @@ class FFmpegAdapter:
             for i in range(len(subtitle_tracks)):
                 cmd.extend(["-map", f"{input_index}:s"])
                 input_index += 1
+        else:
+            # Keep original subtitle streams if no new subtitles are being embedded
+            cmd.extend(["-map", "0:s?"])
         
-        # Copy codecs to avoid re-encoding
-        cmd.extend(["-c", "copy"])
+        # Codec strategy
+        if audio_encode:
+            # Copy video, encode audio to requested codec/bitrate/channels
+            cmd.extend(["-c:v", "copy"])
+            # Apply per-stream audio settings
+            target_codec = audio_encode.get("codec", "eac3")
+            bitrate = audio_encode.get("bitrate")
+            channels = audio_encode.get("channels")
+            sample_rate = audio_encode.get("sample_rate")
+            # If we added N audio inputs, map them in order and set -c:a accordingly
+            cmd.extend(["-c:a", target_codec])
+            if bitrate:
+                cmd.extend(["-b:a", str(bitrate)])
+            if channels:
+                cmd.extend(["-ac", str(channels)])
+            if sample_rate:
+                cmd.extend(["-ar", str(sample_rate)])
+        else:
+            # Copy everything to avoid re-encoding
+            cmd.extend(["-c", "copy"])
         cmd.extend(["-y", output])
         
         # Use heartbeat for remuxing (can be slow for large files with multiple tracks)

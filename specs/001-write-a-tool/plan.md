@@ -1,5 +1,5 @@
 
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Presets via Config (Movies/TV) with In-Place Remux and Backup
 
 **Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
 **Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
@@ -31,18 +31,23 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-[Extract from feature spec: primary requirement + technical approach from research]
+Add a config-driven presets system in `config/censorr.json` enabling `--preset movies` and `--preset tv` to run a full default pipeline:
+subtitle_extract, subtitle_merge, subtitle_mask, audio_extract, audio_mute, audio_qc, subtitle_qc, video_remux.
+Presets set defaults for: `--create-subtitle-sidecar` and `--profanity-list-file config/profanity_list.json`.
+Extend profanity list format to allow per-word overrides (custom fuzzy threshold and variant strategy), enabling aggressive variant detection for families such as "fuck" without enumerating every variant. Maintain backward compatibility with string lists.
+Language selection prefers non‑SDH/non‑CC tracks (by title/code/empty), merging same‑language Forced; falls back to SDH/CC when needed. Remux embeds muted audio as an additional track, preserves originals, and supports in-place replacement with optional `--backup`.
+Introduce output modes: REMUX_ORIGINAL_VIDEO (in-place replace, optional backup) and REMUX_NEW_FILE (non-destructive new file). For movies, REMUX_NEW_FILE writes `{edition-Censorr}` in the same folder. For TV, REMUX_NEW_FILE writes using a configurable policy: `subfolder_tag` (e.g., `Show [Censorr]/Season …`) or `separate_root` (e.g., `TV/Censorr/Show/Season …`). Policies are configurable and reusable across shows via templates.
 
 ## Technical Context
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.12  
+**Primary Dependencies**: typer, pydantic, ffmpeg/ffprobe, pysubs2, rapidfuzz, PyYAML  
+**Storage**: Filesystem (workdir, config)  
+**Testing**: pytest (unit + integration + end-to-end on fixtures)  
+**Target Platform**: Linux CLI and Docker container  
+**Project Type**: Single project (CLI/lib)  
+**Performance Goals**: End-to-end on sample within CI time; operations stream via ffmpeg  
+**Constraints**: Deterministic outputs, idempotency, atomic replace when possible  
+**Scale/Scope**: Single-file processing per invocation (batch optional later)
 
 ## Constitution Check
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
@@ -99,7 +104,7 @@ ios/ or android/
 └── [platform-specific structure]
 ```
 
-**Structure Decision**: [DEFAULT to Option 1 unless Technical Context indicates web/mobile app]
+**Structure Decision**: Option 1 (single project). Add presets to config model and CLI wiring; add E2E tests and small fixtures.
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:
@@ -123,6 +128,17 @@ ios/ or android/
 **Output**: research.md with all NEEDS CLARIFICATION resolved
 
 ## Phase 1: Design & Contracts
+1. Extend Config model to include `presets` map: name → { operations[], flags, selector config, output policies, backup(bool) }.
+2. Define default presets `movies` and `tv` with the specified pipeline and flags. Add language selection policy description.
+3. Update selector schema documentation to express the non‑SDH preference and forced merge behavior (configurable patterns).
+4. Profanity list contract: define a structured profanity entry object with fields `word`, optional `fuzzy_threshold`, optional `variant_strategy: default|aggressive`; specify global defaults and inheritance. Document backward compatibility with plain strings.
+5. Add CLI contract for `--preset` and `--backup` flags; precedence: CLI > preset > config defaults.
+5. Output Mode contract: define enum `output_mode` with `REMUX_ORIGINAL_VIDEO` and `REMUX_NEW_FILE`; define destination policy contract with `policy: subfolder_tag|separate_root`, `{tag}`, `{root}`, and a templated path schema supporting `{library_root}`, `{collection}{tag}`, `{season}`, `{episode}` tokens. Specify idempotency and conflict resolution policies.
+6. Implementation milestone: Model changes — update Config presets to include `output_mode` and `destination_policy` (schema, validation, docs).
+7. Implementation milestone: CLI flags and resolution — add flags (`--output-mode`, `--dest-policy`, `--dest-policy-tag`, `--dest-separate-root`) and enforce precedence CLI > preset > config.
+8. Implementation milestone: Profanity config ingestion — update config/profanity list loader to accept string or object entries; normalize into an internal term model with effective thresholds and strategies; unit tests for parsing and inheritance.
+9. Implementation milestone: Matcher wiring — update the fuzzy matcher to accept an effective threshold per term and a variant strategy; add an aggressive variant pathway that expands candidate windows (e.g., morphological/compounded forms) while preserving boundary semantics; tests for detection of variants like "fuckable" without explicit enumeration.
+8. Implementation milestone: Path builders & conflicts — implement same-folder new-name builder (movie edition) and generic destination builders (subfolder_tag, separate_root), with conflict handling (reuse/overwrite/fail/suffix) and idempotency.
 *Prerequisites: research.md complete*
 
 1. **Extract entities from feature spec** → `data-model.md`:
@@ -170,7 +186,7 @@ ios/ or android/
 - Dependency order: Models before services before UI
 - Mark [P] for parallel execution (independent files)
 
-**Estimated Output**: 25-30 numbered, ordered tasks in tasks.md
+**Estimated Output**: 14-20 tasks (model, CLI, ops integration, output mode + TV policy, idempotency, tests, docs)
 
 **IMPORTANT**: This phase is executed by the /tasks command, NOT by /plan
 
