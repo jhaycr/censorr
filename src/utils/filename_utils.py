@@ -119,10 +119,12 @@ def build_sidecar_subtitle_path(
         Path for sidecar subtitle file: <base>.<lang>.<tag>.srt
     """
     path = Path(video_path)
-    base_title, _ = parse_title_and_edition(path.name)  # Strip edition tag from base
+    # Use the full stem (filename without extension) including any edition tags
+    # This ensures sidecar matches the video filename exactly
+    base_name = path.stem
     
-    # Normalize base title: collapse whitespace, trim
-    normalized_base = re.sub(r'\s+', ' ', base_title).strip()
+    # Normalize: collapse whitespace, trim
+    normalized_base = re.sub(r'\s+', ' ', base_name).strip()
     
     # Build sidecar filename: base.lang.tag.srt
     lang_lower = language.lower()
