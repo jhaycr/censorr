@@ -119,10 +119,9 @@ class SubtitleQualityCheckOperation(Operation):
         
         for i, entry in enumerate(entries):
             if entry.text:
-                # Skip entries that contain only asterisks, spaces, and punctuation (already masked)
-                text_stripped = ''.join(c for c in entry.text if c not in ' \t\n.,!?;:\'"*-–—')
-                if not text_stripped or text_stripped.isspace():
-                    # Entry is fully masked or empty, skip QC check
+                # Skip entries that contain asterisk masking (indicates already censored)
+                if '****' in entry.text or '***' in entry.text:
+                    # Entry contains masking, skip QC check
                     continue
                 
                 matches = self.matcher.extract_profanity_matches(entry.text)
