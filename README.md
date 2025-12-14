@@ -25,8 +25,8 @@ cd Censorr2
 # Start the service (builds locally from Dockerfile)
 docker compose up -d
 
-# Run processing jobs
-docker exec censorr censorr process /data/media/movies/movie.mkv --output /app/workdir/output
+# Run processing jobs (use container paths: /data/media/movies or /data/media/tv)
+docker exec censorr-cli censorr process "/data/media/movies/Movie Name (2024)/Movie.mkv" --preset movies --output /app/workdir/output
 
 # Stop the service
 docker compose down
@@ -57,14 +57,21 @@ cp env.template .env
 Add a Custom Script in your Arr application:
 
 **Path**: `/usr/local/bin/docker`  
-**Arguments**: `exec censorr censorr process "{{file_path}}" --operations subtitle_extract,subtitle_merge,subtitle_mask,audio_extract,audio_mute,audio_qc,subtitle_qc,video_remux --output /app/workdir/output --language en --create-subtitle-sidecar --force`
+**Arguments**: `exec censorr-cli censorr process "{{file_path}}" --preset movies --output /app/workdir/output --force`
+
+**Note**: Radarr/Sonarr will pass the host path in `{{file_path}}`. Make sure your Arr application's root folders match the paths you've mounted in docker-compose (e.g., `/mnt/media/movies` on host maps to `/data/media/movies` in container).
 
 Or use webhook integration:
 ```bash
 # Example webhook trigger
-curl -X POST http://your-webhook-server/censorr \
+curl -X POST http://localhost:8000/webhook \
   -H "Content-Type: application/json" \
-  -d '{"file_path": "/data/media/movies/movie.mkv", "language": "en"}'
+  -d '{
+    "source": "radarr",
+    "eventType": "Download",
+    "tags": {"censorr_profile": "movies", "censorr_preset": "movies"},
+    "mediaPaths": ["/data/media/movies/Movie Name (2024)/Movie.mkv"]
+  }'
 ```
 
 ### Native Installation
@@ -97,6 +104,26 @@ censorr --video movie.mkv --target video --language en --masking partial
 # Audio-only with external mute windows
 censorr --audio movie.en.dts --mute-windows windows.json --target audio
 ```
+
+#### Track Pruning
+
+By default, the final remux will include only censored/clean tracks (muted audio and masked subtitles). To include all processed tracks:
+
+```bash
+# Disable pruning to keep all audio and subtitle tracks
+censorr process movie.mkv --preset movies --no-prune-non-clean-tracks
+
+# Or configure in config/censorr.json preset flags:
+# "prune_non_clean_tracks": false
+```
+
+When pruning is enabled (default):
+- **Audio**: Only the first muted audio track is retained
+- **Subtitles**: Only the first masked subtitle is retained
+- **Movies**: Output is tagged with `{edition-Censorr}` for Plex
+- **Episodes**: No edition tag applied
+
+This produces clean-only remuxes ideal for family viewing while preserving original files.
 
 ## Development
 

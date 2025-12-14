@@ -165,6 +165,10 @@ def process(
     preset: Optional[str] = typer.Option(
         None, "--preset",
         help="Use a named preset configuration (e.g., 'movies', 'tv')"
+    ),
+    prune_non_clean_tracks: bool = typer.Option(
+        False, "--prune-non-clean-tracks",
+        help="Keep only muted audio and masked subtitles in the final remux"
     )
 ):
     """
@@ -291,6 +295,7 @@ def process(
         audio_qc_control_window = app_config.audio_qc_control_window
         subtitle_mode = merged_args.get('subtitle_mode', app_config.subtitle_mode)
         sidecar_tag = merged_args.get('sidecar_tag', app_config.sidecar_tag)
+        prune_non_clean_tracks = prune_non_clean_tracks or merged_args.get('prune_non_clean_tracks', app_config.prune_non_clean_tracks)
         strict_audio_parity = merged_args.get('strict_audio_parity', app_config.strict_audio_parity)
         fuzzy_threshold = merged_args.get('fuzzy_threshold', app_config.fuzzy_threshold)
         persist_intermediate = app_config.persist_intermediate
@@ -354,6 +359,8 @@ def process(
                 subtitle_title_exclude = preset_config.flags['subtitle_title_exclude']
             if 'subtitle_title_regex' in preset_config.flags:
                 subtitle_title_regex = preset_config.flags['subtitle_title_regex']
+            if 'prune_non_clean_tracks' in preset_config.flags:
+                prune_non_clean_tracks = bool(preset_config.flags['prune_non_clean_tracks'])
         # Validate input file
         input_path = Path(input_file)
         if not input_path.exists():
@@ -481,7 +488,8 @@ def process(
             audio_transcode_to_original=audio_transcode_to_original,
             audio_target_codec=audio_target_codec,
             audio_bitrate=audio_bitrate,  # None = preserve original
-            audio_channels=audio_channels  # None = preserve original
+            audio_channels=audio_channels,  # None = preserve original
+            prune_non_clean_tracks=prune_non_clean_tracks
         )
         
         # Plan operations

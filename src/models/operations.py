@@ -47,6 +47,8 @@ class OperationFlags(BaseModel):
     audio_target_codec: str | None = Field(None, description="Explicit target audio codec (e.g., eac3, ac3, aac)")
     audio_bitrate: str | None = Field(None, description="Target audio bitrate for re-encode (e.g., 640k)")
     audio_channels: int | None = Field(None, description="Target audio channels for re-encode; None preserves original")
+    # Pruning behavior
+    prune_non_clean_tracks: bool = Field(False, description="Keep only muted audio and masked subtitle in final remux")
     
     @model_validator(mode='after')
     def validate_flags(self):

@@ -117,6 +117,30 @@ class RemuxOperation(Operation):
             # Prepare track lists
             audio_tracks = [artifact.path for artifact in audio_artifacts]
             subtitle_tracks = [artifact.path for artifact in subtitle_artifacts]
+
+            # Prune non-clean tracks if requested: keep only muted audio and masked subtitle
+            if getattr(flags, 'prune_non_clean_tracks', False):
+                # Keep only muted audio; prefer first muted track if multiple
+                pruned_audio = []
+                for p in audio_tracks:
+                    if 'muted_audio' in str(p):
+                        pruned_audio.append(p)
+                if pruned_audio:
+                    audio_tracks = [pruned_audio[0]]
+                else:
+                    # If no muted audio present, fallback to existing behavior (keep current selection)
+                    pass
+
+                # Keep only masked subtitle (first); clear if none present
+                pruned_subs = []
+                for s in subtitle_tracks:
+                    if 'masked_subtitles' in str(s):
+                        pruned_subs.append(s)
+                if pruned_subs:
+                    subtitle_tracks = [pruned_subs[0]]
+                else:
+                    # Clear subtitles if no masked subtitle present
+                    subtitle_tracks = []
             
             # Generate output path
             output_path = self._generate_output_path(video_artifact.path, workdir, flags)

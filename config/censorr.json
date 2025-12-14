@@ -24,6 +24,7 @@
       "flags": {
         "language": "en",
         "subtitle_mode": "none",
+        "prune_non_clean_tracks": true,
         "create_subtitle_sidecar": true,
         "profanity_list_file": "config/profanity_list.json",
         "audio_transcode_to_original": true,
@@ -54,6 +55,7 @@
       "flags": {
         "language": "en",
         "subtitle_mode": "none",
+        "prune_non_clean_tracks": true,
         "create_subtitle_sidecar": true,
         "profanity_list_file": "config/profanity_list.json",
         "audio_transcode_to_original": true,
