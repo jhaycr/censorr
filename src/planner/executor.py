@@ -202,28 +202,46 @@ class Executor:
                     for output_entry in manifest.outputs:
                         output_path = Path(output_entry["path"])
                         if output_path.exists():
-                            # Determine artifact type from file extension (simple heuristic)
-                            if output_path.suffix.lower() in ['.srt', '.vtt', '.ass']:
-                                artifact_type = ArtifactType.SUBTITLE
-                                # Try to infer language from filename pattern: base.lang.index.ext
-                                name_parts = output_path.name.split('.')
-                                inferred_lang = None
-                                if len(name_parts) >= 3:
-                                    # e.g., Movie Title.eng.1.srt -> 'eng'
-                                    inferred_lang = name_parts[-3]
-                                    # normalize common 3-letter codes to 2-letter where appropriate
-                                    if inferred_lang == 'eng':
-                                        inferred_lang = 'en'
-                                metadata = {"language": inferred_lang or "und"}
-                            elif output_path.suffix.lower() in ['.mp3', '.wav', '.flac', '.m4a']:
-                                artifact_type = ArtifactType.AUDIO
-                                metadata = {"channels": "stereo"}  # Default metadata
-                            elif output_path.suffix.lower() in ['.mp4', '.mkv', '.avi']:
-                                artifact_type = ArtifactType.VIDEO
-                                metadata = {"codec": "unknown"}  # Default metadata
+                            # Use metadata from manifest if available, otherwise infer from file
+                            metadata = output_entry.get("metadata", {})
+                            
+                            # Determine artifact type - prefer from metadata, fallback to extension
+                            artifact_type_str = output_entry.get("type")
+                            if artifact_type_str:
+                                # Convert string to ArtifactType enum
+                                try:
+                                    artifact_type = ArtifactType[artifact_type_str.upper()]
+                                except (KeyError, AttributeError):
+                                    artifact_type = None
                             else:
-                                artifact_type = ArtifactType.SIDECAR
-                                metadata = {}
+                                artifact_type = None
+                            
+                            # Fallback: infer from extension if not in metadata
+                            if artifact_type is None:
+                                if output_path.suffix.lower() in ['.srt', '.vtt', '.ass']:
+                                    artifact_type = ArtifactType.SUBTITLE
+                                    if not metadata:
+                                        # Infer language from filename pattern: base.lang.index.ext
+                                        name_parts = output_path.name.split('.')
+                                        inferred_lang = None
+                                        if len(name_parts) >= 3:
+                                            inferred_lang = name_parts[-3]
+                                            if inferred_lang == 'eng':
+                                                inferred_lang = 'en'
+                                        metadata = {"language": inferred_lang or "und"}
+                                elif output_path.suffix.lower() in ['.mp3', '.wav', '.flac', '.m4a']:
+                                    artifact_type = ArtifactType.AUDIO
+                                    # Preserve metadata from manifest, don't overwrite with defaults
+                                    if not metadata:
+                                        metadata = {"channels": "stereo"}
+                                elif output_path.suffix.lower() in ['.mp4', '.mkv', '.avi']:
+                                    artifact_type = ArtifactType.VIDEO
+                                    if not metadata:
+                                        metadata = {"codec": "unknown"}
+                                else:
+                                    artifact_type = ArtifactType.SIDECAR
+                                    if not metadata:
+                                        metadata = {}
                             
                             output_artifact = Artifact(
                                 type=artifact_type,
