@@ -98,7 +98,7 @@ class SubtitleQualityCheckOperation(Operation):
             if profanity_path and Path(profanity_path).exists():
                 profanity_data = json.loads(Path(profanity_path).read_text(encoding='utf-8'))
                 loaded_terms = normalize_profanity_list(profanity_data)
-                self.matcher = FuzzyMatcher(threshold=85, allow_list=loaded_terms)
+                self.matcher = FuzzyMatcher(similarity_threshold=85, allow_list=loaded_terms)
                 if flags.verbose:
                     print(f"[subtitle_qc] Loaded {len(loaded_terms)} profanity terms for QC")
             else:

@@ -229,15 +229,16 @@ class FFmpegAdapter:
                 output_path
             ]
         else:
-            # Build volume filter for mute windows
-            volume_filters = []
+            # Build single volume filter with multiple enable conditions
+            # Using a single filter prevents interference between overlapping windows
+            enable_conditions = []
             for window in mute_windows:
-                # Volume filter: volume=enable='between(t,start,end)':volume=0
-                filter_expr = f"volume=enable='between(t,{window.start},{window.end})':volume=0"
-                volume_filters.append(filter_expr)
+                # Add condition for this window: between(t,start,end)
+                enable_conditions.append(f"between(t,{window.start},{window.end})")
             
-            # Combine filters
-            filter_string = ",".join(volume_filters)
+            # Combine all conditions with OR logic: enable='cond1+cond2+...'
+            combined_enable = "+".join(enable_conditions)
+            filter_string = f"volume=enable='{combined_enable}':volume=0"
             
             cmd = [
                 self.ffmpeg_path,
