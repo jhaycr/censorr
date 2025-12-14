@@ -119,7 +119,7 @@ class SubtitleQualityCheckOperation(Operation):
         
         for i, entry in enumerate(entries):
             if entry.text:
-                matches = self.matcher.find_matches(entry.text)
+                matches = self.matcher.extract_profanity_matches(entry.text)
                 if matches:
                     for match in matches:
                         residual_matches.append({
@@ -127,9 +127,9 @@ class SubtitleQualityCheckOperation(Operation):
                             "start_time": entry.start,
                             "end_time": entry.end,
                             "text": entry.text,
-                            "matched_term": match["term"],
-                            "matched_text": match["match"],
-                            "confidence": match["score"]
+                            "matched_term": match.target if hasattr(match, 'target') else match.query,
+                            "matched_text": match.window_text if match.window_text else match.query,
+                            "confidence": match.score
                         })
         
         # Generate QC report
