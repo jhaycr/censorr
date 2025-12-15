@@ -1,0 +1,19 @@
+[
+  {"word": "cunt"},
+  {
+    "word": "fuck",
+    "fuzzy_threshold": 75,
+    "variant_strategy": "aggressive"
+  },
+  {"word": "goddamn"},
+  {"word": "god damn"},
+  {"word": "goddamnit"},
+  {"word": "god damnit"},
+  {"word": "goddammit"},
+  {"word": "god dammit"},
+  {
+    "word": "shit",
+    "fuzzy_threshold": 95,
+    "variant_strategy": "aggressive"
+  }
+]

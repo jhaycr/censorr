@@ -1,0 +1,7 @@
+rich==14.1.0
+typer==0.19.2
+ffmpeg-python==0.2.0
+pysubs2==1.8.0
+pytest==8.4.2
+pytest-cov==7.0.0
+RapidFuzz==3.14.1
