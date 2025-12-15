@@ -218,6 +218,10 @@ Run tests with coverage reporting:
 pytest tests/ --cov=src/censorr --cov-report=html
 ```
 
+## AI Assistance Disclosure
+
+This project uses AI tools (including GitHub Copilot) to assist with code generation, documentation, and development tasks. All AI-generated code is reviewed, tested, and validated before being committed to ensure quality and correctness.
+
 ## License
 
 See LICENSE file for details.
