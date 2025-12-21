@@ -77,10 +77,10 @@ def test_run_calls_all_commands(tmp_files, monkeypatch):
          patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
          patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
          patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
-         patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
-         patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
-         patch("censorr.cli.main._default_config_path", return_value=profanity_config), \
-         patch("censorr.cli.main._default_app_config_path", return_value=app_config):
+             patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
+             patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
+             patch("censorr.cli.main.default_config_path", return_value=profanity_config), \
+             patch("censorr.cli.main.default_app_config_path", return_value=app_config):
         
         result = run(
             input_file_path=input_video,
@@ -146,10 +146,10 @@ def test_run_resolves_config_paths_from_defaults(tmp_files):
          patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
          patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
          patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
-         patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
-         patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
-         patch("censorr.cli.main._default_config_path", return_value=profanity_config), \
-         patch("censorr.cli.main._default_app_config_path", return_value=app_config):
+             patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
+             patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
+             patch("censorr.cli.main.default_config_path", return_value=profanity_config), \
+             patch("censorr.cli.main.default_app_config_path", return_value=app_config):
         
         run(
             input_file_path=input_video,
@@ -218,10 +218,10 @@ def test_run_with_cleanup_enabled(tmp_files):
          patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
          patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
          patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
-         patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
-         patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
-         patch("censorr.cli.main._default_config_path", return_value=profanity_config), \
-         patch("censorr.cli.main._default_app_config_path", return_value=app_config):
+             patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
+             patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
+             patch("censorr.cli.main.default_config_path", return_value=profanity_config), \
+             patch("censorr.cli.main.default_app_config_path", return_value=app_config):
         
         run(
             input_file_path=input_video,
