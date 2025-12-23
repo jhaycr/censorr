@@ -19,7 +19,7 @@ console = Console()
 
 # Shared Typer options
 OUTPUT_DIR_OPTION = typer.Option(
-    "/tmp/censorr", "--output", "-o", help="Output directory for generated files"
+    None, "--output", "-o", help="Output directory for generated files"
 )
 DEFAULT_THRESHOLD_OPTION = typer.Option(
     85.0, "--threshold", "-t", help="Default similarity threshold (0-100)"
@@ -154,8 +154,8 @@ def video_remux(
     input_video_path: str = typer.Argument(..., help="Original video path"),
     masked_subtitle_path: str = typer.Argument(..., help="Masked subtitle file (SRT)"),
     muted_audio_path: str = typer.Argument(..., help="Muted audio file"),
-    remux_mode: str | None = typer.Option(None, help="Stream handling: append or replace (default: replace)"),
-    naming_mode: str = typer.Option("movie", help="Output naming: movie or tv"),
+    remux_mode: str | None = typer.Option(None, help="Stream handling: (append | replace)"),
+    naming_mode: str | None = typer.Option(None, help="Output naming: (movie | tv"),
     output_base: str | None = typer.Option(
         None, "--output-base", help="Base path for final remuxed file (defaults to input video dir)"
     ),
@@ -169,7 +169,7 @@ def video_remux(
         masked_subtitle_path=masked_subtitle_path,
         muted_audio_path=muted_audio_path,
         remux_mode=remux_mode or "replace",
-        naming_mode=naming_mode,
+        naming_mode=naming_mode or "movie",
         output_base=output_base,
     )
 
@@ -177,13 +177,13 @@ def video_remux(
 @app.command()
 def run(
     input_file_path: str,
-    output_dir: str = OUTPUT_DIR_OPTION,
-    include_language: list[str] = INCLUDE_LANG_OPTION,
-    include_title: list[str] = INCLUDE_TITLE_OPTION,
-    include_any: list[str] = INCLUDE_ANY_OPTION,
-    exclude_language: list[str] = EXCLUDE_LANG_OPTION,
-    exclude_title: list[str] = EXCLUDE_TITLE_OPTION,
-    exclude_any: list[str] = EXCLUDE_ANY_OPTION,
+    output_dir: str | None = OUTPUT_DIR_OPTION,
+    include_language: list[str] | None = INCLUDE_LANG_OPTION,
+    include_title: list[str] | None = INCLUDE_TITLE_OPTION,
+    include_any: list[str] | None = INCLUDE_ANY_OPTION,
+    exclude_language: list[str] | None = EXCLUDE_LANG_OPTION,
+    exclude_title: list[str] | None = EXCLUDE_TITLE_OPTION,
+    exclude_any: list[str] | None = EXCLUDE_ANY_OPTION,
     config_path: str = typer.Option(
         None, "--config", "-c", help="Path to term list (JSON array or newline file)"
     ),
@@ -195,9 +195,11 @@ def run(
         None, "--app-config", help="Path to app config JSON (QC thresholds, etc.)"
     ),
     remux_mode: str | None = typer.Option(
-        None, help="Remux stream handling: append or replace (default: replace)"
+        None, help="Remux stream handling: (append | replace)"
     ),
-    remux_naming_mode: str = typer.Option("movie", help="Remux output naming: movie or tv"),
+    remux_naming_mode: str | None = typer.Option(
+        None, help="Remux output naming: (movie | tv)"
+    ),
     remux_output_base: str | None = typer.Option(
         None,
         "--remux-output-base",
@@ -234,13 +236,13 @@ def run(
 @app.command("queue-run")
 def queue_run(
     input_file_path: str,
-    output_dir: str = OUTPUT_DIR_OPTION,
-    include_language: list[str] = INCLUDE_LANG_OPTION,
-    include_title: list[str] = INCLUDE_TITLE_OPTION,
-    include_any: list[str] = INCLUDE_ANY_OPTION,
-    exclude_language: list[str] = EXCLUDE_LANG_OPTION,
-    exclude_title: list[str] = EXCLUDE_TITLE_OPTION,
-    exclude_any: list[str] = EXCLUDE_ANY_OPTION,
+    output_dir: str | None = OUTPUT_DIR_OPTION,
+    include_language: list[str] | None = INCLUDE_LANG_OPTION,
+    include_title: list[str] | None = INCLUDE_TITLE_OPTION,
+    include_any: list[str] | None = INCLUDE_ANY_OPTION,
+    exclude_language: list[str] | None = EXCLUDE_LANG_OPTION,
+    exclude_title: list[str] | None = EXCLUDE_TITLE_OPTION,
+    exclude_any: list[str] | None = EXCLUDE_ANY_OPTION,
     config_path: str = typer.Option(
         None, "--config", "-c", help="Path to term list (JSON array or newline file)"
     ),
@@ -249,12 +251,14 @@ def queue_run(
         None, "--qc-threshold-db", help="Minimum dB delta for audio QC"
     ),
     app_config_path: str | None = typer.Option(
-        None, "--app-config", help="Path to app config JSON (QC thresholds, etc.)"
+        None, "--app-config", help="Path to app config JSON"
     ),
     remux_mode: str | None = typer.Option(
-        None, help="Remux stream handling: append or replace (default: replace)"
+        None, help="Remux stream handling: (append | replace)"
     ),
-    remux_naming_mode: str = typer.Option("movie", help="Remux output naming: movie or tv"),
+    remux_naming_mode: str | None = typer.Option(
+        None, help="Remux output naming: (movie | tv)"
+    ),
     remux_output_base: str | None = typer.Option(
         None,
         "--remux-output-base",

@@ -66,7 +66,7 @@ class RunPipeline:
         self,
         *,
         input_file_path: str,
-        output_dir: str,
+        output_dir: Optional[str] = None,
         include_language: Optional[List[str]] = None,
         include_title: Optional[List[str]] = None,
         include_any: Optional[List[str]] = None,
@@ -78,7 +78,7 @@ class RunPipeline:
         qc_threshold_db: Optional[float] = None,
         app_config_path: Optional[str] = None,
         remux_mode: Optional[str] = None,
-        remux_naming_mode: str = "movie",
+        remux_naming_mode: Optional[str] = None,
         remux_output_base: Optional[str] = None,
         cleanup: bool = True,
     ) -> str:
@@ -91,27 +91,37 @@ class RunPipeline:
         from censorr.commands.audio_qc import AudioQC
         from censorr.commands.video_remux import VideoRemux
 
+        config_path = default_config_path(config_path)
+        app_config_path = default_app_config_path(app_config_path)
+        app_config = load_app_config(app_config_path)
+
+        resolved_output_dir = output_dir or app_config.get("output_dir") or "/tmp/censorr"
+        resolved_include_language = include_language or app_config.get("include_language")
+        resolved_include_title = include_title or app_config.get("include_title")
+        resolved_include_any = include_any or app_config.get("include_any")
+        resolved_exclude_language = exclude_language or app_config.get("exclude_language")
+        resolved_exclude_title = exclude_title or app_config.get("exclude_title")
+        resolved_exclude_any = exclude_any or app_config.get("exclude_any")
+        resolved_remux_mode = remux_mode or app_config.get("remux_mode") or "replace"
+        resolved_remux_naming_mode = remux_naming_mode or app_config.get("remux_naming_mode") or "movie"
+
         selectors_include, selectors_exclude = build_selectors(
-            include_language,
-            include_title,
-            include_any,
-            exclude_language,
-            exclude_title,
-            exclude_any,
+            resolved_include_language,
+            resolved_include_title,
+            resolved_include_any,
+            resolved_exclude_language,
+            resolved_exclude_title,
+            resolved_exclude_any,
         )
 
         extract = SubtitleExtractAndMerge()
         merged_path, extracted_files = extract.do(
             input_file_path=input_file_path,
-            output_dir=output_dir,
+            output_dir=resolved_output_dir,
             selectors_include=selectors_include if selectors_include else None,
             selectors_exclude=selectors_exclude if selectors_exclude else None,
         )
         cleanup_targets = [str(merged_path), *[str(p) for p in extracted_files]]
-
-        config_path = default_config_path(config_path)
-        app_config_path = default_app_config_path(app_config_path)
-        app_config = load_app_config(app_config_path)
 
         resolved_qc_threshold = qc_threshold_db
         if resolved_qc_threshold is None:
@@ -120,26 +130,26 @@ class RunPipeline:
         masker = SubtitleMask()
         masker.do(
             input_file_path=merged_path,
-            output_dir=output_dir,
+            output_dir=resolved_output_dir,
             config_path=config_path,
             default_threshold=default_threshold,
         )
 
         subtitle_qc = SubtitleQC()
         subtitle_qc.do(
-            input_file_path=str(Path(output_dir) / "masked_subtitles.srt"),
+            input_file_path=str(Path(resolved_output_dir) / "masked_subtitles.srt"),
             config_path=config_path,
         )
 
-        masked_path = str(Path(output_dir) / "masked_subtitles.srt")
-        matches_csv_path = Path(output_dir) / "profanity_matches.csv"
+        masked_path = str(Path(resolved_output_dir) / "masked_subtitles.srt")
+        matches_csv_path = Path(resolved_output_dir) / "profanity_matches.csv"
         cleanup_targets.extend([str(masked_path), str(matches_csv_path)])
 
         audio = AudioExtract()
         audio_path = audio.do(
             input_file_path=input_file_path,
-            output_dir=output_dir,
-            include_language=include_language,
+            output_dir=resolved_output_dir,
+            include_language=resolved_include_language,
         )
         cleanup_targets.append(str(audio_path))
 
@@ -150,7 +160,7 @@ class RunPipeline:
         muted_path, windows_path = muter.do(
             audio_file_path=audio_path,
             matches_csv_path=str(matches_csv_path),
-            output_dir=output_dir,
+            output_dir=resolved_output_dir,
         )
         cleanup_targets.extend([str(muted_path), str(windows_path)])
 
@@ -158,7 +168,7 @@ class RunPipeline:
         qc_report_path = qc.do(
             muted_audio_path=muted_path,
             windows_path=windows_path,
-            output_dir=output_dir,
+            output_dir=resolved_output_dir,
             threshold_db=resolved_qc_threshold,
         )
         cleanup_targets.append(str(qc_report_path))
@@ -168,14 +178,14 @@ class RunPipeline:
             input_video_path=input_file_path,
             masked_subtitle_path=masked_path,
             muted_audio_path=muted_path,
-            remux_mode=remux_mode or "replace",
-            naming_mode=remux_naming_mode,
+            remux_mode=resolved_remux_mode,
+            naming_mode=resolved_remux_naming_mode,
             output_base=remux_output_base,
-            sidecar_language=(include_language[0] if include_language else "eng"),
+            sidecar_language=(resolved_include_language[0] if resolved_include_language else "eng"),
         )
 
         if cleanup:
-            base_dir = Path(output_dir).resolve()
+            base_dir = Path(resolved_output_dir).resolve()
             unique_targets: list[str] = []
             for p in cleanup_targets:
                 if p and p not in unique_targets:

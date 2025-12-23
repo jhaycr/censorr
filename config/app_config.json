@@ -1,3 +1,8 @@
 {
-  "audio_qc_threshold_db": 20.0
+  "audio_qc_threshold_db": 20.0,
+  "output_dir": "/tmp/censorr",
+  "include_language": ["en"],
+  "exclude_any": ["SDH"],
+  "remux_naming_mode": "movie",
+  "remux_mode": "replace"
 }

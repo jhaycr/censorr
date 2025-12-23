@@ -19,7 +19,7 @@ class JobStatus(str, Enum):
 @dataclass
 class JobPayload:
     input_file_path: str
-    output_dir: str
+    output_dir: Optional[str] = None
     include_language: Optional[list[str]] = None
     include_title: Optional[list[str]] = None
     include_any: Optional[list[str]] = None
@@ -31,7 +31,7 @@ class JobPayload:
     qc_threshold_db: float | None = None
     app_config_path: Optional[str] = None
     remux_mode: Optional[str] = None
-    remux_naming_mode: str = "movie"
+    remux_naming_mode: Optional[str] = None
     remux_output_base: Optional[str] = None
     cleanup: bool = True
     extras: dict = field(default_factory=dict)

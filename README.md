@@ -138,7 +138,7 @@ censorr run <input_file> [OPTIONS]
 
 ### Examples
 
-Process a video file with default settings, including only English subtitles:
+Process a video file end-to-end (full pipeline), including only English subtitles:
 
 ```bash
 censorr run "movie.mkv" --include-lang en --output ./output
