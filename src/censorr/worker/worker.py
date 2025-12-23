@@ -27,7 +27,7 @@ class InMemoryWorker:
             "qc_threshold_db": payload.qc_threshold_db,
             "app_config_path": payload.app_config_path,
             "remux_mode": payload.remux_mode,
-            "remux_naming_mode": payload.remux_naming_mode,
+            "remux_naming_mode": payload.remux_naming_mode or "movie",
             "remux_output_base": payload.remux_output_base,
             "cleanup": payload.cleanup,
         }

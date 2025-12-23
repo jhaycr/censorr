@@ -75,7 +75,17 @@ class SimpleFuzzyMatcher:
                 if query == pattern + target or query == target + pattern:
                     return 100.0
 
-        return float(fuzz.ratio(query, target))
+        score = float(fuzz.ratio(query, target))
+        if (
+            len(query) >= 3
+            and len(target) >= 3
+            and query[0] != target[0]
+            and target not in query
+            and query not in target
+        ):
+            score = max(0.0, score - 25.0)
+
+        return score
 
     def _score_window(self, window_text: str, target: str, aggressive: bool) -> float:
         target_words = target.split()

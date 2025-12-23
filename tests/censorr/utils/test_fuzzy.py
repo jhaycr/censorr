@@ -164,6 +164,12 @@ class TestSimpleFuzzyMatcherFindMatches:
         matches = matcher.find_matches("Damn, that's bad!")
         assert len(matches) == 1
 
+    def test_first_letter_mismatch_penalized(self):
+        terms = [FuzzyTerm(word="fuck", threshold=75.0, aggressive=True)]
+        matcher = SimpleFuzzyMatcher(terms)
+        matches = matcher.find_matches("He has good luck today")
+        assert len(matches) == 0
+
 
 class TestSimpleFuzzyMatcherInit:
     """Test matcher initialization and default threshold."""
