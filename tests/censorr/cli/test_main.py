@@ -75,8 +75,9 @@ def test_run_calls_all_commands(tmp_files, monkeypatch):
 
     with patch("censorr.commands.subtitle_extract_and_merge.SubtitleExtractAndMerge", return_value=mock_extract), \
          patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
-         patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
-         patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
+             patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
+             patch("censorr.commands.subtitle_qc.SubtitleQC"), \
+             patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
              patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
              patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
              patch("censorr.cli.main.default_config_path", return_value=profanity_config), \
@@ -144,8 +145,9 @@ def test_run_resolves_config_paths_from_defaults(tmp_files):
 
     with patch("censorr.commands.subtitle_extract_and_merge.SubtitleExtractAndMerge", return_value=mock_extract), \
          patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
-         patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
-         patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
+             patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
+             patch("censorr.commands.subtitle_qc.SubtitleQC"), \
+             patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
              patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
              patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
              patch("censorr.cli.main.default_config_path", return_value=profanity_config), \
@@ -216,8 +218,9 @@ def test_run_with_cleanup_enabled(tmp_files):
 
     with patch("censorr.commands.subtitle_extract_and_merge.SubtitleExtractAndMerge", return_value=mock_extract), \
          patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
-         patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
-         patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
+             patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio_extract), \
+             patch("censorr.commands.subtitle_qc.SubtitleQC"), \
+             patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
              patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
              patch("censorr.commands.video_remux.VideoRemux", return_value=mock_remux), \
              patch("censorr.cli.main.default_config_path", return_value=profanity_config), \

@@ -24,6 +24,9 @@ def test_run_pipeline_invokes_commands_and_returns_output(tmp_path):
     (output_dir / "masked_subtitles.srt").write_text("masked")
     (output_dir / "profanity_matches.csv").write_text("start_ms,end_ms\n1000,2000\n")
 
+    mock_subtitle_qc = MagicMock()
+    mock_subtitle_qc.do.return_value = None
+
     mock_audio = MagicMock()
     mock_audio.do.return_value = str(output_dir / "audio.wav")
     (output_dir / "audio.wav").write_bytes(b"RIFF")
@@ -46,6 +49,7 @@ def test_run_pipeline_invokes_commands_and_returns_output(tmp_path):
 
     with patch("censorr.commands.subtitle_extract_and_merge.SubtitleExtractAndMerge", return_value=mock_extract), \
         patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
+        patch("censorr.commands.subtitle_qc.SubtitleQC", return_value=mock_subtitle_qc), \
         patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio), \
         patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
         patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \
@@ -62,6 +66,7 @@ def test_run_pipeline_invokes_commands_and_returns_output(tmp_path):
     assert result == str(output_dir / "final.mkv")
     mock_extract.do.assert_called_once()
     mock_mask.do.assert_called_once()
+    mock_subtitle_qc.do.assert_called_once()
     mock_audio.do.assert_called_once()
     mock_mute.do.assert_called_once()
     mock_qc.do.assert_called_once()
@@ -87,6 +92,9 @@ def test_run_pipeline_cleanup(tmp_path):
     (output_dir / "masked_subtitles.srt").write_text("masked")
     (output_dir / "profanity_matches.csv").write_text("start_ms,end_ms\n1000,2000\n")
 
+    mock_subtitle_qc = MagicMock()
+    mock_subtitle_qc.do.return_value = None
+
     mock_audio = MagicMock()
     mock_audio.do.return_value = str(output_dir / "audio.wav")
     (output_dir / "audio.wav").write_bytes(b"RIFF")
@@ -109,6 +117,7 @@ def test_run_pipeline_cleanup(tmp_path):
 
     with patch("censorr.commands.subtitle_extract_and_merge.SubtitleExtractAndMerge", return_value=mock_extract), \
         patch("censorr.commands.subtitle_mask.SubtitleMask", return_value=mock_mask), \
+        patch("censorr.commands.subtitle_qc.SubtitleQC", return_value=mock_subtitle_qc), \
         patch("censorr.commands.audio_extract.AudioExtract", return_value=mock_audio), \
         patch("censorr.commands.audio_mute.AudioMute", return_value=mock_mute), \
         patch("censorr.commands.audio_qc.AudioQC", return_value=mock_qc), \

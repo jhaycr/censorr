@@ -85,6 +85,7 @@ class RunPipeline:
         # Import lazily so tests can patch command classes
         from censorr.commands.subtitle_extract_and_merge import SubtitleExtractAndMerge
         from censorr.commands.subtitle_mask import SubtitleMask
+        from censorr.commands.subtitle_qc import SubtitleQC
         from censorr.commands.audio_extract import AudioExtract
         from censorr.commands.audio_mute import AudioMute
         from censorr.commands.audio_qc import AudioQC
@@ -122,6 +123,12 @@ class RunPipeline:
             output_dir=output_dir,
             config_path=config_path,
             default_threshold=default_threshold,
+        )
+
+        subtitle_qc = SubtitleQC()
+        subtitle_qc.do(
+            input_file_path=str(Path(output_dir) / "masked_subtitles.srt"),
+            config_path=config_path,
         )
 
         masked_path = str(Path(output_dir) / "masked_subtitles.srt")

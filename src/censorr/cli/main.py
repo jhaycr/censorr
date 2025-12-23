@@ -87,6 +87,24 @@ def subtitle_mask(
 
 
 @app.command()
+def subtitle_qc(
+    input_file_path: str = typer.Argument(..., help="Path to masked subtitle file (SRT)"),
+    config_path: str = typer.Option(
+        None, "--config", "-c", help="Path to term list (JSON array or profanity list file)"
+    ),
+):
+    """Fail if any configured profanities remain in the masked subtitle file."""
+    from censorr.commands.subtitle_qc import SubtitleQC
+
+    resolved_config = default_config_path(config_path)
+    command = SubtitleQC()
+    command.do(
+        input_file_path=input_file_path,
+        config_path=resolved_config,
+    )
+
+
+@app.command()
 def audio_mute(
     audio_file_path: str = typer.Argument(..., help="Path to an extracted audio file"),
     matches_csv_path: str = typer.Option(
