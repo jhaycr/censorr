@@ -185,6 +185,13 @@ class Executor:
                 )
                 operation_dir = context.cache_manager.get_operation_dir(operation.name, cache_key)
             
+            # Diagnostic logging: show incoming artifacts
+            if context.flags.verbose:
+                self.logger.info(f"[{operation.name}] Incoming artifacts:")
+                for artifact in input_artifacts:
+                    metadata_str = ", ".join(f"{k}={v}" for k, v in (artifact.metadata or {}).items())
+                    self.logger.info(f"  - {artifact.type.value}: {artifact.path} | metadata: {{{metadata_str}}}")
+            
             if is_cached and not context.flags.skip_existing:
                 if context.flags.verbose:
                     # Log to file logger and also surface to console so users understand missing per-op logs
@@ -252,7 +259,14 @@ class Executor:
                     
                     # Update context with cached artifacts
                     context.artifacts.extend(output_artifacts)
-                    
+
+                    # Verbose diagnostic: list cached artifacts added
+                    if context.flags.verbose:
+                        self.logger.info(f"[{operation.name}] Cached output artifacts:")
+                        for artifact in output_artifacts:
+                            metadata_str = ", ".join(f"{k}={v}" for k, v in (artifact.metadata or {}).items())
+                            self.logger.info(f"  - {artifact.type.value}: {artifact.path} | metadata: {{{metadata_str}}}")
+
                     # Finish logging
                     context.execution_logger.finish_operation(log_entry, True, output_artifacts)
                     
@@ -287,7 +301,14 @@ class Executor:
             
             # Update context with new artifacts
             context.artifacts.extend(outputs)
-            
+
+            # Verbose diagnostic: list fresh outputs added
+            if context.flags.verbose:
+                self.logger.info(f"[{operation.name}] Fresh output artifacts:")
+                for artifact in outputs:
+                    metadata_str = ", ".join(f"{k}={v}" for k, v in (artifact.metadata or {}).items())
+                    self.logger.info(f"  - {artifact.type.value}: {artifact.path} | metadata: {{{metadata_str}}}")
+
             # Finish logging
             context.execution_logger.finish_operation(log_entry, True, outputs)
             
@@ -336,6 +357,11 @@ class Executor:
 
             # If the operation consumes subtitles, pass all subtitle artifacts
             if required_type == ArtifactType.SUBTITLE:
+                inputs.extend(matching_artifacts)
+                continue
+
+            # For remux, pass through all audio artifacts to allow track selection
+            if operation.name == "video_remux" and required_type == ArtifactType.AUDIO:
                 inputs.extend(matching_artifacts)
                 continue
 

@@ -1,24 +1,16 @@
 [
-    {
-        "word": "bitch",
-        "variant_strategy": "aggressive"
-    },
-    {"word": "christ"},
     {"word": "cunt"},
-    {
-        "word": "dick",
-        "variant_strategy": "aggressive"
-    },
     {
         "word": "fuck", 
         "fuzzy_threshold": 75,
         "variant_strategy": "aggressive"
     },
-    {"word": "god damn"},
     {"word": "goddamn"},
+    {"word": "god damn"},
     {"word": "goddamnit"},
+    {"word": "god damnit"},
     {"word": "goddammit"},
-    {"word": "jesus"},
+    {"word": "god dammit"},
     {
         "word": "shit",
         "fuzzy_threshold": 95,

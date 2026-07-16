@@ -152,6 +152,7 @@ class MuteAudioOperation(Operation):
                 result_metadata = audio_artifact.metadata.copy()
                 result_metadata["mute_windows_applied"] = len(mute_windows)
                 result_metadata["original_path"] = audio_artifact.path
+                result_metadata["muted"] = True
                 # Reference the sidecar windows file for QC
                 try:
                     result_metadata["mute_windows_file"] = str(windows_path)

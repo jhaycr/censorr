@@ -46,15 +46,25 @@ class SubtitleQualityCheckOperation(Operation):
         if not inputs:
             raise ValueError("No subtitle artifacts provided for quality check")
         
-        # Find subtitle artifact
+        # Prefer masked subtitle artifacts; fallback to first subtitle
         subtitle_artifact = None
-        for artifact in inputs:
-            if artifact.type == ArtifactType.SUBTITLE:
-                subtitle_artifact = artifact
-                break
-        
+        masked_candidates = [
+            a for a in inputs
+            if a.type == ArtifactType.SUBTITLE and ((a.metadata or {}).get("masked") is True or "masked_subtitles" in str(a.path))
+        ]
+        if masked_candidates:
+            subtitle_artifact = masked_candidates[0]
+        else:
+            for artifact in inputs:
+                if artifact.type == ArtifactType.SUBTITLE:
+                    subtitle_artifact = artifact
+                    break
+
         if not subtitle_artifact:
             raise ValueError("No subtitle artifact found in inputs")
+
+        if not masked_candidates and (flags.verbose):
+            print("[subtitle_qc] Warning: masked subtitle not found; QC will run on first available subtitle")
         
         # Parse the subtitle file
         subtitle_path = Path(subtitle_artifact.path)
@@ -119,11 +129,14 @@ class SubtitleQualityCheckOperation(Operation):
         
         for i, entry in enumerate(entries):
             if entry.text:
-                # Skip entries that contain asterisk masking (indicates already censored)
-                if '****' in entry.text or '***' in entry.text:
-                    # Entry contains masking, skip QC check
+                # Skip entries that contain masking (asterisks or partial tokens)
+                text_lower = entry.text.lower()
+                if (
+                    '***' in text_lower
+                    or any('*' in token and len(token.replace('*', '')) <= 2 for token in text_lower.split())
+                ):
                     continue
-                
+
                 matches = self.matcher.extract_profanity_matches(entry.text)
                 if matches:
                     for match in matches:

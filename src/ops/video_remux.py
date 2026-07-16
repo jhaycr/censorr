@@ -71,7 +71,16 @@ class RemuxOperation(Operation):
         Returns:
             List containing the remuxed video artifact
         """
+        logger = logging.getLogger(f"{self.__class__.__name__}")
+        
         try:
+            # Diagnostic: log all incoming artifacts
+            if flags.verbose:
+                logger.info(f"[remux] Received {len(inputs)} artifacts:")
+                for artifact in inputs:
+                    metadata_str = ", ".join(f"{k}={v}" for k, v in (artifact.metadata or {}).items())
+                    logger.info(f"  - {artifact.type.value}: {artifact.path} | metadata: {{{metadata_str}}}")
+            
             # Find video artifacts
             video_artifacts = [
                 artifact for artifact in inputs
@@ -97,6 +106,17 @@ class RemuxOperation(Operation):
                 artifact for artifact in inputs
                 if artifact.type == ArtifactType.SUBTITLE
             ]
+            
+            # Diagnostic: log audio/subtitle selection
+            if flags.verbose:
+                logger.info(f"[remux] Audio artifact summary: {len(original_audio_artifacts)} total")
+                for i, a in enumerate(original_audio_artifacts):
+                    meta = a.metadata or {}
+                    logger.info(f"  Audio[{i}]: {a.path} | muted={meta.get('muted')}, has_mute_windows={bool(meta.get('mute_windows'))}")
+                logger.info(f"[remux] Subtitle artifact summary: {len(raw_subtitle_artifacts)} total")
+                for i, s in enumerate(raw_subtitle_artifacts):
+                    meta = s.metadata or {}
+                    logger.info(f"  Subtitle[{i}]: {s.path} | masked={meta.get('masked')}")
             
             # Prioritize muted audio over extracted audio (searches entire inputs list + output dir)
             audio_artifacts = self._prioritize_audio_artifacts(inputs, workdir)
@@ -289,18 +309,23 @@ class RemuxOperation(Operation):
         """Try to find muted audio files in the output directory."""
         logger = logging.getLogger(f"{self.__class__.__name__}")
         
-        # Search in the parent directory (output base) for mute_audio folders
         logger.info(f"Remux workdir: {workdir}")
-        output_base = workdir.parent.parent if 'remux' in str(workdir) else workdir
-        logger.info(f"Searching for muted audio in: {output_base}")
-        
-        # Also try searching from workdir directly
-        mute_audio_dirs = list(output_base.glob("mute_audio/*/"))
-        if not mute_audio_dirs and output_base != workdir:
-            logger.info(f"No mute_audio dirs in {output_base}, trying {workdir}")
-            mute_audio_dirs = list(workdir.glob("mute_audio/*/"))
-        
-        logger.info(f"Found {len(mute_audio_dirs)} mute_audio directories")
+        # Search common locations for audio_mute outputs
+        search_roots = [workdir]
+        # If this workdir is within an op subfolder, also scan its parent
+        if workdir.parent not in search_roots:
+            search_roots.append(workdir.parent)
+        # Also scan the top-level output folder if present (one level up)
+        if workdir.parent.parent not in search_roots:
+            search_roots.append(workdir.parent.parent)
+
+        mute_audio_dirs = []
+        for root in search_roots:
+            candidate_dirs = list(root.glob("audio_mute/*/"))
+            if candidate_dirs:
+                logger.info(f"Searching for muted audio in: {root} -> {len(candidate_dirs)} dirs")
+                mute_audio_dirs.extend(candidate_dirs)
+        logger.info(f"Found {len(mute_audio_dirs)} mute_audio directories across {len(search_roots)} roots")
         
         # Sort by modification time to get the most recent
         mute_audio_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
@@ -326,7 +351,11 @@ class RemuxOperation(Operation):
         return None
 
     def _prioritize_audio_artifacts(self, artifacts: List[Artifact], workdir: Path) -> List[Artifact]:
-        """Prioritize audio artifacts, preferring muted over extracted audio."""
+        """Prioritize audio artifacts, preferring muted over extracted audio.
+
+        Prefers artifacts explicitly tagged muted in metadata; then filenames; then
+        falls back to searching the audio_mute output directory for the track.
+        """
         logger = logging.getLogger(f"{self.__class__.__name__}")
         
         audio_artifacts = [a for a in artifacts if a.type == ArtifactType.AUDIO]
@@ -353,7 +382,10 @@ class RemuxOperation(Operation):
         prioritized = []
         for track_num, track_artifacts in by_track.items():
             # Sort by priority: muted > extracted
-            muted_artifacts = [a for a in track_artifacts if "muted_audio" in str(a.path)]
+            muted_artifacts = [
+                a for a in track_artifacts
+                if (a.metadata or {}).get("muted") is True or "muted_audio" in str(a.path)
+            ]
             extracted_artifacts = [a for a in track_artifacts if "extract_audio" in str(a.path)]
             
             if muted_artifacts:
