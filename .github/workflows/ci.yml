@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [rewrite/v2, main]
+  pull_request:
+    branches: [rewrite/v2, main]
+
+jobs:
+  fast:
+    name: Lint, type-check, unit + contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .[dev,serve]
+      - run: ruff check .
+      - run: mypy censorr
+      - run: pytest -m "not ffmpeg and not docker" -v
+
+  ffmpeg:
+    name: Integration tests (ffmpeg)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: pip install -e .[dev,serve]
+      - run: pytest -m ffmpeg -v
