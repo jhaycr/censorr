@@ -1,0 +1,14 @@
+{
+  "words": [
+    {"word": "cunt"},
+    {"word": "fuck", "threshold": 75, "aggressive": true},
+    {"word": "goddamn"},
+    {"word": "god damn"},
+    {"word": "goddamnit"},
+    {"word": "god damnit"},
+    {"word": "goddammit"},
+    {"word": "god dammit"},
+    {"word": "shit", "threshold": 95, "aggressive": true}
+  ],
+  "allowlist": []
+}

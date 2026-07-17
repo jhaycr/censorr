@@ -42,6 +42,9 @@ venv.bak/
 *.swo
 *~
 
+# Claude Code (personal overrides only; project-shared settings should be committed)
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
