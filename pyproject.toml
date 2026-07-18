@@ -61,6 +61,7 @@ ignore = ["S101"]
 # >= 6 on PATH"); args are always passed as lists, never through a shell.
 "censorr/media/**" = ["S603", "S607"]
 "tests/fixtures.py" = ["S603", "S607"]
+"tests/integration/**" = ["S603", "S607"]
 
 [tool.mypy]
 python_version = "3.12"
