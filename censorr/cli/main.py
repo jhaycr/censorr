@@ -197,5 +197,24 @@ def gc(
     )
 
 
+@app.command()
+def work(
+    config: Path | None = typer.Option(None, "--config"),
+    poll_interval: float = typer.Option(5.0, "--poll-interval", help="Seconds between polls"),
+    once: bool = typer.Option(False, "--once", help="Process at most one job, then exit"),
+) -> None:
+    """Run the queue worker: claim jobs, run the pipeline, record progress."""
+    from censorr.service.worker import Worker
+
+    cfg = load_config(config_path=config)
+    worker = Worker(cfg)
+    typer.echo(f"worker {worker.worker_id} polling {cfg.service.queue_path}")
+    if once:
+        claimed = worker.run_once()
+        typer.echo("processed one job" if claimed else "queue empty")
+        return
+    worker.run_forever(poll_interval_s=poll_interval)
+
+
 if __name__ == "__main__":
     app()
