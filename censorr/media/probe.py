@@ -14,6 +14,7 @@ class StreamInfo(BaseModel):
     title: str | None = None
     disposition: dict[str, bool] = {}
     duration_s: float | None = None
+    channels: int | None = None
 
 
 class MediaInfo(BaseModel):
@@ -63,4 +64,5 @@ def _parse_stream(raw: dict[str, Any]) -> StreamInfo:
         title=tags.get("title"),
         disposition=disposition,
         duration_s=float(duration) if duration is not None else None,
+        channels=raw.get("channels"),
     )

@@ -7,6 +7,7 @@ import typer
 from censorr import __version__
 from censorr.cli import views
 from censorr.config.load import load_config
+from censorr.pipeline import runner
 from censorr.pipeline.context import PipelineContext
 from censorr.pipeline.errors import CensorrError, exit_code_for
 from censorr.pipeline.job import Job
@@ -33,13 +34,13 @@ def _build_context(file: Path, preset: str | None, config_path: Path | None) -> 
 
 
 def _run_planning(file: Path, preset: str | None, config_path: Path | None) -> PipelineContext:
-    """Run the plan-only stages (probe through plan_names; no remux/publish
-    yet -- those land in Steps 9-11). Writes nothing outside the workdir.
+    """Run only the plan-only stages (probe through plan_names; no remux
+    yet). Writes nothing outside the workdir.
     """
     ctx = _build_context(file, preset, config_path)
     with tempfile.TemporaryDirectory(prefix="censorr-") as workdir:
         try:
-            ctx = run_pipeline(ctx, Path(workdir))
+            ctx = run_pipeline(ctx, Path(workdir), stage_sequence=runner.PLANNING_STAGES)
         except CensorrError as exc:
             typer.echo(f"error: {exc}", err=True)
             raise typer.Exit(code=exit_code_for(exc)) from exc
@@ -63,15 +64,32 @@ def process(
     preset: str | None = typer.Option(None, "--preset"),
     config: Path | None = typer.Option(None, "--config"),
     dry_run: bool = typer.Option(False, "--dry-run"),
+    keep_intermediates: bool = typer.Option(
+        False,
+        "--keep-intermediates",
+        help="No-op until Step 11 adds cleanup-on-success for this flag to suppress",
+    ),
 ) -> None:
-    """Censor a media file. Only --dry-run is implemented so far (Step 8);
-    the actual remux/verify/publish pipeline lands in Steps 9-11.
+    """Censor a media file. Without --dry-run this remuxes for real to a
+    temp file in the workdir; publish/placement lands in Step 11.
     """
-    if not dry_run:
-        typer.echo("error: process without --dry-run isn't implemented yet", err=True)
-        raise typer.Exit(code=1)
-    ctx = _run_planning(file, preset, config)
+    if dry_run:
+        ctx = _run_planning(file, preset, config)
+        views.render_inspect(ctx)
+        return
+
+    ctx = _build_context(file, preset, config)
+    workdir = Path(tempfile.mkdtemp(prefix="censorr-"))
+    try:
+        ctx = run_pipeline(ctx, workdir)
+    except CensorrError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=exit_code_for(exc)) from exc
+
     views.render_inspect(ctx)
+    if ctx.temp_output is not None:
+        views.console.print(f"[bold]Temp output (not yet published):[/bold] {ctx.temp_output}")
+    _ = keep_intermediates  # accepted now; enforced once Step 11 adds cleanup-on-success
 
 
 if __name__ == "__main__":

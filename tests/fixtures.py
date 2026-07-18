@@ -155,6 +155,27 @@ def build_multi_audio_fixture(root: Path, duration: float = 15.0) -> Path:
     return out
 
 
+def build_eac3_51_fixture(root: Path, duration: float = 15.0) -> Path:
+    """1 video + eac3 5.1 audio + 1 embedded English SRT (R13 codec preservation)."""
+    fixture_dir = root / "eac3_51"
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    srt = write_dialogue_srt(fixture_dir / "dialogue.srt")
+    out = fixture_dir / "EAC3 51 Test.mkv"
+    _run_ffmpeg(
+        "-f", "lavfi", "-i", f"testsrc2=duration={duration}:size=320x180:rate=10",
+        "-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=48000:duration={duration}",
+        "-i", str(srt),
+        "-filter_complex", "[1:a]pan=5.1|FL=c0|FR=c0|FC=c0|LFE=c0|BL=c0|BR=c0[a51]",
+        "-map", "0:v", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "35",
+        "-map", "[a51]", "-c:a", "eac3", "-b:a", "448k",
+        "-map", "2:0", "-c:s", "srt",
+        "-metadata:s:a:0", "language=eng",
+        "-metadata:s:s:0", "language=eng",
+        str(out),
+    )
+    return out
+
+
 def build_no_subtitle_fixture(root: Path, duration: float = 10.0) -> Path:
     """1 video + 1 audio, no subtitle tracks at all."""
     fixture_dir = root / "no_subtitle"
@@ -236,6 +257,11 @@ def multi_subtitle_fixture(fixture_root: Path) -> Path:
 @pytest.fixture(scope="session")
 def multi_audio_fixture(fixture_root: Path) -> Path:
     return build_multi_audio_fixture(fixture_root)
+
+
+@pytest.fixture(scope="session")
+def eac3_51_fixture(fixture_root: Path) -> Path:
+    return build_eac3_51_fixture(fixture_root)
 
 
 @pytest.fixture(scope="session")

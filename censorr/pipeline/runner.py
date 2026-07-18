@@ -7,10 +7,10 @@ from censorr.pipeline.context import PipelineContext
 type Stage = Callable[[PipelineContext, Path], PipelineContext]
 type OnProgress = Callable[[str, PipelineContext], None]
 
-# Sequential order (design §3): probe -> select_tracks -> acquire_subtitles ->
-# detect -> plan_windows -> mask_subtitles -> plan_names. remux/verify/publish
-# are added in Steps 9-11.
-STAGE_SEQUENCE: list[tuple[str, Stage]] = [
+# Sequential order (design §3). PLANNING_STAGES writes nothing outside the
+# workdir (what `inspect` / `process --dry-run` run); STAGE_SEQUENCE adds
+# remux (Step 9) -- verify/publish are added in Steps 10-11.
+PLANNING_STAGES: list[tuple[str, Stage]] = [
     ("probe", stages.probe),
     ("select_tracks", stages.select_tracks_stage),
     ("acquire_subtitles", stages.acquire_subtitles),
@@ -18,6 +18,11 @@ STAGE_SEQUENCE: list[tuple[str, Stage]] = [
     ("plan_windows", stages.plan_windows),
     ("mask_subtitles", stages.mask_subtitles_stage),
     ("plan_names", stages.plan_names_stage),
+]
+
+STAGE_SEQUENCE: list[tuple[str, Stage]] = [
+    *PLANNING_STAGES,
+    ("remux", stages.remux_stage),
 ]
 
 

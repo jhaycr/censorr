@@ -6,15 +6,16 @@ import pytest
 from censorr.config.schema import ResolvedConfig
 from censorr.pipeline.context import PipelineContext
 from censorr.pipeline.job import Job
-from censorr.pipeline.runner import run_pipeline
+from censorr.pipeline.runner import PLANNING_STAGES, run_pipeline
 
 pytestmark = pytest.mark.ffmpeg
 
 
 def run_inspect(source: Path, tmp_path: Path, cfg: ResolvedConfig | None = None) -> PipelineContext:
+    """Runs only the plan-only stages -- inspect never remuxes for real."""
     job = Job(id=str(uuid4()), source=source, submitted_by="cli")
     ctx = PipelineContext(job=job, cfg=cfg or ResolvedConfig())
-    return run_pipeline(ctx, tmp_path)
+    return run_pipeline(ctx, tmp_path, stage_sequence=PLANNING_STAGES)
 
 
 def test_happy_path_has_matches_and_full_mode(movie_fixture: Path, tmp_path: Path) -> None:
