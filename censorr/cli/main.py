@@ -9,7 +9,7 @@ from censorr import __version__
 from censorr.cli import views
 from censorr.config.load import load_config
 from censorr.naming.plex import classify
-from censorr.pipeline import runner
+from censorr.pipeline import library, retention, runner
 from censorr.pipeline.context import PipelineContext
 from censorr.pipeline.errors import CensorrError, exit_code_for
 from censorr.pipeline.fingerprint import check_skip, resolve_wordlist
@@ -111,6 +111,90 @@ def process(
         views.console.print(f"[bold green]Published:[/bold green] {ctx.naming_plan.video_path}")
     if not keep_intermediates:
         shutil.rmtree(workdir, ignore_errors=True)
+
+
+@app.command()
+def reprocess(
+    root: Path = typer.Argument(..., exists=True, file_okay=False),
+    preset: str | None = typer.Option(None, "--preset"),
+    config: Path | None = typer.Option(None, "--config"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+) -> None:
+    """Bulk walk: (re)process every source file under ROOT whose fingerprint
+    is stale. Skips Censorr outputs and Plex extras (R7)."""
+    cfg = load_config(config_path=config, preset=preset)
+    wordlist = resolve_wordlist(cfg)
+
+    worklist: list[Path] = []
+    for candidate in library.find_reprocess_candidates(root, cfg):
+        media_type = classify(candidate, None)
+        skip, _plan = check_skip(candidate, media_type, cfg=cfg, wordlist=wordlist)
+        if not skip:
+            worklist.append(candidate)
+
+    if dry_run:
+        typer.echo(f"{len(worklist)} file(s) would be processed:")
+        for path in worklist:
+            typer.echo(f"  {path}")
+        return
+
+    failures = 0
+    for path in worklist:
+        typer.echo(f"processing: {path}")
+        job = Job(id=str(uuid4()), source=path, preset=preset, submitted_by="cli")
+        ctx = PipelineContext(job=job, cfg=cfg)
+        workdir = Path(tempfile.mkdtemp(prefix="censorr-"))
+        try:
+            ctx = run_pipeline(ctx, workdir)
+        except CensorrError as exc:
+            typer.echo(f"  error: {exc}", err=True)
+            failures += 1
+            continue
+        if ctx.outcome is not None:
+            typer.echo(f"  skipped ({ctx.outcome})")
+        elif ctx.naming_plan is not None:
+            typer.echo(f"  published: {ctx.naming_plan.video_path}")
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    typer.echo(f"done: {len(worklist) - failures} ok, {failures} failed")
+    if failures:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def reconcile(
+    clean_root: Path = typer.Argument(..., exists=True, file_okay=False),
+    config: Path | None = typer.Option(None, "--config"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+) -> None:
+    """Delete clean outputs under CLEAN_ROOT whose source no longer exists
+    (heals rename/delete drift, R7)."""
+    cfg = load_config(config_path=config)
+    orphans = library.find_orphaned_outputs(clean_root, cfg)
+
+    if dry_run:
+        typer.echo(f"{len(orphans)} orphaned output(s) would be removed:")
+        for path in orphans:
+            typer.echo(f"  {path}")
+        return
+
+    for orphan in orphans:
+        for removed in library.delete_output_with_sidecars(orphan):
+            typer.echo(f"removed: {removed}")
+    typer.echo(f"done: {len(orphans)} orphan(s) removed")
+
+
+@app.command()
+def gc(
+    config: Path | None = typer.Option(None, "--config"),
+) -> None:
+    """Sweep expired failed workdirs and job records (R11 retention)."""
+    cfg = load_config(config_path=config)
+    result = retention.sweep(cfg)
+    typer.echo(
+        f"removed {len(result.removed_workdirs)} workdir(s), "
+        f"{len(result.removed_records)} record(s)"
+    )
 
 
 if __name__ == "__main__":
