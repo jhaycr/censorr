@@ -1,0 +1,66 @@
+import json
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel
+
+
+class StreamInfo(BaseModel):
+    index: int
+    codec_type: str
+    codec_name: str
+    language: str | None = None
+    title: str | None = None
+    disposition: dict[str, bool] = {}
+    duration_s: float | None = None
+
+
+class MediaInfo(BaseModel):
+    path: Path
+    duration_s: float
+    streams: list[StreamInfo]
+
+    def video_streams(self) -> list[StreamInfo]:
+        return [s for s in self.streams if s.codec_type == "video"]
+
+    def audio_streams(self) -> list[StreamInfo]:
+        return [s for s in self.streams if s.codec_type == "audio"]
+
+    def subtitle_streams(self) -> list[StreamInfo]:
+        return [s for s in self.streams if s.codec_type == "subtitle"]
+
+
+def probe(path: Path) -> MediaInfo:
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v", "quiet",
+            "-print_format", "json",
+            "-show_format",
+            "-show_streams",
+            str(path),
+        ],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    data = json.loads(result.stdout)
+    streams = [_parse_stream(s) for s in data.get("streams", [])]
+    duration_s = float(data["format"]["duration"])
+    return MediaInfo(path=path, duration_s=duration_s, streams=streams)
+
+
+def _parse_stream(raw: dict[str, Any]) -> StreamInfo:
+    tags = raw.get("tags", {})
+    disposition = {k: bool(v) for k, v in raw.get("disposition", {}).items()}
+    duration = raw.get("duration")
+    return StreamInfo(
+        index=raw["index"],
+        codec_type=raw["codec_type"],
+        codec_name=raw.get("codec_name", ""),
+        language=tags.get("language"),
+        title=tags.get("title"),
+        disposition=disposition,
+        duration_s=float(duration) if duration is not None else None,
+    )
