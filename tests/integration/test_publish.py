@@ -46,10 +46,13 @@ class TestFullPublish:
 
         assert ctx.outcome is None
         assert ctx.naming_plan is not None
-        assert ctx.naming_plan.video_path == source.with_name(
-            "Test Movie (2024) {edition-Censorr}.mkv"
+        # Q18: movie lands in the derived clean root, own folder mirrored.
+        expected = (
+            tmp_path / "src-clean" / "Test Movie (2024)"
+            / "Test Movie (2024) {edition-Censorr}.mkv"
         )
-        assert ctx.naming_plan.video_path.is_file()
+        assert ctx.naming_plan.video_path == expected
+        assert expected.is_file()
         assert source.is_file()  # original untouched
 
     def test_episode_lands_in_derived_clean_root(self, tmp_path: Path) -> None:
@@ -170,9 +173,7 @@ class TestSidecar:
 
         assert ctx.naming_plan is not None
         assert ctx.naming_plan.sidecar_paths == []
-        # No sidecar next to the published output. (The fixture's own input
-        # dialogue.srt lives in the same dir, so match the sidecar stem.)
-        assert not list(source.parent.glob("*{edition-Censorr}*.srt"))
+        assert not list((tmp_path / "src-clean").rglob("*.srt"))
 
     def test_sidecar_written_when_opted_in(self, tmp_path: Path) -> None:
         source = build_movie_fixture(tmp_path / "src", duration=90.0)
@@ -193,9 +194,7 @@ class TestFailedQcLeavesLibraryUntouched:
         wordlist_path.write_text(json.dumps(hostile))
         cfg = cfg_with_queue(tmp_path, detect={"wordlist": str(wordlist_path)})
 
-        expected_output = source.with_name("Test Movie (2024) {edition-Censorr}.mkv")
-
         with pytest.raises(QCError):
             run_full(source, tmp_path, cfg=cfg)
 
-        assert not expected_output.is_file()
+        assert not (tmp_path / "src-clean").exists()

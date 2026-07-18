@@ -6,6 +6,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from censorr.config.load import load_config
 from censorr.config.schema import ResolvedConfig
 from censorr.naming.plex import classify
 from censorr.pipeline import retention
@@ -53,6 +54,7 @@ class Worker:
         cfg: ResolvedConfig,
         *,
         worker_id: str | None = None,
+        config_path: Path | None = None,
         on_stage: Callable[[str, PipelineContext], None] | None = None,
     ) -> None:
         # on_stage: test-only failure-injection hook, called after each
@@ -60,6 +62,7 @@ class Worker:
         # failure injection -- e.g. swapping the source file mid-job).
         self.cfg = cfg
         self.worker_id = worker_id or f"{socket.gethostname()}-{os.getpid()}"
+        self._config_path = config_path
         self._on_stage = on_stage
         self.queue = FileJobQueue(
             cfg.service.queue_path,
@@ -67,6 +70,17 @@ class Worker:
             lease_seconds=cfg.service.lease_seconds,
         )
         self._last_gc = 0.0
+
+    def _cfg_for_job(self, job: Job) -> ResolvedConfig:
+        """Re-resolve config with the job's preset overlay (R8 preset
+        precedence lands here -- the API only decides the preset *name*).
+        An unknown preset is a deterministic bad-payload error."""
+        if not job.preset:
+            return self.cfg
+        try:
+            return load_config(config_path=self._config_path, preset=job.preset)
+        except KeyError as exc:
+            raise JobValidationError(f"unknown preset: {job.preset!r}") from exc
 
     def _maybe_gc(self) -> None:
         now = time.monotonic()
@@ -108,7 +122,7 @@ class Worker:
             result=JobResult(status=status, reason=reason, mode="none"),
         )
 
-    def _precheck(self, claimed: ClaimedJob) -> bool:
+    def _precheck(self, claimed: ClaimedJob, job_cfg: ResolvedConfig) -> bool:
         """Worker-side existence + fingerprint checks (R9/R10). Returns True
         when the job was already completed without running the pipeline."""
         job = claimed.entry.job
@@ -116,9 +130,9 @@ class Worker:
             self._complete_without_running(claimed, "ignored", "missing_source")
             return True
         if not job.force:
-            wordlist = resolve_wordlist(self.cfg)
+            wordlist = resolve_wordlist(job_cfg)
             media_type = classify(job.source, job.media_type_hint)
-            skip, _plan = check_skip(job.source, media_type, cfg=self.cfg, wordlist=wordlist)
+            skip, _plan = check_skip(job.source, media_type, cfg=job_cfg, wordlist=wordlist)
             if skip:
                 self._complete_without_running(claimed, "skipped", "fingerprint_match")
                 return True
@@ -126,7 +140,16 @@ class Worker:
 
     def _process(self, claimed: ClaimedJob) -> None:
         job = claimed.entry.job
-        if self._precheck(claimed):
+        try:
+            job_cfg = self._cfg_for_job(job)
+        except JobValidationError as exc:
+            error = JobErrorInfo(kind=type(exc).__name__, message=str(exc))
+            self.queue.fail(
+                claimed, {"kind": error.kind, "message": error.message}, retryable=False
+            )
+            self._record(job, JobStatus.FAILED, error=error)
+            return
+        if self._precheck(claimed, job_cfg):
             return
 
         stat = job.source.stat()
@@ -151,7 +174,7 @@ class Worker:
             if self._on_stage is not None:
                 self._on_stage(stage_name, ctx)
 
-        ctx = PipelineContext(job=job, cfg=self.cfg)
+        ctx = PipelineContext(job=job, cfg=job_cfg)
         try:
             ctx = run_pipeline(ctx, workdir, on_progress=on_progress, stage_sequence=stages)
         except CensorrError as exc:

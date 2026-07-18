@@ -207,13 +207,28 @@ def work(
     from censorr.service.worker import Worker
 
     cfg = load_config(config_path=config)
-    worker = Worker(cfg)
+    worker = Worker(cfg, config_path=config)
     typer.echo(f"worker {worker.worker_id} polling {cfg.service.queue_path}")
     if once:
         claimed = worker.run_once()
         typer.echo("processed one job" if claimed else "queue empty")
         return
     worker.run_forever(poll_interval_s=poll_interval)
+
+
+@app.command()
+def serve(
+    config: Path | None = typer.Option(None, "--config"),
+    host: str = typer.Option("0.0.0.0", "--host"),  # noqa: S104 -- container-facing bind
+    port: int = typer.Option(8000, "--port"),
+) -> None:
+    """Run the FastAPI service (webhooks + jobs API). Requires censorr[serve]."""
+    import uvicorn
+
+    from censorr.service.app import create_app
+
+    cfg = load_config(config_path=config)
+    uvicorn.run(create_app(cfg), host=host, port=port)
 
 
 if __name__ == "__main__":

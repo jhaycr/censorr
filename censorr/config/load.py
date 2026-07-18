@@ -55,4 +55,5 @@ def load_config(
         merged = deep_merge(merged, overrides)
 
     merged["preset"] = preset
+    merged["preset_names"] = sorted(presets.keys())
     return ResolvedConfig.model_validate(merged)

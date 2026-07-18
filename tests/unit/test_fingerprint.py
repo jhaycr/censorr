@@ -42,6 +42,15 @@ def test_different_settings_changes_fingerprint() -> None:
     assert compute_fingerprint(**kwargs) != compute_fingerprint(**other)
 
 
+def test_service_settings_do_not_change_fingerprint() -> None:
+    # Queue paths/TTLs can't affect output content -- moving the queue
+    # directory must not force a full-library reprocess.
+    kwargs = base_kwargs()
+    other = {**kwargs, "cfg": ResolvedConfig(service={"queue_path": "/elsewhere/queue"})}
+
+    assert compute_fingerprint(**kwargs) == compute_fingerprint(**other)
+
+
 def test_different_wordlist_content_changes_fingerprint() -> None:
     kwargs = base_kwargs()
     other = {**kwargs, "wordlist": WordList(words=[Word(word="shit")])}

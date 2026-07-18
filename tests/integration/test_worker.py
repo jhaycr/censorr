@@ -49,7 +49,10 @@ def test_worker_processes_job_end_to_end(tmp_path: Path) -> None:
     assert record["progress"] == 1.0
     assert record["result"]["status"] == "ok"
 
-    output = source.with_name("Test Movie (2024) {edition-Censorr}.mkv")
+    output = (
+        tmp_path / "src-clean" / "Test Movie (2024)"
+        / "Test Movie (2024) {edition-Censorr}.mkv"
+    )
     assert output.is_file()
     # Workdir cleaned on success (R11).
     assert not (cfg.service.queue_path / "workdirs" / job_id).exists()
@@ -106,7 +109,10 @@ def test_mid_job_source_swap_fails_transient_then_succeeds_on_retry(tmp_path: Pa
     assert record["error"]["kind"] == "TransientError"
 
     # No partial file in the library.
-    output = source.with_name("Test Movie (2024) {edition-Censorr}.mkv")
+    output = (
+        tmp_path / "src-clean" / "Test Movie (2024)"
+        / "Test Movie (2024) {edition-Censorr}.mkv"
+    )
     assert not output.exists()
 
     # Retry with an honest worker: sees the new mtime, succeeds.

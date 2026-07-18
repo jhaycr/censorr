@@ -29,76 +29,108 @@ class TestClassify:
         assert classify(Path("Test Movie (2024).mkv"), None) == MediaType.MOVIE
 
 
+SOURCE_MOVIE = Path("/media/movies/Test Movie (2024)/Test Movie (2024).mkv")
+CLEAN_MOVIE_DIR = Path("/media/movies-clean/Test Movie (2024)")
+
+
 class TestMovieNaming:
-    """Golden table: movie x edition present (combine) / no year / invariant."""
+    """Golden table: movie x edition present (combine) / no year / clean-root
+    (Q18: derived <movies-root>-clean, explicit override, shallow refusal) /
+    invariant."""
 
     def test_year_present_no_existing_edition(self) -> None:
         cfg = NamingConfig()
-        plan = plan_names(Path("/movies/Test Movie (2024).mkv"), MediaType.MOVIE, cfg)
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg)
 
-        assert plan.video_path == Path("/movies/Test Movie (2024) {edition-Censorr}.mkv")
+        assert plan.video_path == CLEAN_MOVIE_DIR / "Test Movie (2024) {edition-Censorr}.mkv"
         assert plan.edition_tag_applied == "Censorr"
 
     def test_edition_tag_inserted_before_quality_tokens(self) -> None:
         cfg = NamingConfig()
-        plan = plan_names(Path("/movies/Test Movie (2024) 1080p.mkv"), MediaType.MOVIE, cfg)
+        source = SOURCE_MOVIE.with_name("Test Movie (2024) 1080p.mkv")
+        plan = plan_names(source, MediaType.MOVIE, cfg)
 
-        assert plan.video_path == Path("/movies/Test Movie (2024) {edition-Censorr} 1080p.mkv")
+        assert plan.video_path == (
+            CLEAN_MOVIE_DIR / "Test Movie (2024) {edition-Censorr} 1080p.mkv"
+        )
 
     def test_no_year_appends_tag_before_extension(self) -> None:
         cfg = NamingConfig()
-        plan = plan_names(Path("/movies/Test Movie.mkv"), MediaType.MOVIE, cfg)
+        source = SOURCE_MOVIE.with_name("Test Movie.mkv")
+        plan = plan_names(source, MediaType.MOVIE, cfg)
 
-        assert plan.video_path == Path("/movies/Test Movie {edition-Censorr}.mkv")
+        assert plan.video_path == CLEAN_MOVIE_DIR / "Test Movie {edition-Censorr}.mkv"
 
     def test_existing_edition_tag_combines(self) -> None:
         cfg = NamingConfig()
-        source = Path("/movies/Test Movie (2024) {edition-Director's Cut}.mkv")
+        source = SOURCE_MOVIE.with_name("Test Movie (2024) {edition-Director's Cut}.mkv")
         plan = plan_names(source, MediaType.MOVIE, cfg)
 
-        assert plan.video_path == Path(
-            "/movies/Test Movie (2024) {edition-Director's Cut Censorr}.mkv"
+        assert plan.video_path == (
+            CLEAN_MOVIE_DIR / "Test Movie (2024) {edition-Director's Cut Censorr}.mkv"
         )
         assert plan.edition_tag_applied == "Director's Cut Censorr"
 
     def test_custom_edition_tag_from_config(self) -> None:
         cfg = NamingConfig(edition_tag="Clean")
-        plan = plan_names(Path("/movies/Test Movie (2024).mkv"), MediaType.MOVIE, cfg)
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg)
 
-        assert plan.video_path == Path("/movies/Test Movie (2024) {edition-Clean}.mkv")
+        assert plan.video_path == CLEAN_MOVIE_DIR / "Test Movie (2024) {edition-Clean}.mkv"
+
+    def test_explicit_movie_clean_root_overrides_derivation(self) -> None:
+        cfg = NamingConfig(movie_clean_root=Path("/mnt/family-safe-movies"))
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg)
+
+        assert plan.video_path == Path(
+            "/mnt/family-safe-movies/Test Movie (2024)/Test Movie (2024) {edition-Censorr}.mkv"
+        )
+
+    def test_flat_source_too_shallow_to_derive_raises(self) -> None:
+        cfg = NamingConfig()
+
+        with pytest.raises(JobValidationError):
+            plan_names(Path("/Test Movie (2024).mkv"), MediaType.MOVIE, cfg)
 
     def test_output_never_equals_source(self) -> None:
         cfg = NamingConfig()
-        source = Path("/movies/Test Movie (2024).mkv")
-        plan = plan_names(source, MediaType.MOVIE, cfg)
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg)
 
-        assert plan.video_path != source
+        assert plan.video_path != SOURCE_MOVIE
+
+    def test_misconfigured_clean_root_colliding_with_source_never_clobbers(self) -> None:
+        # Even pointing movie_clean_root back at the source tree can't
+        # produce output == source: the filename always differs by the
+        # edition tag. The structural invariant still guards the path.
+        cfg = NamingConfig(movie_clean_root=Path("/media/movies"))
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg)
+
+        assert plan.video_path != SOURCE_MOVIE
 
     def test_no_sidecar_by_default(self) -> None:
         cfg = NamingConfig()
-        plan = plan_names(Path("/movies/Test Movie (2024).mkv"), MediaType.MOVIE, cfg)
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg)
 
         assert plan.sidecar_paths == []
 
     def test_sidecar_with_custom_token(self) -> None:
         cfg = NamingConfig(write_sidecar=True, sidecar_token="censorr")  # noqa: S106
-        source = Path("/movies/Test Movie (2024).mkv")
-        plan = plan_names(source, MediaType.MOVIE, cfg, language="en")
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg, language="en")
 
         assert plan.sidecar_paths == [
-            Path("/movies/Test Movie (2024) {edition-Censorr}.en.censorr.srt")
+            CLEAN_MOVIE_DIR / "Test Movie (2024) {edition-Censorr}.en.censorr.srt"
         ]
 
     def test_sidecar_pure_plex_spec_when_token_empty(self) -> None:
         cfg = NamingConfig(write_sidecar=True, sidecar_token="")
-        source = Path("/movies/Test Movie (2024).mkv")
-        plan = plan_names(source, MediaType.MOVIE, cfg, language="en")
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg, language="en")
 
-        assert plan.sidecar_paths == [Path("/movies/Test Movie (2024) {edition-Censorr}.en.srt")]
+        assert plan.sidecar_paths == [
+            CLEAN_MOVIE_DIR / "Test Movie (2024) {edition-Censorr}.en.srt"
+        ]
 
     def test_track_titles_set(self) -> None:
         cfg = NamingConfig()
-        plan = plan_names(Path("/movies/Test Movie (2024).mkv"), MediaType.MOVIE, cfg)
+        plan = plan_names(SOURCE_MOVIE, MediaType.MOVIE, cfg)
 
         assert plan.track_titles == {
             "audio": "English (Censored)",

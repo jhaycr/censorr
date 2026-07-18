@@ -75,19 +75,20 @@ def _strip_censorr_from_edition(name: str, edition_tag: str) -> str | None:
 
 
 def derive_source_for_output(output: Path, clean_root: Path, cfg: ResolvedConfig) -> Path | None:
-    """Best-effort reverse of plan_names. Movie outputs sit beside their
-    source (strip the Censorr edition tag); episode outputs mirror a source
-    root derived by removing the clean root's `-clean` suffix. None when no
-    reverse mapping exists -- reconcile must then leave the file alone."""
+    """Best-effort reverse of plan_names (Q18: movies and episodes both
+    live under a clean root). The source root comes from removing the
+    clean root's `-clean` suffix; movie outputs additionally strip the
+    Censorr edition tag from the filename. None when no reverse mapping
+    exists -- reconcile must then leave the file alone."""
+    if not clean_root.name.endswith("-clean"):
+        return None
+    source_root = clean_root.with_name(clean_root.name[: -len("-clean")])
+    candidate = source_root / output.relative_to(clean_root)
+
     source_name = _strip_censorr_from_edition(output.name, cfg.naming.edition_tag)
     if source_name is not None:
-        return output.with_name(source_name)
-
-    if clean_root.name.endswith("-clean"):
-        source_root = clean_root.with_name(clean_root.name[: -len("-clean")])
-        return source_root / output.relative_to(clean_root)
-
-    return None
+        return candidate.with_name(source_name)
+    return candidate
 
 
 def find_orphaned_outputs(clean_root: Path, cfg: ResolvedConfig) -> list[Path]:

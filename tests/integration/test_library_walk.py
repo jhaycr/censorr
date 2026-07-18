@@ -15,7 +15,8 @@ cli_runner = CliRunner()
 
 def build_tree(tmp_path: Path) -> dict[str, Path]:
     """A library with: an unprocessed source, a processed pair (source +
-    published output), a Plex extra, a sample file, and an orphaned output.
+    published clean-root output), a Plex extra, a sample file, and an
+    orphaned clean-root output (Q18: outputs live under <movies-root>-clean).
     """
     root = tmp_path / "library"
 
@@ -26,7 +27,10 @@ def build_tree(tmp_path: Path) -> dict[str, Path]:
     cfg_path.write_text(f'[service]\nqueue_path = "{tmp_path / "queue"}"\n')
     result = cli_runner.invoke(app, ["process", str(processed_src), "--config", str(cfg_path)])
     assert result.exit_code == 0, result.stdout
-    processed_out = processed_src.with_name("Test Movie (2024) {edition-Censorr}.mkv")
+    processed_out = (
+        root / "processed-clean" / "Test Movie (2024)"
+        / "Test Movie (2024) {edition-Censorr}.mkv"
+    )
     assert processed_out.is_file()
 
     trailer_dir = root / "unprocessed" / "Test Movie (2024)" / "Trailers"
@@ -37,11 +41,13 @@ def build_tree(tmp_path: Path) -> dict[str, Path]:
     sample.write_bytes(unprocessed.read_bytes())
 
     # Orphan: a published output whose source was later deleted.
-    orphan_dir = root / "orphan"
-    orphan_src = build_movie_fixture(orphan_dir, duration=90.0)
+    orphan_src = build_movie_fixture(root / "orphan", duration=90.0)
     result = cli_runner.invoke(app, ["process", str(orphan_src), "--config", str(cfg_path)])
     assert result.exit_code == 0, result.stdout
-    orphan_out = orphan_src.with_name("Test Movie (2024) {edition-Censorr}.mkv")
+    orphan_out = (
+        root / "orphan-clean" / "Test Movie (2024)" / "Test Movie (2024) {edition-Censorr}.mkv"
+    )
+    assert orphan_out.is_file()
     orphan_src.unlink()
 
     return {
@@ -78,19 +84,23 @@ def test_reprocess_and_reconcile_touch_exactly_the_right_sets(tmp_path: Path) ->
     assert str(tree["unprocessed"]) in result.stdout
     assert str(tree["processed_src"]) not in result.stdout
 
-    # --- reconcile: exactly the orphan
-    orphans = find_orphaned_outputs(tree["root"], cfg)
+    # --- reconcile: the orphan-clean root holds exactly one orphan
+    orphan_clean_root = tree["root"] / "orphan-clean"
+    orphans = find_orphaned_outputs(orphan_clean_root, cfg)
     assert orphans == [tree["orphan_out"]]
+    # ...and the processed-clean root holds none (its source still exists).
+    assert find_orphaned_outputs(tree["root"] / "processed-clean", cfg) == []
 
     dry = cli_runner.invoke(
-        app, ["reconcile", str(tree["root"]), "--config", str(tree["cfg_path"]), "--dry-run"]
+        app,
+        ["reconcile", str(orphan_clean_root), "--config", str(tree["cfg_path"]), "--dry-run"],
     )
     assert dry.exit_code == 0
     assert str(tree["orphan_out"]) in dry.stdout
     assert tree["orphan_out"].is_file()  # dry-run deletes nothing
 
     real = cli_runner.invoke(
-        app, ["reconcile", str(tree["root"]), "--config", str(tree["cfg_path"])]
+        app, ["reconcile", str(orphan_clean_root), "--config", str(tree["cfg_path"])]
     )
     assert real.exit_code == 0
     assert not tree["orphan_out"].exists()
@@ -107,7 +117,12 @@ def test_reprocess_processes_stale_files_for_real(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert "published" in result.stdout
-    assert source.with_name("Test Movie (2024) {edition-Censorr}.mkv").is_file()
+    expected = (
+        tmp_path / "library-clean" / "Test Movie (2024)"
+        / "Test Movie (2024) {edition-Censorr}.mkv"
+    )
+    assert expected.is_file()
+    assert source.is_file()
 
     # Second run: everything fingerprint-fresh -> empty worklist.
     rerun = cli_runner.invoke(

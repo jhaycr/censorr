@@ -38,13 +38,14 @@ class TestStripCensorrFromEdition:
 
 
 class TestDeriveSourceForOutput:
-    def test_movie_output_maps_to_sibling_source(self) -> None:
+    def test_movie_output_maps_through_clean_suffix_and_tag_strip(self) -> None:
         cfg = ResolvedConfig()
-        output = Path("/movies/Test Movie (2024)/Test Movie (2024) {edition-Censorr}.mkv")
+        clean_root = Path("/media/movies-clean")
+        output = clean_root / "Test Movie (2024)" / "Test Movie (2024) {edition-Censorr}.mkv"
 
-        source = derive_source_for_output(output, Path("/movies"), cfg)
+        source = derive_source_for_output(output, clean_root, cfg)
 
-        assert source == Path("/movies/Test Movie (2024)/Test Movie (2024).mkv")
+        assert source == Path("/media/movies/Test Movie (2024)/Test Movie (2024).mkv")
 
     def test_episode_output_maps_through_clean_suffix(self) -> None:
         cfg = ResolvedConfig()
@@ -57,7 +58,8 @@ class TestDeriveSourceForOutput:
 
     def test_underivable_mapping_returns_none(self) -> None:
         cfg = ResolvedConfig()
-        # No edition tag and the clean root has no -clean suffix.
+        # The clean root has no -clean suffix (explicitly configured
+        # elsewhere) -- no reverse mapping, never treated as orphan.
         clean_root = Path("/data/media/familysafe")
         output = clean_root / "Show" / "Season 01" / "Show - s01e01.mkv"
 

@@ -21,12 +21,15 @@ def compute_fingerprint(
 ) -> str:
     """R10: source identity (size+mtime) + resolved settings + wordlist
     content hash + app version. `source_path` is deliberately excluded so
-    host-vs-container path views agree.
+    host-vs-container path views agree; so are `service` settings and
+    `preset_names` -- queue paths/TTLs/defined-preset lists can't affect
+    output content, and including them would force a pointless full-library
+    reprocess after e.g. moving the queue directory.
     """
     payload = {
         "source_size": source_size,
         "source_mtime": source_mtime,
-        "settings": cfg.model_dump(mode="json"),
+        "settings": cfg.model_dump(mode="json", exclude={"service", "preset_names"}),
         "wordlist_content_hash": wordlist.content_hash,
         "app_version": __version__,
     }

@@ -33,6 +33,7 @@ class NamingConfig(SectionModel):
     write_sidecar: bool = False
     sidecar_token: str = "censorr"  # noqa: S105 -- filename token, not a credential
     tv_clean_root: Path | None = None
+    movie_clean_root: Path | None = None
 
 
 class BehaviorConfig(SectionModel):
@@ -59,6 +60,9 @@ class ServiceConfig(SectionModel):
     failed_ttl_days: int = 7
     record_ttl_days: int = 30
     path_map: dict[str, str] = {}
+    # Q18: only Arr items carrying one of these tags are processed by the
+    # webhooks; empty list disables gating. CLI/POST /jobs are never gated.
+    require_tags: list[str] = ["censorr"]
 
 
 # Dotted paths (within the merged preset/file dict) resolved against the
@@ -66,6 +70,7 @@ class ServiceConfig(SectionModel):
 RELATIVE_PATH_FIELDS = (
     ("detect", "wordlist"),
     ("naming", "tv_clean_root"),
+    ("naming", "movie_clean_root"),
     ("service", "queue_path"),
 )
 
@@ -84,3 +89,4 @@ class ResolvedConfig(BaseModel):
     service: ServiceConfig = ServiceConfig()
     arr_tag_presets: dict[str, str] = {}
     preset: str | None = None
+    preset_names: list[str] = []

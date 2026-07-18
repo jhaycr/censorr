@@ -45,6 +45,22 @@ def _parse_existing_edition(stem: str) -> tuple[str, str | None]:
     return base, match.group(1)
 
 
+def derive_movie_clean_root(source: Path) -> Path:
+    """Q18 (mirrors R5's tv derivation): the movie's own folder is the
+    file's parent, the movies library root is its parent, clean root =
+    <root>-clean. Sources sitting flat in the library root (no per-movie
+    folder) can't be derived -- set naming.movie_clean_root explicitly.
+    """
+    movie_dir = source.parent
+    root = movie_dir.parent
+    if not root.name:
+        raise JobValidationError(
+            f"source path too shallow to derive a movie clean root: {source} "
+            "(set naming.movie_clean_root explicitly)"
+        )
+    return root.with_name(root.name + "-clean")
+
+
 def _plan_movie(source: Path, cfg: NamingConfig, language: str) -> NamingPlan:
     base_stem, existing_edition = _parse_existing_edition(source.stem)
     # Plex allows one edition tag; combine so both facts survive (R4).
@@ -58,7 +74,11 @@ def _plan_movie(source: Path, cfg: NamingConfig, language: str) -> NamingPlan:
         new_stem = f"{base_stem} {{edition-{tag_content}}}"
     new_stem = re.sub(r"\s+", " ", new_stem).strip()
 
-    video_path = source.with_name(f"{new_stem}{source.suffix}")
+    # Q18: movies land in a separate clean root (own-folder structure
+    # mirrored) so a separate Plex library can gate access -- same-folder
+    # editions are viewer-selectable and restrict nothing.
+    clean_root = cfg.movie_clean_root or derive_movie_clean_root(source)
+    video_path = clean_root / source.parent.name / f"{new_stem}{source.suffix}"
     if video_path == source:
         raise JobValidationError(f"planned output path equals source path: {source}")
 
