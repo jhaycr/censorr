@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from censorr.audio.qc import WindowMeasurement
 from censorr.audio.windows import MuteWindow
 from censorr.config.schema import ResolvedConfig
 from censorr.detect.matcher import Match
@@ -10,7 +11,25 @@ from censorr.media.probe import MediaInfo
 from censorr.naming.models import NamingPlan
 from censorr.pipeline.job import Job
 from censorr.subtitles.io import SubtitleDoc
+from censorr.subtitles.qc import MaskedWordAudit
 from censorr.subtitles.select import TrackSelection
+
+
+class QCReport(BaseModel):
+    """Symmetric QC (R14): guards against under- and over-censoring."""
+
+    subtitle_residuals: list[Match] = []
+    audio_windows: list[WindowMeasurement] = []
+    mute_ratio: float = 0.0
+    max_window_s: float = 0.0
+    matched_entry_ratio: float = 0.0
+    masked_entry_ratio: float = 0.0
+    masked_words: list[MaskedWordAudit] = []
+    control_audio_ok: bool = True
+    duration_delta_s: float = 0.0
+    unmasked_text_identical: bool = True
+    passed: bool
+    warnings: list[str] = []
 
 
 class PipelineContext(BaseModel):
@@ -34,3 +53,4 @@ class PipelineContext(BaseModel):
     captions_doc: SubtitleDoc | None = None
     naming_plan: NamingPlan | None = None
     temp_output: Path | None = None
+    qc_report: QCReport | None = None

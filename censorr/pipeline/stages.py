@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
+from censorr.audio import qc as audio_qc
 from censorr.audio.windows import AudioSettings, EntrySpanProvider
 from censorr.config.schema import ResolvedConfig
 from censorr.detect.matcher import Matcher
@@ -9,12 +10,16 @@ from censorr.media.ffmpeg import RemuxPlan, extract_subtitle_stream, resolve_aud
 from censorr.media.ffmpeg import remux as ffmpeg_remux
 from censorr.media.probe import probe as probe_media
 from censorr.naming.plex import classify, plan_names
-from censorr.pipeline.context import PipelineContext
+from censorr.pipeline.context import PipelineContext, QCReport
+from censorr.pipeline.errors import QCError
 from censorr.pipeline.fingerprint import fingerprint_for_source
+from censorr.subtitles import qc as subtitle_qc
 from censorr.subtitles.io import load as load_subtitle_doc
 from censorr.subtitles.io import save as save_subtitle_doc
 from censorr.subtitles.mask import mask_entries
 from censorr.subtitles.select import select_tracks
+
+DURATION_PARITY_TOLERANCE_S = 2.0
 
 
 def _resolve_wordlist(cfg: ResolvedConfig) -> WordList:
@@ -167,3 +172,90 @@ def remux_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
     )
     temp_output = ffmpeg_remux(plan)
     return ctx.model_copy(update={"temp_output": temp_output})
+
+
+def verify_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
+    """R14 symmetric QC: guards against under- *and* over-censoring.
+    Audio QC is skipped in clean/subtitles_only modes (nothing was muted).
+    Raises QCError unless the matching continue_on_* flag bypasses it.
+    """
+    if ctx.outcome is not None:
+        return ctx
+    assert ctx.temp_output is not None, "verify requires a temp_output from remux"
+    assert ctx.subtitle_doc is not None, "verify requires a subtitle_doc"
+    assert ctx.masked_doc is not None, "verify requires a masked_doc"
+    assert ctx.media_info is not None, "verify requires media_info"
+
+    wordlist = _resolve_wordlist(ctx.cfg)
+    matcher = Matcher(wordlist, similarity_threshold=ctx.cfg.detect.fuzzy_threshold)
+    sub_result = subtitle_qc.audit(ctx.subtitle_doc, ctx.masked_doc, ctx.matches, matcher)
+
+    total_entries = len(ctx.subtitle_doc.entries)
+    matched_entry_ratio = len(ctx.matches) / total_entries if total_entries else 0.0
+
+    warnings: list[str] = []
+    if matched_entry_ratio > ctx.cfg.qc.warn_matched_entry_ratio:
+        warnings.append(
+            f"matched-entry ratio {matched_entry_ratio:.2%} exceeds warn threshold "
+            f"{ctx.cfg.qc.warn_matched_entry_ratio:.2%}"
+        )
+    if sub_result.masked_entry_ratio > ctx.cfg.qc.warn_masked_entry_ratio:
+        warnings.append(
+            f"masked-entry ratio {sub_result.masked_entry_ratio:.2%} exceeds warn threshold "
+            f"{ctx.cfg.qc.warn_masked_entry_ratio:.2%}"
+        )
+
+    audio_result: audio_qc.AudioQCResult | None = None
+    if ctx.mode == "full":
+        audio_result = audio_qc.audit(
+            ctx.temp_output,
+            ctx.windows,
+            ctx.media_info.duration_s,
+            audio_min_drop_db=ctx.cfg.qc.audio_min_drop_db,
+            max_mute_ratio=ctx.cfg.qc.max_mute_ratio,
+            max_window_s=ctx.cfg.qc.max_window_s,
+        )
+
+    output_duration = probe_media(ctx.temp_output).duration_s
+    duration_delta_s = abs(output_duration - ctx.media_info.duration_s)
+    duration_violation = duration_delta_s > DURATION_PARITY_TOLERANCE_S
+
+    subtitle_hard_fail = (
+        bool(sub_result.violations) and not ctx.cfg.qc.continue_on_subtitle_qc_fail
+    )
+    audio_hard_fail = (
+        bool(audio_result and audio_result.violations) and not ctx.cfg.qc.continue_on_audio_qc_fail
+    )
+    passed = not (subtitle_hard_fail or audio_hard_fail or duration_violation)
+
+    all_messages = list(warnings)
+    all_messages += sub_result.violations
+    if audio_result is not None:
+        all_messages += audio_result.violations
+    if duration_violation:
+        all_messages.append(
+            f"output duration diverged from source by {duration_delta_s:.2f}s "
+            f"(tolerance {DURATION_PARITY_TOLERANCE_S:.2f}s)"
+        )
+
+    report = QCReport(
+        subtitle_residuals=sub_result.residual_matches,
+        audio_windows=audio_result.window_measurements if audio_result else [],
+        mute_ratio=audio_result.mute_ratio if audio_result else 0.0,
+        max_window_s=audio_result.max_window_s if audio_result else 0.0,
+        matched_entry_ratio=matched_entry_ratio,
+        masked_entry_ratio=sub_result.masked_entry_ratio,
+        masked_words=sub_result.masked_words,
+        control_audio_ok=audio_result.control_audio_ok if audio_result else True,
+        duration_delta_s=duration_delta_s,
+        unmasked_text_identical=sub_result.unmasked_text_identical,
+        passed=passed,
+        warnings=all_messages,
+    )
+    (workdir / "qc_report.json").write_text(report.model_dump_json(indent=2))
+
+    if not passed:
+        reason = "; ".join(all_messages) or "see qc_report.json"
+        raise QCError(f"QC failed for {ctx.job.source}: {reason}")
+
+    return ctx.model_copy(update={"qc_report": report})

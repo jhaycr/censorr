@@ -8,15 +8,20 @@ from censorr.config.schema import ResolvedConfig
 from censorr.media.probe import probe
 from censorr.pipeline.context import PipelineContext
 from censorr.pipeline.job import Job
-from censorr.pipeline.runner import run_pipeline
+from censorr.pipeline.runner import REMUX_STAGES, run_pipeline
 
 pytestmark = pytest.mark.ffmpeg
 
 
 def run_full(source: Path, tmp_path: Path, cfg: ResolvedConfig | None = None) -> PipelineContext:
+    """Runs through remux but not verify -- these tests check remux
+    mechanics (track layout, codecs, muting), not QC gating (Step 10's
+    own tests in test_qc.py cover that; the dense synthetic fixtures used
+    here legitimately trip QC's over-mute budget at their short duration).
+    """
     job = Job(id=str(uuid4()), source=source, submitted_by="cli")
     ctx = PipelineContext(job=job, cfg=cfg or ResolvedConfig())
-    return run_pipeline(ctx, tmp_path)
+    return run_pipeline(ctx, tmp_path, stage_sequence=REMUX_STAGES)
 
 
 def mean_volume_db(path: Path, start_s: float, duration_s: float) -> float:

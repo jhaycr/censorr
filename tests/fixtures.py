@@ -245,6 +245,18 @@ def clean_movie_fixture(fixture_root: Path) -> Path:
 
 
 @pytest.fixture(scope="session")
+def qc_pass_fixture(fixture_root: Path) -> Path:
+    """Same 2 profane windows as movie_fixture but a much longer runtime,
+    so the mute ratio stays within the default 5% QC budget -- movie_fixture
+    itself (15s, ~22% mute ratio) legitimately fails that budget and is used
+    for over-mute-budget QC failure tests instead.
+    """
+    qc_root = fixture_root / "qc_pass"
+    qc_root.mkdir(exist_ok=True)
+    return build_movie_fixture(qc_root, duration=90.0)
+
+
+@pytest.fixture(scope="session")
 def episode_fixture(fixture_root: Path) -> Path:
     return build_episode_fixture(fixture_root)
 

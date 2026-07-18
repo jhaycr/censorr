@@ -49,8 +49,17 @@ def test_process_dry_run_happy_path(movie_fixture: Path) -> None:
 
 
 @pytest.mark.ffmpeg
-def test_process_without_dry_run_remuxes_for_real(movie_fixture: Path) -> None:
-    result = runner.invoke(app, ["process", str(movie_fixture)])
+def test_process_without_dry_run_remuxes_for_real(qc_pass_fixture: Path) -> None:
+    result = runner.invoke(app, ["process", str(qc_pass_fixture)])
 
     assert result.exit_code == 0
     assert "Temp output (not yet published)" in result.stdout
+
+
+@pytest.mark.ffmpeg
+def test_process_exits_4_on_qc_failure(movie_fixture: Path) -> None:
+    # movie_fixture's mute ratio (~22% at 15s runtime) legitimately trips
+    # the default 5% over-mute budget -- QCError -> exit code 4.
+    result = runner.invoke(app, ["process", str(movie_fixture)])
+
+    assert result.exit_code == 4

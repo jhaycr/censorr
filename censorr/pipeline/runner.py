@@ -9,7 +9,7 @@ type OnProgress = Callable[[str, PipelineContext], None]
 
 # Sequential order (design §3). PLANNING_STAGES writes nothing outside the
 # workdir (what `inspect` / `process --dry-run` run); STAGE_SEQUENCE adds
-# remux (Step 9) -- verify/publish are added in Steps 10-11.
+# remux (Step 9) + verify (Step 10) -- publish is added in Step 11.
 PLANNING_STAGES: list[tuple[str, Stage]] = [
     ("probe", stages.probe),
     ("select_tracks", stages.select_tracks_stage),
@@ -20,9 +20,14 @@ PLANNING_STAGES: list[tuple[str, Stage]] = [
     ("plan_names", stages.plan_names_stage),
 ]
 
-STAGE_SEQUENCE: list[tuple[str, Stage]] = [
+REMUX_STAGES: list[tuple[str, Stage]] = [
     *PLANNING_STAGES,
     ("remux", stages.remux_stage),
+]
+
+STAGE_SEQUENCE: list[tuple[str, Stage]] = [
+    *REMUX_STAGES,
+    ("verify", stages.verify_stage),
 ]
 
 
