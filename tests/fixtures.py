@@ -87,11 +87,15 @@ def build_movie_fixture(
     return out
 
 
-def build_episode_fixture(root: Path, duration: float = 15.0) -> Path:
+def build_episode_fixture(
+    root: Path,
+    duration: float = 15.0,
+    entries: list[tuple[float, float, str]] = PROFANITY_ENTRIES,
+) -> Path:
     """`Test Show - s01e01.mkv` under `Test Show/Season 01/`."""
     season_dir = root / "Test Show" / "Season 01"
     season_dir.mkdir(parents=True, exist_ok=True)
-    srt = write_dialogue_srt(root / "episode_dialogue.srt")
+    srt = write_dialogue_srt(root / "episode_dialogue.srt", entries=entries)
     out = season_dir / "Test Show - s01e01.mkv"
     _run_ffmpeg(
         "-f", "lavfi", "-i", f"testsrc2=duration={duration}:size=320x180:rate=10",

@@ -1,3 +1,9 @@
+import errno
+import hashlib
+import os
+import shutil
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -5,14 +11,15 @@ from censorr.audio import qc as audio_qc
 from censorr.audio.windows import AudioSettings, EntrySpanProvider
 from censorr.config.schema import ResolvedConfig
 from censorr.detect.matcher import Matcher
-from censorr.detect.wordlist import WordList, load_wordlist, merge_wordlists
 from censorr.media.ffmpeg import RemuxPlan, extract_subtitle_stream, resolve_audio_codec
 from censorr.media.ffmpeg import remux as ffmpeg_remux
 from censorr.media.probe import probe as probe_media
+from censorr.naming.models import MediaType
 from censorr.naming.plex import classify, plan_names
 from censorr.pipeline.context import PipelineContext, QCReport
-from censorr.pipeline.errors import QCError
-from censorr.pipeline.fingerprint import fingerprint_for_source
+from censorr.pipeline.errors import JobValidationError, QCError, TransientError
+from censorr.pipeline.fingerprint import fingerprint_for_source, resolve_wordlist
+from censorr.pipeline.job import JobRecord, JobResult, JobStatus
 from censorr.subtitles import qc as subtitle_qc
 from censorr.subtitles.io import load as load_subtitle_doc
 from censorr.subtitles.io import save as save_subtitle_doc
@@ -20,12 +27,6 @@ from censorr.subtitles.mask import mask_entries
 from censorr.subtitles.select import select_tracks
 
 DURATION_PARITY_TOLERANCE_S = 2.0
-
-
-def _resolve_wordlist(cfg: ResolvedConfig) -> WordList:
-    bundled = load_wordlist()
-    user = load_wordlist(cfg.detect.wordlist) if cfg.detect.wordlist else None
-    return merge_wordlists(bundled, user)
 
 
 def probe(ctx: PipelineContext, workdir: Path) -> PipelineContext:
@@ -68,6 +69,8 @@ def acquire_subtitles(ctx: PipelineContext, workdir: Path) -> PipelineContext:
     if sidecar is not None:
         return ctx.model_copy(update={"subtitle_doc": load_subtitle_doc(sidecar)})
 
+    if ctx.cfg.behavior.fail_on_no_subtitles:
+        raise JobValidationError(f"no usable text subtitles found for {ctx.job.source}")
     return ctx.model_copy(update={"outcome": "no_text_subtitles"})
 
 
@@ -76,7 +79,7 @@ def detect(ctx: PipelineContext, workdir: Path) -> PipelineContext:
         return ctx
     assert ctx.subtitle_doc is not None, "detect requires a subtitle_doc from acquire_subtitles"
 
-    wordlist = _resolve_wordlist(ctx.cfg)
+    wordlist = resolve_wordlist(ctx.cfg)
     matcher = Matcher(wordlist, similarity_threshold=ctx.cfg.detect.fuzzy_threshold)
 
     matches = {
@@ -85,8 +88,23 @@ def detect(ctx: PipelineContext, workdir: Path) -> PipelineContext:
         if (found := matcher.find_matches(entry.plaintext))
     }
 
-    mode = "clean" if not matches and ctx.mode == "full" else ctx.mode
-    return ctx.model_copy(update={"matches": matches, "mode": mode})
+    if matches or ctx.mode != "full":
+        return ctx.model_copy(update={"matches": matches, "mode": ctx.mode})
+
+    # R16 zero-match handling: TV publishes a stream-copy remux into the
+    # clean root (library stays complete); movies skip by default (no
+    # pointless full-size edition duplicate).
+    media_type = classify(ctx.job.source, ctx.job.media_type_hint)
+    policy = (
+        ctx.cfg.behavior.on_clean_movie
+        if media_type == MediaType.MOVIE
+        else ctx.cfg.behavior.on_clean_tv
+    )
+    if policy == "skip":
+        return ctx.model_copy(
+            update={"matches": matches, "mode": "clean", "outcome": "skipped_clean"}
+        )
+    return ctx.model_copy(update={"matches": matches, "mode": "clean"})
 
 
 def plan_windows(ctx: PipelineContext, workdir: Path) -> PipelineContext:
@@ -152,7 +170,7 @@ def remux_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
             audio_info.codec_name, audio_info.channels or 2, ctx.cfg.audio
         )
 
-    wordlist = _resolve_wordlist(ctx.cfg)
+    wordlist = resolve_wordlist(ctx.cfg)
     fingerprint = fingerprint_for_source(ctx.job.source, cfg=ctx.cfg, wordlist=wordlist)
 
     plan = RemuxPlan(
@@ -186,7 +204,7 @@ def verify_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
     assert ctx.masked_doc is not None, "verify requires a masked_doc"
     assert ctx.media_info is not None, "verify requires media_info"
 
-    wordlist = _resolve_wordlist(ctx.cfg)
+    wordlist = resolve_wordlist(ctx.cfg)
     matcher = Matcher(wordlist, similarity_threshold=ctx.cfg.detect.fuzzy_threshold)
     sub_result = subtitle_qc.audit(ctx.subtitle_doc, ctx.masked_doc, ctx.matches, matcher)
 
@@ -259,3 +277,101 @@ def verify_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
         raise QCError(f"QC failed for {ctx.job.source}: {reason}")
 
     return ctx.model_copy(update={"qc_report": report})
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _atomic_move(source: Path, dest: Path) -> None:
+    """Rename when possible (atomic, same filesystem); otherwise
+    copy+SHA256-verify+delete (v1's FinalDestinationManager semantics)."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.replace(source, dest)
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+        tmp_dest = dest.with_name(dest.name + ".part")
+        shutil.copy2(source, tmp_dest)
+        if _sha256(tmp_dest) != _sha256(source):
+            tmp_dest.unlink(missing_ok=True)
+            raise TransientError(f"checksum mismatch copying {source} to {dest}") from exc
+        os.replace(tmp_dest, dest)
+        source.unlink()
+
+
+def _delete_superseded_outputs(ctx: PipelineContext) -> list[Path]:
+    """R10: an Arr upgrade's deletedFiles[] are run through plan_names to
+    delete the superseded clean outputs during publish."""
+    deleted: list[Path] = []
+    if not ctx.job.deleted_files:
+        return deleted
+    media_type = classify(ctx.job.source, ctx.job.media_type_hint)
+    for deleted_source in ctx.job.deleted_files:
+        plan = plan_names(
+            deleted_source, media_type, ctx.cfg.naming, language=ctx.cfg.subtitles.language
+        )
+        for path in (plan.video_path, *plan.sidecar_paths):
+            if path.is_file():
+                path.unlink()
+                deleted.append(path)
+    return deleted
+
+
+def _write_job_record(cfg: ResolvedConfig, record: JobRecord) -> None:
+    """Best-effort: service.queue_path defaults to the container path
+    (/app/queue) and won't exist on a bare host. The job record is a
+    status-tracking convenience for the service/worker (Steps 13-14);
+    it must never block a plain CLI publish, which promises zero-config
+    operation.
+    """
+    try:
+        records_dir = cfg.service.queue_path / "records"
+        records_dir.mkdir(parents=True, exist_ok=True)
+        (records_dir / f"{record.job.id}.json").write_text(record.model_dump_json(indent=2))
+    except OSError as exc:
+        print(f"warning: could not write job record: {exc}", file=sys.stderr)
+
+
+def publish_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
+    """Atomic move temp -> final; delete superseded outputs; write the
+    sidecar only when enabled (R6); write the job record. Publish is the
+    last step -- a failed job never leaves partial files in the library.
+    """
+    if ctx.outcome is not None:
+        return ctx
+    assert ctx.temp_output is not None, "publish requires a temp_output from remux"
+    assert ctx.naming_plan is not None, "publish requires a naming_plan"
+
+    _delete_superseded_outputs(ctx)
+
+    _atomic_move(ctx.temp_output, ctx.naming_plan.video_path)
+
+    outputs = [ctx.naming_plan.video_path]
+    if ctx.cfg.naming.write_sidecar and ctx.masked_doc is not None:
+        for sidecar_path in ctx.naming_plan.sidecar_paths:
+            save_subtitle_doc(ctx.masked_doc, sidecar_path)
+            outputs.append(sidecar_path)
+
+    wordlist = resolve_wordlist(ctx.cfg)
+    fingerprint = fingerprint_for_source(ctx.job.source, cfg=ctx.cfg, wordlist=wordlist)
+    now = datetime.now(UTC)
+    record = JobRecord(
+        job=ctx.job,
+        status=JobStatus.DONE,
+        result=JobResult(status="ok", mode=ctx.mode, outputs=outputs),
+        stage="publish",
+        progress=1.0,
+        fingerprint=fingerprint,
+        created_at=now,
+        started_at=now,
+        finished_at=now,
+    )
+    _write_job_record(ctx.cfg, record)
+
+    return ctx

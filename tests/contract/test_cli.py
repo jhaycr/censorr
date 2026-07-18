@@ -49,11 +49,11 @@ def test_process_dry_run_happy_path(movie_fixture: Path) -> None:
 
 
 @pytest.mark.ffmpeg
-def test_process_without_dry_run_remuxes_for_real(qc_pass_fixture: Path) -> None:
+def test_process_without_dry_run_publishes_for_real(qc_pass_fixture: Path) -> None:
     result = runner.invoke(app, ["process", str(qc_pass_fixture)])
 
     assert result.exit_code == 0
-    assert "Temp output (not yet published)" in result.stdout
+    assert "Published:" in result.stdout
 
 
 @pytest.mark.ffmpeg

@@ -77,7 +77,11 @@ def test_all_silent_audio_trips_control_integrity(movie_fixture: Path, tmp_path:
 
 
 def test_qc_skipped_appropriately_in_clean_mode(clean_movie_fixture: Path, tmp_path: Path) -> None:
-    ctx = run_full(clean_movie_fixture, tmp_path)
+    # Force the R16 skip policy off so the clean movie still runs through
+    # verify -- this test is about QC's own behavior in "clean" mode, not
+    # the on_clean_movie policy (Step 11 has dedicated tests for that).
+    cfg = ResolvedConfig(behavior={"on_clean_movie": "publish"})
+    ctx = run_full(clean_movie_fixture, tmp_path, cfg=cfg)
 
     assert ctx.mode == "clean"
     assert ctx.qc_report is not None

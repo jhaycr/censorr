@@ -29,8 +29,22 @@ def test_happy_path_has_matches_and_full_mode(movie_fixture: Path, tmp_path: Pat
     assert ctx.naming_plan.video_path != movie_fixture
 
 
-def test_clean_fixture_produces_clean_mode(clean_movie_fixture: Path, tmp_path: Path) -> None:
+def test_clean_movie_fixture_skips_by_default(clean_movie_fixture: Path, tmp_path: Path) -> None:
+    # R16 default: a clean movie skips (no pointless full-size edition
+    # duplicate) -- on_clean_movie="skip" is the ResolvedConfig default.
     ctx = run_inspect(clean_movie_fixture, tmp_path)
+
+    assert ctx.outcome == "skipped_clean"
+    assert ctx.mode == "clean"
+    assert ctx.matches == {}
+
+
+def test_clean_movie_fixture_publishes_when_configured(
+    clean_movie_fixture: Path, tmp_path: Path
+) -> None:
+    cfg = ResolvedConfig(behavior={"on_clean_movie": "publish"})
+
+    ctx = run_inspect(clean_movie_fixture, tmp_path, cfg=cfg)
 
     assert ctx.outcome is None
     assert ctx.mode == "clean"

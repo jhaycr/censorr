@@ -21,6 +21,7 @@ class MediaInfo(BaseModel):
     path: Path
     duration_s: float
     streams: list[StreamInfo]
+    format_tags: dict[str, str] = {}
 
     def video_streams(self) -> list[StreamInfo]:
         return [s for s in self.streams if s.codec_type == "video"]
@@ -49,7 +50,8 @@ def probe(path: Path) -> MediaInfo:
     data = json.loads(result.stdout)
     streams = [_parse_stream(s) for s in data.get("streams", [])]
     duration_s = float(data["format"]["duration"])
-    return MediaInfo(path=path, duration_s=duration_s, streams=streams)
+    format_tags = data["format"].get("tags", {})
+    return MediaInfo(path=path, duration_s=duration_s, streams=streams, format_tags=format_tags)
 
 
 def _parse_stream(raw: dict[str, Any]) -> StreamInfo:

@@ -116,7 +116,10 @@ def test_eac3_51_fixture_preserves_codec_and_channels(
 
 
 def test_clean_fixture_omits_captions_track(clean_movie_fixture: Path, tmp_path: Path) -> None:
-    ctx = run_full(clean_movie_fixture, tmp_path)
+    # Testing remux mechanics for "clean" mode here, not the R16 skip policy
+    # (Step 11 covers that) -- override so a clean movie still remuxes.
+    cfg = ResolvedConfig(behavior={"on_clean_movie": "publish"})
+    ctx = run_full(clean_movie_fixture, tmp_path, cfg=cfg)
     assert ctx.temp_output is not None
     assert ctx.mode == "clean"
 
