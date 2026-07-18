@@ -21,6 +21,11 @@ PROFANITY_ENTRIES: list[tuple[float, float, str]] = [
     (10.0, 11.0, "This entry is perfectly clean"),
 ]
 
+CLEAN_ENTRIES: list[tuple[float, float, str]] = [
+    (2.0, 3.0, "This is a perfectly ordinary line"),
+    (6.0, 7.5, "Nothing profane happens here either"),
+]
+
 SPANISH_ENTRIES: list[tuple[float, float, str]] = [
     (2.0, 3.0, "Esto es una prueba"),
     (6.0, 7.5, "Otra linea limpia"),
@@ -56,11 +61,18 @@ def write_dialogue_srt(
     return path
 
 
-def build_movie_fixture(root: Path, duration: float = 15.0) -> Path:
-    """`Test Movie (2024).mkv`: 1 video, 1 aac audio, 1 embedded English SRT."""
+def build_movie_fixture(
+    root: Path,
+    duration: float = 15.0,
+    entries: list[tuple[float, float, str]] = PROFANITY_ENTRIES,
+) -> Path:
+    """`Test Movie (2024).mkv`: 1 video, 1 aac audio, 1 embedded English SRT.
+
+    Pass `entries=CLEAN_ENTRIES` for a zero-match fixture (R16 clean mode).
+    """
     movie_dir = root / "Test Movie (2024)"
     movie_dir.mkdir(parents=True, exist_ok=True)
-    srt = write_dialogue_srt(movie_dir / "dialogue.srt")
+    srt = write_dialogue_srt(movie_dir / "dialogue.srt", entries=entries)
     out = movie_dir / "Test Movie (2024).mkv"
     _run_ffmpeg(
         "-f", "lavfi", "-i", f"testsrc2=duration={duration}:size=320x180:rate=10",
@@ -202,6 +214,13 @@ def fixture_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="session")
 def movie_fixture(fixture_root: Path) -> Path:
     return build_movie_fixture(fixture_root)
+
+
+@pytest.fixture(scope="session")
+def clean_movie_fixture(fixture_root: Path) -> Path:
+    clean_root = fixture_root / "clean"
+    clean_root.mkdir(exist_ok=True)
+    return build_movie_fixture(clean_root, entries=CLEAN_ENTRIES)
 
 
 @pytest.fixture(scope="session")

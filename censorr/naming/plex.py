@@ -2,7 +2,8 @@ import re
 from pathlib import Path
 
 from censorr.config.schema import NamingConfig
-from censorr.naming.models import JobValidationError, MediaType, MediaTypeHint, NamingPlan
+from censorr.naming.models import MediaType, MediaTypeHint, NamingPlan
+from censorr.pipeline.errors import JobValidationError
 
 _EPISODE_PATTERNS = [
     re.compile(r"S\d{1,2}E\d{1,2}", re.IGNORECASE),

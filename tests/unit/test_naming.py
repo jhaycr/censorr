@@ -3,8 +3,9 @@ from pathlib import Path
 import pytest
 
 from censorr.config.schema import NamingConfig
-from censorr.naming.models import JobValidationError, MediaType, MediaTypeHint
+from censorr.naming.models import MediaType, MediaTypeHint
 from censorr.naming.plex import classify, derive_tv_clean_root, plan_names
+from censorr.pipeline.errors import JobValidationError
 
 
 class TestClassify:

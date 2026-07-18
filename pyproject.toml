@@ -62,6 +62,8 @@ ignore = ["S101"]
 "censorr/media/**" = ["S603", "S607"]
 "tests/fixtures.py" = ["S603", "S607"]
 "tests/integration/**" = ["S603", "S607"]
+# typer's idiomatic pattern calls Option()/Argument() in argument defaults.
+"censorr/cli/**" = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"
