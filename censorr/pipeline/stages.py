@@ -289,20 +289,29 @@ def _sha256(path: Path) -> str:
 
 def _atomic_move(source: Path, dest: Path) -> None:
     """Rename when possible (atomic, same filesystem); otherwise
-    copy+SHA256-verify+delete (v1's FinalDestinationManager semantics)."""
+    copy+SHA256-verify+delete (v1's FinalDestinationManager semantics).
+    Any I/O failure in the copy path is transient (destination filesystem
+    hiccup -- e.g. a network mount) and must never surface as a raw
+    traceback: the queue retries transients."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
         os.replace(source, dest)
+        return
     except OSError as exc:
         if exc.errno != errno.EXDEV:
-            raise
-        tmp_dest = dest.with_name(dest.name + ".part")
+            raise TransientError(f"failed to move {source} to {dest}: {exc}") from exc
+
+    tmp_dest = dest.with_name(dest.name + ".part")
+    try:
         shutil.copy2(source, tmp_dest)
         if _sha256(tmp_dest) != _sha256(source):
-            tmp_dest.unlink(missing_ok=True)
-            raise TransientError(f"checksum mismatch copying {source} to {dest}") from exc
+            raise TransientError(f"checksum mismatch copying {source} to {dest}")
         os.replace(tmp_dest, dest)
-        source.unlink()
+    except OSError as exc:
+        raise TransientError(f"failed to copy {source} to {dest}: {exc}") from exc
+    finally:
+        tmp_dest.unlink(missing_ok=True)
+    source.unlink()
 
 
 def _delete_superseded_outputs(ctx: PipelineContext) -> list[Path]:
