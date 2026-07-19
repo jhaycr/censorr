@@ -135,6 +135,7 @@ class TestMovieNaming:
         assert plan.track_titles == {
             "audio": "English (Censored)",
             "subtitle": "English (Censored)",
+            "captions": "English (Muted Dialogue)",
         }
 
 

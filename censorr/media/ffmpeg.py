@@ -15,6 +15,7 @@ GOOD_ENCODE_CODECS = {"aac", "ac3", "eac3", "flac", "opus"}
 _DEFAULT_BITRATES = {"aac": "192k", "ac3": "448k", "eac3": "448k", "opus": "128k"}
 
 CENSORED_TITLE = "English (Censored)"
+CAPTIONS_TITLE = "English (Muted Dialogue)"
 
 
 def extract_subtitle_stream(source: Path, stream_index: int, workdir: Path) -> Path:
@@ -137,6 +138,8 @@ def remux(plan: RemuxPlan, *, on_progress: Callable[[float], None] | None = None
         args += ["-map", f"{captions_input_index}:0", "-c:s", "srt"]
         args += [
             f"-metadata:s:s:{captions_out_index}", f"language={plan.language}",
+            f"-metadata:s:s:{captions_out_index}",
+            f"title={plan.stream_titles.get('captions', CAPTIONS_TITLE)}",
             f"-disposition:s:{captions_out_index}", "forced+default",
         ]
 

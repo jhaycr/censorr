@@ -59,6 +59,7 @@ def test_remux_track_layout_dispositions_titles(movie_fixture: Path, tmp_path: P
     subs = info.subtitle_streams()
     assert len(subs) == 2  # masked full track + mute-captions track
     assert subs[0].title == "English (Censored)"
+    assert subs[1].title == "English (Muted Dialogue)"
     assert subs[1].disposition.get("forced") is True
     assert subs[1].disposition.get("default") is True
 

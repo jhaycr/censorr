@@ -15,6 +15,7 @@ _YEAR_RE = re.compile(r"\([12]\d{3}\)")
 _SEASON_DIR_RE = re.compile(r"^(season\s*\d+|specials)$", re.IGNORECASE)
 
 _CENSORED_TITLE = "English (Censored)"
+_CAPTIONS_TITLE = "English (Muted Dialogue)"
 
 
 def classify(source: Path, hint: MediaTypeHint | None = None) -> MediaType:
@@ -28,7 +29,11 @@ def classify(source: Path, hint: MediaTypeHint | None = None) -> MediaType:
 
 
 def _track_titles() -> dict[str, str]:
-    return {"audio": _CENSORED_TITLE, "subtitle": _CENSORED_TITLE}
+    return {
+        "audio": _CENSORED_TITLE,
+        "subtitle": _CENSORED_TITLE,
+        "captions": _CAPTIONS_TITLE,
+    }
 
 
 def _sidecar_path(video_path: Path, cfg: NamingConfig, language: str) -> Path:
