@@ -163,6 +163,25 @@ require_tags = ["censorr"]            # Arr tag gate; [] processes everything
 The word list merges over the bundled default (same-word entries override it; the
 allowlist extends it).
 
+## Roadmap
+
+The pipeline was designed with explicit seams for these (see
+`.sop/planning/design/detailed-design.md`, R15), in rough priority order:
+
+- **Subtitle downloading** (`subliminal`, behind a `censorr[subs]` extra): today a file
+  with no embedded/sidecar *text* subtitles is skipped with a visible reason —
+  bitmap-only (PGS/VOBSUB) releases included. A downloader step in the
+  subtitle-acquisition chain makes those files processable. First planned addition.
+- **Word-level mute precision** (`censorr[align]`, forced alignment of the known
+  subtitle text): narrows each mute window toward the profane word instead of muting
+  the whole line. Windows always keep the safety buffer on both sides — precision may
+  shrink over-muting, never risk under-muting. Ships as a separate glibc-based image
+  (its ML dependencies don't fit the Alpine base).
+- **EDL / PlexAutoSkip export**: emit the computed mute windows as sidecar edit
+  decision lists, so players that support them can skip/mute without a remuxed copy.
+- **Additional language support**: selection and naming are language-parameterized
+  already; a bundled non-English word list and localized track titles would complete it.
+
 ## Development
 
 ```bash
