@@ -1,153 +1,129 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-Censorr is a CLI tool (and companion webhook/worker services) that censors audio and subtitles in media
-files — muting profane audio segments and masking profane subtitle text — and integrates with Plex/Radarr/
-Sonarr via Custom Script or webhook triggers. Core runtime dependency: FFmpeg on PATH.
+Censorr v2: censors profanity in media files for the Plex/Sonarr/Radarr ecosystem —
+mutes profane audio spans, masks profane subtitle text, and publishes a **new clean
+copy** into a separate `*-clean` root (originals are never modified). Runs as a direct
+CLI and as a two-role service (FastAPI webhooks + file-queue worker). Core runtime
+dependency: FFmpeg ≥ 6 on PATH.
+
+This is a ground-up rewrite; the v1 codebase lives in the `~/Code/Censorr2` checkout
+(same repo, branch `feature/webhook-preset`) as reference only. The authoritative design
+is `.sop/planning/design/detailed-design.md` in that checkout (requirement IDs R1–R16,
+N1–N7 used in comments refer to it), amended by `idea-honing.md` Q18 (webhook tag
+gating; separate movie clean root).
 
 ## Commands
 
 ```bash
-# Install (editable, with dev deps)
-pip install -e .[dev]
+pip install -e .[dev,serve]          # install (editable, all extras)
 
-# Run the full test suite
-pytest
+pytest                               # full suite (needs ffmpeg on PATH)
+pytest -m "not ffmpeg and not docker"  # fast pure-logic tests (CI fast job)
+pytest -m ffmpeg                     # integration tests on synthesized media
+pytest -m docker                     # container build + e2e smoke (needs docker)
+pytest tests/unit/test_matcher.py::TestAllowlistSuppression  # one test
 
-# Run one test file / one test
-pytest tests/unit/test_fuzzy_matcher.py
-pytest tests/unit/test_fuzzy_matcher.py::test_fuzzy_matcher_detects_spelling_variations
+ruff check .                         # lint (includes pep8-naming)
+mypy censorr                         # strict type-check
+docker compose up -d --build         # serve + work stack
 
-# Test subsets (see Architecture > Testing below for what each layer covers)
-pytest tests/unit/
-pytest tests/contract/
-pytest tests/integration/
-
-# Lint / format / type-check
-black src tests
-ruff check src tests
-mypy src
-
-# PR size gate (mirrors CI; caps at 400 additions / 400 deletions / 10 files)
-scripts/check-pr-size.sh [base_branch]
-
-# Run the CLI locally
-censorr process movie.mkv --preset movies --output ./output
-censorr process movie.mkv --dry-run --verbose
-censorr list-operations
-censorr explain
-
-# Docker Compose (long-running worker + webhook services)
-docker compose up -d
-docker exec censorr-cli censorr process "/data/media/movies/Movie (2024)/Movie.mkv" --preset movies --output /app/workdir/output
+censorr process movie.mkv --dry-run  # run the CLI
 ```
 
-There is no Makefile; the commands above are the canonical entry points. `censorr` is registered as a
-console script (`src.cli.main:app`) via `pyproject.toml`.
+All three gates (pytest, ruff, mypy) must be green before committing.
 
 ## Architecture
 
-### Pipeline model: Artifact → Operation → Planner → Executor
-
-The core abstraction is a small dataflow pipeline, not a monolithic processing function:
-
-- **`Artifact`** (`src/models/artifacts.py`) — a typed unit of data flowing through the pipeline
-  (`VIDEO`, `AUDIO`, `SUBTITLE`, `SIDECAR`), always a file path plus a metadata dict (language, codec,
-  forced flag, QC results, etc.).
-- **`Operation`** (`src/models/operations.py`) — abstract base with `consumes: Set[ArtifactType]`,
-  `produces: Set[ArtifactType]`, and `run(inputs, workdir, flags) -> List[Artifact]`. Each concrete
-  operation lives in `src/ops/` as its own module (single responsibility — one file per pipeline step).
-- **`OperationRegistry`** (`src/planner/registry.py`) — operations register themselves by name; the
-  registry is the only place that knows the full set of available operations (open for extension, no
-  changes needed to planner/executor to add a new op).
-- **`Planner`** (`src/planner/planner.py`) — given already-available artifacts and a set of target
-  artifact types, resolves which operations must run. Honors an explicit `requested_operations` order
-  when the caller specifies `--operations`; otherwise picks the first producer per needed artifact type
-  (see the `TODO`s in that file — dependency-aware planning and priority selection are intentionally
-  unimplemented; today the CLI mostly drives fixed preset operation lists rather than relying on planning).
-- **`Executor`** (`src/planner/executor.py`) — runs an `ExecutionPlan` in order. Per operation it: builds
-  input artifacts via `_find_inputs` (type-based matching, with special-cased logic for subtitles —
-  always pass all subtitle artifacts through — and for `audio_qc`/`video_remux`, which need specific
-  artifact selection among multiple candidates), checks the on-disk cache, executes if not cached, writes
-  a manifest, and accumulates outputs into the running artifact list for downstream operations.
-
-### Pipeline flow (default `process` command)
+Domain-based packages; dependency arrows only point downward. `naming/` and `detect/`
+are **pure** (no filesystem writes, no subprocess); `media/` (+ `audio/qc.py`) are the
+only FFmpeg subprocess sites, always args-as-list, never a shell.
 
 ```
-VIDEO ─┬─ subtitle_extract ─→ SUBTITLE ─ subtitle_merge ─→ SUBTITLE ─ subtitle_mask ─→ SUBTITLE ─┐
-       │                                                                                          ├─ subtitle_qc (pass-through + QC metadata)
-       └─ audio_extract ─→ AUDIO ─ audio_mute ─→ AUDIO ─ audio_qc (pass-through + QC metadata) ───┘
-                                                                                                    │
-                                                                                     video_remux ───┴──→ VIDEO (+ optional SIDECAR via subtitle_export)
+censorr/
+├── cli/        main.py (typer commands), views.py (rich rendering)
+├── service/    app.py (FastAPI factory), arr_models.py, routes_webhooks.py,
+│               routes_jobs.py, worker.py (queue claim loop), logging.py (JSON lines)
+├── pipeline/   context.py (PipelineContext + QCReport), stages.py (all stage fns),
+│               runner.py (stage sequences), fingerprint.py (idempotency + skip-check),
+│               job.py (Job/JobRecord), errors.py (exit-code taxonomy),
+│               library.py (reprocess/reconcile walks), retention.py (GC)
+├── subtitles/  io.py (pysubs2), select.py (track selection), mask.py, qc.py
+├── audio/      windows.py (mute-window providers), qc.py (RMS measurement)
+├── detect/     wordlist.py, matcher.py (fuzzy matching + allowlist)
+├── naming/     plex.py (THE Plex path contract, pure), models.py
+├── media/      probe.py (ffprobe), ffmpeg.py (remux), progress.py (heartbeats)
+├── config/     schema.py (TOML schema), load.py (precedence), presets.py
+├── queue/      file_queue.py (atomic-rename job queue)
+└── wordlists/  default.json (packaged data)
 ```
 
-QC operations (`audio_qc`, `subtitle_qc`) are pass-through: they consume and re-produce the same
-artifact type, annotating it with pass/fail metadata rather than transforming the file. Whether a QC
-failure aborts the pipeline is controlled by `continue_on_qc_fail` / `continue_on_audio_qc_fail`.
+### Pipeline
 
-### Caching and idempotency
+Both the CLI and the worker run exactly this stage sequence (`pipeline/runner.py`):
 
-`CacheManager` (`src/caching/`) fingerprints each operation invocation from its name, input artifacts,
-and relevant params (including a sorted selector fingerprint, so language/title filters correctly bust
-the cache) and stores results under a manifest in the workdir. The executor consults this before running
-an operation and reconstructs output `Artifact`s from the manifest on a hit — re-running with unchanged
-inputs must not reprocess. `--force` bypasses the cache; `--skip-existing` is mutually exclusive with
-`--force` (enforced by a `model_validator` on `OperationFlags`).
+```
+probe → select_tracks → acquire_subtitles → detect → plan_windows
+      → mask_subtitles → plan_names → remux → verify → publish
+```
 
-### Configuration and presets
+Stages are pure-ish functions `(PipelineContext, workdir) -> PipelineContext`. A stage
+setting `ctx.outcome` (e.g. `no_text_subtitles`, `skipped_clean`, `language_mismatch`)
+short-circuits everything after it — the R16 degraded modes are visible outcomes, never
+silent proceeds. `PLANNING_STAGES` (through plan_names) is what `inspect`/`--dry-run`
+run; publish is always last, so a failed job never leaves partial files in a library.
 
-`Config` (`src/models/config.py`) loads with fallback precedence: `--config` path → `./config/censorr.json`
-→ `~/.config/censorr/config.json` → built-in defaults. Named **presets** (e.g. `movies`, `tv` in
-`config/censorr.json`) bundle an operation list, default flags, a language selector policy, and an output/
-destination policy. In `process` (`src/cli/main.py`), precedence for any given setting is: **explicit CLI
-flag > preset flags > project/user config > built-in smart default**. Output placement is governed by
-`output_mode` (`REMUX_ORIGINAL_VIDEO` in place, or `REMUX_NEW_FILE`) plus a `DestinationPolicy`
-(`subfolder_tag` with a tag like `[Censorr]`, or `separate_root`). Movies get a Plex `{edition-Censorr}`
-tag on output; episodes don't.
+### Key invariants (do not weaken)
 
-### Webhook + queue + worker (Arr integration)
+- **Under-muting is never acceptable**: mute windows = full subtitle-entry span +
+  `buffer_s` each side; providers may narrow toward a word post-MVP but never below
+  word boundary + buffer. `verify` measures RMS of every window in the actual output.
+- **Output ≠ source, structurally**: `naming/plex.py` raises `JobValidationError` if the
+  planned path equals the source; sources are additionally mounted read-only in compose.
+- **The output file is the idempotency store** (R10): the job fingerprint (source
+  size+mtime + content-affecting settings + wordlist hash + app version — deliberately
+  path-independent and `service.*`-independent) is embedded as `CENSORR_FINGERPRINT`
+  MKV metadata; skip-checks read it back. No separate cache to corrupt.
+- **QC is symmetric** (R14): under-mute/under-mask AND over-mute/over-mask budgets;
+  control-audio integrity is measured within the output, never cross-file.
+- **Track identity flows through typed fields only** — never path substrings (a chief
+  v1 bug class).
+- **Never shell-interpolate** (N3): FFmpeg args as lists; filtergraphs go through
+  `-filter_complex_script` files.
 
-Two separate long-running services, each with its own minimal Dockerfile (`Dockerfile.web` has no
-FFmpeg; `Dockerfile.tool` does):
+### Exit-code / error taxonomy (`pipeline/errors.py`)
 
-- **`src/webhook/wsgi_app.py`** — a plain WSGI app (served via Gunicorn, see `docker-entrypoint.sh`)
-  exposing `/webhook`, `/healthz`/`/status`. It validates the payload shape, applies a tag allowlist
-  (`CENSORR_WEBHOOK_ALLOWLIST`, default `censorr_profile`), optionally checks a shared secret
-  (`CENSORR_WEBHOOK_SECRET`), and enqueues a job — it does **not** invoke FFmpeg itself.
-- **`src/queue/file_queue.py`** — a dependency-free, crash-safe file-based job queue. Jobs move atomically
-  through `incoming/ → processing/ → done/` or `failed/` by `os.replace` renames; stale leases in
-  `processing/` are recovered on the next poll. This is intentionally not a message broker — it's designed
-  to survive container restarts with zero external services.
-- **`src/worker/runner.py`** — polls the queue, claims a job, and shells out to
-  `python -m src.cli.main webhook` with the job payload on stdin. Exit code contract: `0` = accepted,
-  `2` = ignored (not an error — e.g. unknown preset), `3` = permanent validation failure (no retry),
-  anything else = transient (retried up to `max_retries`, then moved to `failed/`).
-- The `webhook` CLI command (`src/cli/main.py`) reads that same JSON payload from stdin, resolves
-  `tags.censorr_preset` against configured presets, and calls `process()` programmatically for each path
-  in `mediaPaths` — the webhook/worker path and the direct CLI path converge on the same `process` logic.
+`0` ok · `2` skipped (a JobResult, not an exception) · `3` `JobValidationError`
+(deterministic, no retry) · `4` `QCError` (deterministic, no retry, workdir kept) ·
+`1` `TransientError` (worker retries up to `max_retries`).
 
-### Governance documents (read before large changes)
+### Service path
 
-- **`CONSTITUTION.md`** (and its mirror `.specify/memory/constitution.md`) is the authoritative source for
-  non-functional rules: PR size caps (≤400 additions/≤400 deletions/≤10 files, stacked PRs beyond that),
-  commit message structure, test-first requirement, heartbeat/logging format for long-running FFmpeg work
-  (`HEARTBEAT` token, UTC ISO-8601 timestamps, disable via `CENSORR_NO_HEARTBEAT=1`), and security rules
-  (never shell-interpolate external input — always pass args as lists).
-- **`.kiro/steering/*.md`** — supplementary conventions: naming (`snake_case` modules, noun-verb operation
-  names like `subtitle_extract`), commit format (`<type>(<scope>): <subject>`), and testing philosophy
-  (prefer real FFmpeg/filesystem over mocks; mock only for failure injection or non-deterministic
-  isolation). Note the idealized `src/lib/` + `src/services/` layout shown there does not match the actual
-  tree (`src/ops/`, `src/planner/`, `src/models/`, `src/utils/`, `src/webhook/`, `src/worker/`,
-  `src/queue/`) — trust the real tree over that document.
-- **`specs/`** — per-feature requirements/plan/contracts (spec-kit style). Look here for the FR-XXX
-  identifiers referenced by the constitution and for the original design rationale behind a subsystem.
+`serve` (no media mounts) parses native Arr webhook payloads, applies the Q18 tag gate
+(`service.require_tags`, default `["censorr"]`), maps path prefixes (pure string logic),
+resolves the preset name (query > tag map > media-type default), and dedup-enqueues.
+`work` claims via atomic rename, does existence/fingerprint prechecks, re-resolves
+config with the job's preset, renews its lease on every progress tick, re-stats the
+source right before publish (Arr upgrade mid-job → `TransientError` → retry sees the
+new file), and writes atomic `JobRecord`s served by `GET /jobs/{id}`.
 
-### Testing
+## Testing conventions
 
-`tests/` mirrors a priority order the project cares about: `contract/` (public interfaces — CLI/webhook
-contracts) → `integration/` (multi-component, e.g. full pipeline, worker e2e, preset e2e) → `unit/`
-(isolated logic — fuzzy matching, caching, filename utils, etc.). Prefer exercising real FFmpeg/filesystem
-behavior in integration tests over mocking; reserve mocks for failure injection.
+`tests/unit/` (pure logic, no FFmpeg — CI fast job), `tests/contract/` (CLI exit codes,
+API payload branches via TestClient), `tests/integration/` (`@pytest.mark.ffmpeg`,
+real FFmpeg over lavfi-synthesized fixtures from `tests/fixtures.py` — no binary media
+in git; `@pytest.mark.docker` for container smoke). Prefer real FFmpeg/filesystem over
+mocks; mock only for failure injection (e.g. the worker's `on_stage` hook). The v1 test
+assertions were the ported spec for the matcher and queue semantics.
+
+Note: the dense 15 s fixtures legitimately exceed the 5% over-mute QC budget — QC-passing
+scenarios use `qc_pass_fixture` (90 s); the dense ones double as QC-failure cases.
+
+## Decision history
+
+When behavior seems ambiguous, check `idea-honing.md` (in the Censorr2 checkout's
+`.sop/planning/`) for the Q1–Q18 decision record before guessing; if still ambiguous,
+ask Josh rather than inventing behavior.

@@ -1,0 +1,21 @@
+# Censorr container config (mounted at /app/config/censorr.toml by compose).
+# Paths below are the *container* view established by docker-compose.yml.
+# Every setting is optional -- see README for the full reference.
+
+[naming]
+# Clean copies land here; the worker refuses to start if these are
+# missing/unwritable (catches a mis-mounted volume immediately).
+movie_clean_root = "/data/media/movies-clean"
+tv_clean_root = "/data/media/tv-clean"
+
+[service]
+queue_path = "/app/queue"
+
+# Arr containers usually see media at the same /data/media prefix; adjust
+# the left side if your Radarr/Sonarr use different paths.
+[service.path_map]
+"/data/media" = "/data/media"
+
+# Only Arr items tagged with one of these produce censored versions.
+# Set to [] to censor everything the webhooks deliver.
+# require_tags = ["censorr"]

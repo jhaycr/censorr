@@ -107,20 +107,12 @@ jobs:
 
       - name: Test container functionality
         run: |
-          # Extract platform-specific image
-          PLATFORM_TAG=$(echo "${{ matrix.platform }}" | sed 's/\//-/g')
-          
-          # Test help command
+          # CLI responds
           docker run --rm censorr:test-${{ matrix.platform }} --help
-          
-          # Test version command
-          docker run --rm censorr:test-${{ matrix.platform }} --version
-          
-          # Test list operations
-          docker run --rm censorr:test-${{ matrix.platform }} list-operations
-          
-          # Test that FFmpeg is available
-          docker run --rm censorr:test-${{ matrix.platform }} ffmpeg -version
+          docker run --rm censorr:test-${{ matrix.platform }} version
+
+          # FFmpeg is present in the runtime image
+          docker run --rm --entrypoint ffmpeg censorr:test-${{ matrix.platform }} -version
 
   security-scan:
     runs-on: ubuntu-latest

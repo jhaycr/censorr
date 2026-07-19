@@ -8,6 +8,7 @@ import typer
 from censorr import __version__
 from censorr.cli import views
 from censorr.config.load import load_config
+from censorr.config.schema import ResolvedConfig
 from censorr.naming.plex import classify
 from censorr.pipeline import library, retention, runner
 from censorr.pipeline.context import PipelineContext
@@ -197,6 +198,26 @@ def gc(
     )
 
 
+def _check_clean_roots(cfg: ResolvedConfig) -> None:
+    """N7: the worker fails loudly at startup when a configured clean root
+    is missing or unwritable -- a mis-mounted volume must not surface later
+    as a per-job publish failure."""
+    import os
+
+    for name, root in (
+        ("naming.tv_clean_root", cfg.naming.tv_clean_root),
+        ("naming.movie_clean_root", cfg.naming.movie_clean_root),
+    ):
+        if root is None:
+            continue
+        if not root.is_dir():
+            typer.echo(f"error: {name} does not exist: {root}", err=True)
+            raise typer.Exit(code=3)
+        if not os.access(root, os.W_OK):
+            typer.echo(f"error: {name} is not writable: {root}", err=True)
+            raise typer.Exit(code=3)
+
+
 @app.command()
 def work(
     config: Path | None = typer.Option(None, "--config"),
@@ -207,6 +228,7 @@ def work(
     from censorr.service.worker import Worker
 
     cfg = load_config(config_path=config)
+    _check_clean_roots(cfg)
     worker = Worker(cfg, config_path=config)
     typer.echo(f"worker {worker.worker_id} polling {cfg.service.queue_path}")
     if once:
