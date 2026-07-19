@@ -181,6 +181,9 @@ The pipeline was designed with explicit seams for these (see
   decision lists, so players that support them can skip/mute without a remuxed copy.
 - **Additional language support**: selection and naming are language-parameterized
   already; a bundled non-English word list and localized track titles would complete it.
+- **Web UI**: a simple UX over the existing service API for viewing job history,
+  submitting ad-hoc jobs, and editing configuration — the `/jobs` endpoints and the
+  TOML config layer already expose everything it would need.
 
 ## Development
 
