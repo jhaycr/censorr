@@ -66,6 +66,8 @@ ignore = ["S101"]
 "tests/integration/**" = ["S603", "S607"]
 # typer's idiomatic pattern calls Option()/Argument() in argument defaults.
 "censorr/cli/**" = ["B008"]
+# Embedded single-page UI: HTML/CSS/JS lines aren't Python line-length targets.
+"censorr/service/ui.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

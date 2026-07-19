@@ -72,10 +72,13 @@ class Worker:
         self._last_gc = 0.0
 
     def _cfg_for_job(self, job: Job) -> ResolvedConfig:
-        """Re-resolve config with the job's preset overlay (R8 preset
-        precedence lands here -- the API only decides the preset *name*).
-        An unknown preset is a deterministic bad-payload error."""
-        if not job.preset:
+        """Re-resolve config per job: the preset overlay lands here (R8 --
+        the API only decides the preset *name*), and re-reading the file
+        means UI/config edits apply from the next job onward without a
+        worker restart. Programmatic use (no config_path, no preset --
+        i.e. tests) keeps the constructor's cfg snapshot. An unknown
+        preset is a deterministic bad-payload error."""
+        if self._config_path is None and not job.preset:
             return self.cfg
         try:
             return load_config(config_path=self._config_path, preset=job.preset)

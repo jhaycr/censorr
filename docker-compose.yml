@@ -19,7 +19,8 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - queue:/app/queue
-      - ${CONFIG_PATH:-./config}:/app/config:ro
+      # rw: the web UI's config editor writes censorr.toml
+      - ${CONFIG_PATH:-./config}:/app/config
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/healthz"]
       interval: 30s

@@ -244,13 +244,15 @@ def serve(
     host: str = typer.Option("0.0.0.0", "--host"),  # noqa: S104 -- container-facing bind
     port: int = typer.Option(8000, "--port"),
 ) -> None:
-    """Run the FastAPI service (webhooks + jobs API). Requires censorr[serve]."""
+    """Run the FastAPI service (webhooks + jobs API + web UI). Requires censorr[serve]."""
     import uvicorn
 
+    from censorr.config.load import discover_config_path
     from censorr.service.app import create_app
 
     cfg = load_config(config_path=config)
-    uvicorn.run(create_app(cfg), host=host, port=port)
+    # The UI's config editor targets the discovered file (None disables it).
+    uvicorn.run(create_app(cfg, discover_config_path(config)), host=host, port=port)
 
 
 if __name__ == "__main__":
