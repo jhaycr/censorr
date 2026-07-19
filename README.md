@@ -4,6 +4,19 @@ Censorr takes a movie or TV episode, finds profanity via its subtitles, and prod
 **new, clean copy** — profane audio muted, subtitles masked — named and placed so Plex
 resolves it correctly. The original file is never touched.
 
+## 🤖 An AI-native project
+
+Censorr is built AI-natively: the requirements interrogation, research, adversarial
+design review, 15-step implementation plan, code, tests, and this README were produced
+by Claude (Anthropic) working in Claude Code, directed and reviewed by a human
+maintainer who owns every product decision. The full paper trail ships in the repo:
+`.sop/planning/` holds the idea-honing Q&A (18 recorded decisions), the detailed design
+(requirements R1–R16/N1–N7 referenced throughout the code), the research notes, and the
+step-by-step implementation plan the commits follow. Read the git history alongside
+those documents and you can trace every behavior back to an explicit, human-approved
+decision. Issues and PRs are welcome — expect AI to be a first-class participant in
+triaging and addressing them.
+
 - **Correct censoring first**: every mute window covers the whole subtitle entry plus a
   buffer on both sides, and the output is verified (under- *and* over-censoring checks)
   before it's published. A file that fails QC never reaches your library.
