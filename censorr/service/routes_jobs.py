@@ -72,6 +72,7 @@ def healthz() -> dict[str, str]:
 
 @router.get("/status")
 def status_endpoint(request: Request) -> dict[str, object]:
+    cfg: ResolvedConfig = request.app.state.cfg
     queue: FileJobQueue = request.app.state.queue
     return {
         "version": __version__,
@@ -79,4 +80,5 @@ def status_endpoint(request: Request) -> dict[str, object]:
         "processing": len(list(queue.processing.glob("*.json"))),
         "done": len(list(queue.done.glob("*.json"))),
         "failed": len(list(queue.failed.glob("*.json"))),
+        "presets": cfg.preset_names,
     }

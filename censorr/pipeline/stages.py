@@ -19,7 +19,7 @@ from censorr.naming.plex import classify, plan_names
 from censorr.pipeline.context import PipelineContext, QCReport
 from censorr.pipeline.errors import JobValidationError, QCError, TransientError
 from censorr.pipeline.fingerprint import fingerprint_for_source, resolve_wordlist
-from censorr.pipeline.job import JobRecord, JobResult, JobStatus
+from censorr.pipeline.job import JobRecord, JobResult, JobStats, JobStatus
 from censorr.subtitles import qc as subtitle_qc
 from censorr.subtitles.io import load as load_subtitle_doc
 from censorr.subtitles.io import save as save_subtitle_doc
@@ -347,6 +347,20 @@ def _write_job_record(cfg: ResolvedConfig, record: JobRecord) -> None:
         print(f"warning: could not write job record: {exc}", file=sys.stderr)
 
 
+def stats_from_context(ctx: PipelineContext) -> JobStats:
+    """Censoring summary for records/CLI/UI: counts and ratios only, never
+    the matched words (they live nowhere but the masked output itself)."""
+    muted_seconds = sum(w.end_s - w.start_s for w in ctx.windows)
+    return JobStats(
+        entries_censored=len(ctx.matches),
+        total_matches=sum(len(m) for m in ctx.matches.values()),
+        mute_windows=len(ctx.windows),
+        muted_seconds=round(muted_seconds, 2),
+        mute_ratio=ctx.qc_report.mute_ratio if ctx.qc_report else 0.0,
+        masked_entry_ratio=ctx.qc_report.masked_entry_ratio if ctx.qc_report else 0.0,
+    )
+
+
 def publish_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
     """Atomic move temp -> final; delete superseded outputs; write the
     sidecar only when enabled (R6); write the job record. Publish is the
@@ -373,7 +387,9 @@ def publish_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
     record = JobRecord(
         job=ctx.job,
         status=JobStatus.DONE,
-        result=JobResult(status="ok", mode=ctx.mode, outputs=outputs),
+        result=JobResult(
+            status="ok", mode=ctx.mode, outputs=outputs, stats=stats_from_context(ctx)
+        ),
         stage="publish",
         progress=1.0,
         fingerprint=fingerprint,

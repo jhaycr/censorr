@@ -302,6 +302,12 @@ class TestJobsApi:
         assert body["queue_depth"] == 1
         assert body["processing"] == 0
         assert "version" in body
+        assert body["presets"] == []
+
+    def test_status_lists_configured_presets(self, tmp_path: Path) -> None:
+        client = make_client(tmp_path, preset_names=["movies", "strict", "tv"])
+
+        assert client.get("/status").json()["presets"] == ["movies", "strict", "tv"]
 
     def test_openapi_docs_render(self, tmp_path: Path) -> None:
         client = make_client(tmp_path)

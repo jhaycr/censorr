@@ -110,6 +110,7 @@ def process(
 
     if ctx.naming_plan is not None:
         views.console.print(f"[bold green]Published:[/bold green] {ctx.naming_plan.video_path}")
+    views.render_stats_summary(ctx)
     if not keep_intermediates:
         shutil.rmtree(workdir, ignore_errors=True)
 

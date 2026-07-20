@@ -49,6 +49,14 @@ def test_worker_processes_job_end_to_end(tmp_path: Path) -> None:
     assert record["progress"] == 1.0
     assert record["result"]["status"] == "ok"
 
+    # Censoring stats: counts/ratios only -- never the matched words.
+    stats = record["result"]["stats"]
+    assert stats["entries_censored"] == 2  # the movie fixture's two profane entries
+    assert stats["total_matches"] == 2
+    assert stats["mute_windows"] == 2
+    assert stats["muted_seconds"] > 0
+    assert "word" not in json.dumps(stats).lower()
+
     output = (
         tmp_path / "src-clean" / "Test Movie (2024)"
         / "Test Movie (2024) {edition-Censorr}.mkv"

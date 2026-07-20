@@ -63,6 +63,21 @@ def render_inspect(ctx: PipelineContext) -> None:
         render_qc_report(ctx.qc_report)
 
 
+def render_stats_summary(ctx: PipelineContext) -> None:
+    """One-line censoring summary: counts and ratios only, never the words."""
+    from censorr.pipeline.stages import stats_from_context
+
+    stats = stats_from_context(ctx)
+    if stats.entries_censored == 0:
+        console.print("[bold]Censored:[/bold] nothing -- source was already clean")
+        return
+    console.print(
+        f"[bold]Censored:[/bold] {stats.entries_censored} subtitle entries "
+        f"({stats.total_matches} matches) · {stats.mute_windows} mute windows · "
+        f"{stats.muted_seconds:.1f}s muted ({stats.mute_ratio:.2%} of runtime)"
+    )
+
+
 def render_qc_report(report: QCReport) -> None:
     status = "[bold green]PASSED[/bold green]" if report.passed else "[bold red]FAILED[/bold red]"
     table = Table(title=f"QC Report -- {status}")

@@ -15,6 +15,7 @@ from censorr.pipeline.errors import CensorrError, JobValidationError, QCError, T
 from censorr.pipeline.fingerprint import check_skip, resolve_wordlist
 from censorr.pipeline.job import Job, JobErrorInfo, JobRecord, JobResult, JobStatus
 from censorr.pipeline.runner import STAGE_SEQUENCE, Stage, run_pipeline
+from censorr.pipeline.stages import stats_from_context
 from censorr.queue.file_queue import ClaimedJob, FileJobQueue
 
 GC_INTERVAL_S = 3600.0
@@ -206,7 +207,9 @@ class Worker:
             self._record(
                 job,
                 JobStatus.DONE,
-                result=JobResult(status="ok", mode=ctx.mode, outputs=outputs),
+                result=JobResult(
+                    status="ok", mode=ctx.mode, outputs=outputs, stats=stats_from_context(ctx)
+                ),
                 progress=1.0,
             )
         shutil.rmtree(workdir, ignore_errors=True)

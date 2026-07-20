@@ -42,7 +42,7 @@ UI_HTML = """<!DOCTYPE html>
 <h2>Submit a job</h2>
 <form class="row" id="submit-form">
   <input type="text" id="job-path" placeholder="/data/media/movies/Title (2024)/Title (2024).mkv" required>
-  <input type="text" id="job-preset" placeholder="preset (optional)" style="max-width:11rem">
+  <select id="job-preset" style="max-width:11rem"><option value="">default preset</option></select>
   <label class="chk"><input type="checkbox" id="job-force"> force</label>
   <button type="submit">Queue</button>
 </form>
@@ -57,7 +57,7 @@ UI_HTML = """<!DOCTYPE html>
 </h2>
 <table>
   <thead><tr><th>Source</th><th>Status</th><th>Result</th><th>Mode</th>
-  <th>Progress</th><th>Finished</th></tr></thead>
+  <th>Censored</th><th>Progress</th><th>Finished</th></tr></thead>
   <tbody id="jobs"></tbody>
 </table>
 
@@ -78,6 +78,9 @@ async function refreshStatus() {
     const s = await (await fetch("status")).json();
     $("stat").textContent =
       `v${s.version} — queue ${s.queue_depth} · running ${s.processing} · done ${s.done} · failed ${s.failed}`;
+    const sel = $("job-preset"), current = sel.value;
+    sel.innerHTML = `<option value="">default preset</option>` +
+      (s.presets ?? []).map(p => `<option${p === current ? " selected" : ""}>${esc(p)}</option>`).join("");
   } catch { $("stat").textContent = "(status unavailable)"; }
 }
 
@@ -89,11 +92,15 @@ async function refreshJobs() {
     const res = r.result ? (r.result.status + (r.result.reason ? ` (${r.result.reason})` : "")) : (r.error ? `${r.error.kind}` : "");
     const cls = r.status === "done" ? "ok" : (r.status === "failed" ? "bad" : "muted");
     const fin = r.finished_at ? r.finished_at.replace("T", " ").slice(0, 19) : "";
+    const st = r.result?.stats;
+    const censored = st ? (st.entries_censored
+      ? `${st.entries_censored} entries · ${st.muted_seconds.toFixed(1)}s muted (${(st.mute_ratio * 100).toFixed(1)}%)`
+      : "clean") : "";
     return `<tr><td title="${esc(r.job?.source)}">${esc(src)}</td>` +
       `<td class="${cls}">${esc(r.status)}</td><td>${esc(res)}</td>` +
-      `<td>${esc(r.result?.mode ?? "")}</td>` +
+      `<td>${esc(r.result?.mode ?? "")}</td><td>${censored}</td>` +
       `<td>${Math.round((r.progress ?? 0) * 100)}%</td><td>${esc(fin)}</td></tr>`;
-  }).join("") || `<tr><td colspan="6" class="muted">no jobs yet</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="muted">no jobs yet</td></tr>`;
 }
 
 $("submit-form").addEventListener("submit", async (e) => {

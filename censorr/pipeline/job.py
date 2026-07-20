@@ -25,11 +25,24 @@ class JobStatus(StrEnum):
     FAILED = "failed"
 
 
+class JobStats(BaseModel):
+    """Counts and ratios only -- deliberately never the matched words
+    themselves, so records/UI/logs stay free of profanity."""
+
+    entries_censored: int = 0
+    total_matches: int = 0
+    mute_windows: int = 0
+    muted_seconds: float = 0.0
+    mute_ratio: float = 0.0
+    masked_entry_ratio: float = 0.0
+
+
 class JobResult(BaseModel):
     status: str
     reason: str | None = None
     mode: str
     outputs: list[Path] = []
+    stats: JobStats | None = None
 
 
 class JobErrorInfo(BaseModel):
