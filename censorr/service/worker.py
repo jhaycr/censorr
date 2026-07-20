@@ -2,6 +2,7 @@ import os
 import shutil
 import socket
 import time
+import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,7 +10,7 @@ from pathlib import Path
 from censorr.config.load import load_config
 from censorr.config.schema import ResolvedConfig
 from censorr.naming.plex import classify
-from censorr.pipeline import retention
+from censorr.pipeline import library, retention
 from censorr.pipeline.context import PipelineContext
 from censorr.pipeline.errors import CensorrError, JobValidationError, QCError, TransientError
 from censorr.pipeline.fingerprint import check_skip, resolve_wordlist
@@ -17,6 +18,7 @@ from censorr.pipeline.job import Job, JobErrorInfo, JobRecord, JobResult, JobSta
 from censorr.pipeline.runner import STAGE_SEQUENCE, Stage, run_pipeline
 from censorr.pipeline.stages import stats_from_context
 from censorr.queue.file_queue import ClaimedJob, FileJobQueue
+from censorr.service.logging import log_event
 
 GC_INTERVAL_S = 3600.0
 
@@ -126,10 +128,47 @@ class Worker:
             result=JobResult(status=status, reason=reason, mode="none"),
         )
 
+    def _expand_backfill(self, claimed: ClaimedJob, job_cfg: ResolvedConfig) -> None:
+        """A directory job is a backfill request: walk it worker-side (the
+        API has no media mounts, R8), skip Censorr outputs/extras and
+        fingerprint-fresh files (unless force), and enqueue one child job
+        per remaining source. Same-source dedup makes resubmission safe."""
+        job = claimed.entry.job
+        wordlist = resolve_wordlist(job_cfg)
+        queued = 0
+        fresh = 0
+        for candidate in library.find_reprocess_candidates(job.source, job_cfg):
+            if not job.force:
+                media_type = classify(candidate, None)
+                skip, _plan = check_skip(candidate, media_type, cfg=job_cfg, wordlist=wordlist)
+                if skip:
+                    fresh += 1
+                    continue
+            child = Job(
+                id=str(uuid.uuid4()),
+                source=candidate,
+                preset=job.preset,
+                force=job.force,
+                submitted_by=f"backfill:{job.id[:8]}",
+            )
+            self.queue.enqueue(child)
+            queued += 1
+        reason = f"backfill: {queued} queued, {fresh} already clean"
+        self.queue.complete(claimed, {"status": "ok", "reason": reason})
+        self._record(
+            job,
+            JobStatus.DONE,
+            result=JobResult(status="ok", reason=reason, mode="backfill"),
+        )
+        log_event("backfill_expanded", job_id=job.id, root=str(job.source), queued=queued)
+
     def _precheck(self, claimed: ClaimedJob, job_cfg: ResolvedConfig) -> bool:
         """Worker-side existence + fingerprint checks (R9/R10). Returns True
         when the job was already completed without running the pipeline."""
         job = claimed.entry.job
+        if job.source.is_dir():
+            self._expand_backfill(claimed, job_cfg)
+            return True
         if not job.source.is_file():
             self._complete_without_running(claimed, "ignored", "missing_source")
             return True

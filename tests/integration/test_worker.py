@@ -158,3 +158,33 @@ def test_worker_gc_recovers_stale_processing_jobs(tmp_path: Path) -> None:
 
     done_files = list((cfg.service.queue_path / "done").glob("*.json"))
     assert len(done_files) == 1
+
+
+def test_directory_job_expands_into_backfill(tmp_path: Path) -> None:
+    cfg = make_cfg(tmp_path)
+    root = tmp_path / "library"
+    build_movie_fixture(root / "a", duration=90.0)
+    build_movie_fixture(root / "b", duration=90.0)
+    worker = Worker(cfg, worker_id="test-worker")
+
+    # Process movie "a" first so it's fingerprint-fresh for the backfill.
+    a_source = root / "a" / "Test Movie (2024)" / "Test Movie (2024).mkv"
+    enqueue(cfg, a_source)
+    assert worker.run_once() is True
+
+    # Submit the whole library root as one directory job.
+    backfill_id = enqueue(cfg, root)
+    assert worker.run_once() is True
+
+    record = read_record(cfg, backfill_id)
+    assert record["status"] == "done"
+    assert record["result"]["mode"] == "backfill"
+    assert record["result"]["reason"] == "backfill: 1 queued, 1 already clean"
+
+    # Exactly one child job (movie "b") was enqueued; running it publishes b.
+    assert worker.run_once() is True
+    b_output = (
+        root / "b-clean" / "Test Movie (2024)" / "Test Movie (2024) {edition-Censorr}.mkv"
+    )
+    assert b_output.is_file()
+    assert worker.run_once() is False  # queue drained

@@ -41,11 +41,14 @@ UI_HTML = """<!DOCTYPE html>
 
 <h2>Submit a job</h2>
 <form class="row" id="submit-form">
-  <input type="text" id="job-path" placeholder="/data/media/movies/Title (2024)/Title (2024).mkv" required>
+  <input type="text" id="job-path" placeholder="file or folder, e.g. /data/media/tv/Show/Season 05" required>
   <select id="job-preset" style="max-width:11rem"><option value="">default preset</option></select>
   <label class="chk"><input type="checkbox" id="job-force"> force</label>
   <button type="submit">Queue</button>
 </form>
+<div class="msg muted">A folder queues a backfill: every source file under it (a whole
+season, show, or library) is expanded into individual jobs, skipping files whose clean
+copy is already up to date — tick force to redo those too.</div>
 <div class="msg" id="submit-msg"></div>
 
 <h2>History
