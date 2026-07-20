@@ -34,8 +34,9 @@ docker compose up -d --build
 curl http://localhost:8000/healthz
 ```
 
-Two services run from one image: `serve` (webhook/API — mounts no media) and `work`
-(the pipeline worker — mounts sources read-only, clean roots read-write). Jobs flow
+Two services run from one image: `serve` (webhook/API + web UI — sources mounted
+read-only for the path browser, never written) and `work` (the pipeline worker —
+sources read-only, clean roots read-write). Jobs flow
 through a crash-safe file queue on a shared volume; nothing else is required.
 
 Edit `config/censorr.toml` (mounted into both containers) to adjust behavior; the

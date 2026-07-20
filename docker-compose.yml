@@ -21,6 +21,10 @@ services:
       - queue:/app/queue
       # rw: the web UI's config editor writes censorr.toml
       - ${CONFIG_PATH:-./config}:/app/config
+      # ro sources power the UI's path browser (Q19); serve never writes
+      # media and still mounts no clean roots.
+      - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/data/media/movies:ro
+      - ${MEDIA_PATH_TV:-/mnt/media/tv}:/data/media/tv:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/healthz"]
       interval: 30s

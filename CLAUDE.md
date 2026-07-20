@@ -102,7 +102,8 @@ run; publish is always last, so a failed job never leaves partial files in a lib
 
 ### Service path
 
-`serve` (no media mounts) parses native Arr webhook payloads, applies the Q18 tag gate
+`serve` (sources mounted read-only for the UI's path browser, Q19; no clean roots, no
+media writes) parses native Arr webhook payloads, applies the Q18 tag gate
 (`service.require_tags`, default `["censorr"]`), maps path prefixes (pure string logic),
 resolves the preset name (query > tag map > media-type default), and dedup-enqueues.
 `work` claims via atomic rename, does existence/fingerprint prechecks, re-resolves

@@ -44,8 +44,19 @@ UI_HTML = """<!DOCTYPE html>
   <input type="text" id="job-path" placeholder="file or folder, e.g. /data/media/tv/Show/Season 05" required>
   <select id="job-preset" style="max-width:11rem"><option value="">default preset</option></select>
   <label class="chk"><input type="checkbox" id="job-force"> force</label>
+  <button type="button" class="quiet" id="browse-toggle">Browse…</button>
   <button type="submit">Queue</button>
 </form>
+<div id="browser" style="display:none; border:1px solid var(--line); border-radius:4px;
+     padding:.5rem; margin:.5rem 0; max-height:16rem; overflow:auto; font-size:.85rem;">
+  <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.3rem;">
+    <button type="button" class="quiet" id="browse-up">&#8593; up</button>
+    <span id="browse-path" class="muted"></span>
+    <span style="flex:1"></span>
+    <button type="button" id="browse-pick">Use this folder</button>
+  </div>
+  <div id="browse-list"></div>
+</div>
 <div class="msg muted">A folder queues a backfill: every source file under it (a whole
 season, show, or library) is expanded into individual jobs, skipping files whose clean
 copy is already up to date — tick force to redo those too.</div>
@@ -132,6 +143,34 @@ $("cfg-save").addEventListener("click", async () => {
   const data = await resp.json();
   $("cfg-msg").textContent = resp.ok ? "saved and reloaded" : `rejected: ${data.detail}`;
   $("cfg-msg").className = "msg " + (resp.ok ? "ok" : "bad");
+});
+
+let browseCurrent = null, browseParent = null;
+async function browseTo(path) {
+  const resp = await fetch("browse" + (path ? `?path=${encodeURIComponent(path)}` : ""));
+  if (!resp.ok) return;
+  const b = await resp.json();
+  browseCurrent = b.path; browseParent = b.parent;
+  $("browse-path").textContent = b.path ?? "(roots)";
+  $("browse-pick").style.display = b.path ? "" : "none";
+  $("browse-list").innerHTML =
+    b.dirs.map(d => `<div><a href="#" class="bdir" data-p="${esc(b.path ? b.path + "/" + d : d)}">&#128193; ${esc(d)}</a></div>`).join("") +
+    b.files.map(f => `<div><a href="#" class="bfile" data-p="${esc(b.path + "/" + f)}">&#127916; ${esc(f)}</a></div>`).join("") ||
+    `<div class="muted">empty</div>`;
+  $("browse-list").querySelectorAll(".bdir").forEach(a =>
+    a.addEventListener("click", e => { e.preventDefault(); browseTo(a.dataset.p); }));
+  $("browse-list").querySelectorAll(".bfile").forEach(a =>
+    a.addEventListener("click", e => { e.preventDefault();
+      $("job-path").value = a.dataset.p; $("browser").style.display = "none"; }));
+}
+$("browse-toggle").addEventListener("click", () => {
+  const el = $("browser");
+  el.style.display = el.style.display === "none" ? "" : "none";
+  if (el.style.display === "") browseTo(null);
+});
+$("browse-up").addEventListener("click", () => browseTo(browseParent));
+$("browse-pick").addEventListener("click", () => {
+  if (browseCurrent) { $("job-path").value = browseCurrent; $("browser").style.display = "none"; }
 });
 
 $("refresh").addEventListener("click", () => { refreshJobs(); refreshStatus(); });

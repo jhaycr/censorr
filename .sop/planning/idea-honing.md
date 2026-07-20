@@ -235,3 +235,11 @@ Two design amendments, decided via option review:
 
 1. **Webhook tag gating, ON by default** (amends Q4/R8): new `[service] require_tags` config defaulting to `["censorr"]`. A `Download` event whose movie/series carries none of these tags → 200 `{status: ignored, reason: not_tagged}` — only tagged items produce censored versions, restoring v1's `CENSORR_WEBHOOK_ALLOWLIST` workflow. `arr_tag_presets` still separately maps tags → presets. Direct CLI and `POST /jobs` remain ungated (explicit submission is its own consent).
 2. **Separate movie clean root** (amends Q7/R4): new `naming.movie_clean_root`; when unset, derived as `<movies-root>-clean` where the movies root is the parent of the movie's own folder (mirroring R5's tv derivation; too-shallow paths → `JobValidationError` instructing to set it explicitly). Movie folder structure mirrored under the clean root; filename keeps the `{edition-Censorr}` tag for greppability/Plex edition display. Rationale: same-folder editions never clobber (distinct filename, output≠source invariant) but are viewer-selectable within one library entry, providing no access control — a separate clean root + separate Plex library gives movies the same real access control TV already has. Movies whose sources sit flat in the library root (no per-movie folder) require an explicit `movie_clean_root`.
+
+---
+
+## Q19 (directed by Josh during UI iteration, 2026-07-19)
+
+> "Can the submit job path be a selector for what paths are available inside the Docker container so I can navigate to a show?"
+
+**Decision:** the serve container gains **read-only** source mounts (movies + tv) to power a `/browse` endpoint and a folder navigator in the web UI. This amends Q14's "API mounts no media" simplification: browsing needs listing, and a queue-mediated worker round-trip per directory click is unusable. The principle is preserved in weakened form — serve still cannot write to any media (ro mounts), never touches clean roots, and `/browse` is confined to `service.browse_roots` (default `["/data/media"]`) with resolved-path traversal guards. The worker remains the only component that writes media.

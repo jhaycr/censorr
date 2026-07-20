@@ -63,6 +63,8 @@ class ServiceConfig(SectionModel):
     # Q18: only Arr items carrying one of these tags are processed by the
     # webhooks; empty list disables gating. CLI/POST /jobs are never gated.
     require_tags: list[str] = ["censorr"]
+    # Q19: roots the UI's path browser may list (serve mounts these ro).
+    browse_roots: list[str] = ["/data/media"]
 
 
 # Dotted paths (within the merged preset/file dict) resolved against the
