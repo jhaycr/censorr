@@ -24,7 +24,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write  # For attestations
+      id-token: write        # OIDC token for provenance attestation
+      attestations: write    # required by actions/attest-build-provenance
 
     steps:
       - name: Checkout repository
@@ -119,7 +120,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name != 'pull_request'
-    
+    permissions:
+      contents: read
+      security-events: write  # required to upload Trivy SARIF to code scanning
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
