@@ -10,11 +10,9 @@ copy** into a separate `*-clean` root (originals are never modified). Runs as a 
 CLI and as a two-role service (FastAPI webhooks + file-queue worker). Core runtime
 dependency: FFmpeg ≥ 6 on PATH.
 
-This is a ground-up rewrite; the v1 codebase lives in the `~/Code/Censorr2` checkout
-(same repo, branch `feature/webhook-preset`) as reference only. The authoritative design
-is `.sop/planning/design/detailed-design.md` in that checkout (requirement IDs R1–R16,
-N1–N7 used in comments refer to it), amended by `idea-honing.md` Q18 (webhook tag
-gating; separate movie clean root).
+Requirement IDs in code comments (`R1`–`R16`, `N1`–`N7`) refer to
+`.sop/planning/design/detailed-design.md`; Q-numbered decisions (Q1–Q19) live in
+`.sop/planning/idea-honing.md`.
 
 ## Commands
 
@@ -127,6 +125,6 @@ scenarios use `qc_pass_fixture` (90 s); the dense ones double as QC-failure case
 
 ## Decision history
 
-When behavior seems ambiguous, check `idea-honing.md` (in the Censorr2 checkout's
-`.sop/planning/`) for the Q1–Q18 decision record before guessing; if still ambiguous,
-ask Josh rather than inventing behavior.
+When behavior seems ambiguous, check `.sop/planning/idea-honing.md` for the Q1–Q19
+decision record before guessing; if it's still unresolved, ask rather than inventing
+undocumented behavior.
