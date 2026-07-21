@@ -13,7 +13,7 @@ dist/
 tests/
 tests/**
 docs/
-.specs/
+.sop/
 pytest.ini
 .pytest_cache/
 .local/
@@ -34,5 +34,4 @@ docker-compose.override.yml
 
 # keep project metadata
 !pyproject.toml
-!src/**
 !README.md

@@ -83,6 +83,21 @@ customizes.
 Exit codes: `0` published · `2` skipped (already clean, no text subtitles, …) ·
 `3` invalid input/config · `4` failed quality verification · `1` transient error.
 
+## Web UI
+
+`serve` also hosts a single-page UI at `http://<censorr-host>:8000/` — no build chain,
+no extra dependencies, talks only to the service's own API. Three things, one page:
+
+- **Submit a job**: type or **Browse…** to a file or folder (the path browser walks the
+  read-only source mounts, Q19), pick a preset, optionally **force**, and queue it. A
+  folder queues a *backfill* — every source file beneath it (a season, show, or whole
+  library) expands into individual jobs, skipping ones whose clean copy is already up to
+  date unless you force.
+- **History**: live job table (source, status, result, mode, censored count, progress,
+  finished), filterable by status, refreshable — backed by the `/jobs` endpoints.
+- **Configuration**: edit `censorr.toml` in the browser and save. Changes apply to
+  webhooks immediately and to each subsequent job.
+
 ## How it decides what to mute
 
 Detection runs on the file's **text subtitles** (embedded, or a sidecar `.srt` next to
@@ -182,9 +197,6 @@ The pipeline was designed with explicit seams for these (see
   decision lists, so players that support them can skip/mute without a remuxed copy.
 - **Additional language support**: selection and naming are language-parameterized
   already; a bundled non-English word list and localized track titles would complete it.
-- **Web UI**: a simple UX over the existing service API for viewing job history,
-  submitting ad-hoc jobs, and editing configuration — the `/jobs` endpoints and the
-  TOML config layer already expose everything it would need.
 
 ## Development
 

@@ -187,7 +187,7 @@ jobs:
             Images include SBOM and provenance attestations for supply chain security.
             
             ## Usage
-            
-            See the [quickstart guide](specs/001-write-a-tool/quickstart.md) for container usage examples.
+
+            See the [README](README.md) for container and Compose usage examples.
           draft: false
           prerelease: false

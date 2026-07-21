@@ -46,7 +46,9 @@ only FFmpeg subprocess sites, always args-as-list, never a shell.
 censorr/
 ├── cli/        main.py (typer commands), views.py (rich rendering)
 ├── service/    app.py (FastAPI factory), arr_models.py, routes_webhooks.py,
-│               routes_jobs.py, worker.py (queue claim loop), logging.py (JSON lines)
+│               routes_jobs.py, routes_browse.py (path browser, Q19),
+│               routes_ui.py + ui.py (embedded single-page web UI),
+│               worker.py (queue claim loop), logging.py (JSON lines)
 ├── pipeline/   context.py (PipelineContext + QCReport), stages.py (all stage fns),
 │               runner.py (stage sequences), fingerprint.py (idempotency + skip-check),
 │               job.py (Job/JobRecord), errors.py (exit-code taxonomy),
