@@ -2,16 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [rewrite/v2, main]
+    branches: [main]
   pull_request:
-    branches: [rewrite/v2, main]
+    branches: [main]
 
 jobs:
   fast:
     name: Lint, type-check, unit + contract tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -24,7 +24,7 @@ jobs:
     name: Integration tests (ffmpeg)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
