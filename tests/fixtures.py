@@ -31,6 +31,22 @@ SPANISH_ENTRIES: list[tuple[float, float, str]] = [
     (6.0, 7.5, "Otra linea limpia"),
 ]
 
+# A "Bullet Train"-style transcript -- a tmesis-heavy action film -- but using
+# the non-profane stand-in "banana" so no profanity ships in the test corpus.
+# Exercises every form the matcher must catch: plain, inflected (-s), hyphenated
+# tmesis (the "abso-fuckin'-lutely" case), and glued infix. Two clean control
+# lines must survive verbatim. Windows are spread across a long runtime so the
+# realistic mute ratio stays within the default 5% over-mute QC budget. Pair
+# with a wordlist of {"word": "banana", "aggressive": true}.
+BULLET_TRAIN_ENTRIES: list[tuple[float, float, str]] = [
+    (20.0, 22.5, "Honestly I could really go for a banana"),          # plain
+    (70.0, 72.5, "He went completely bananas afterwards"),            # inflected (-s)
+    (130.0, 132.5, "That escape was abso-banana-lutely perfect"),     # tmesis (hyphenated)
+    (160.0, 162.0, "This particular line is completely ordinary"),    # clean control
+    (200.0, 202.5, "The whole plan went absbananalutely sideways"),   # glued infix
+    (250.0, 252.0, "Nothing worth censoring happens right here"),     # clean control
+]
+
 
 class FixtureUnavailableError(RuntimeError):
     """Raised when a fixture recipe cannot be synthesized with ffmpeg CLI alone."""
