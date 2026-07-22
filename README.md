@@ -42,6 +42,49 @@ through a crash-safe file queue on a shared volume; nothing else is required.
 Edit `config/censorr.toml` (mounted into both containers) to adjust behavior; the
 defaults work for the compose-defined mount layout.
 
+## Deploy on NixOS (flake)
+
+The flake ships a `censorr` package (FFmpeg wrapped onto its `PATH`) and a NixOS
+module that runs the same two roles as systemd units — `censorr-serve` and
+`censorr-work` — sharing a file queue under `/var/lib/censorr`.
+
+```nix
+# flake.nix
+{
+  inputs.censorr.url = "github:jhaycr/censorr";
+
+  outputs = { nixpkgs, censorr, ... }: {
+    nixosConfigurations.mediabox = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        censorr.nixosModules.default
+        {
+          services.censorr = {
+            enable = true;
+            serve.openFirewall = true;
+            settings = {
+              naming.movie_clean_root = "/srv/media/movies-clean";
+              naming.tv_clean_root = "/srv/media/tv-clean";
+              service.path_map = { "/srv/media" = "/srv/media"; };
+              # service.secret = "…";  # then append ?token=… to webhook URLs
+            };
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+`settings` is rendered to `censorr.toml` and passed to both roles (see the
+[configuration reference](#configuration-reference) for the full schema). The
+clean roots you set become the worker's only writable media paths; give the
+`censorr` user read access to your sources. Because the config lives in the Nix
+store, manage it declaratively here — the web UI's config editor is read-only
+under NixOS. Point Radarr/Sonarr at the serve port exactly as below.
+
+Ad-hoc use without the module: `nix run github:jhaycr/censorr -- process movie.mkv --dry-run`.
+
 ### Connecting Radarr / Sonarr
 
 In each Arr instance, add a **Webhook** connection (Settings → Connect → + → Webhook):
@@ -207,5 +250,9 @@ pytest -m "not ffmpeg"       # fast, pure-logic tests only
 pytest -m docker             # container smoke tests (needs docker)
 ruff check . && mypy censorr
 ```
+
+With Nix: `nix develop` drops you into a shell with the deps, FFmpeg, ruff, and
+mypy on `PATH`; `nix flake check` builds the package and runs the unit, contract,
+and FFmpeg-integration suites in the sandbox.
 
 See `CLAUDE.md` for the architecture map.

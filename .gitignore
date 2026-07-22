@@ -45,6 +45,10 @@ venv.bak/
 # Claude Code (personal overrides only; project-shared settings should be committed)
 .claude/settings.local.json
 
+# Nix
+result
+result-*
+
 # OS
 .DS_Store
 Thumbs.db

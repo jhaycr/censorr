@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Superseded runs on the same ref cancel themselves (a new push to a PR need
+# not keep an already-stale run alive).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fast:
     name: Lint, type-check, unit + contract tests
@@ -15,6 +21,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install -e .[dev,serve]
       - run: ruff check .
       - run: mypy censorr
@@ -28,7 +36,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -e .[dev,serve]
       - run: pytest -m ffmpeg -v
+
+  nix:
+    name: Nix flake (build + checks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      # Builds the package (unit + contract tests) and every flake check,
+      # including the FFmpeg integration suite run inside the Nix sandbox.
+      - run: nix flake check --print-build-logs
