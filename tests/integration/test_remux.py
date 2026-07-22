@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 from uuid import uuid4
@@ -36,9 +37,11 @@ def mean_volume_db(path: Path, start_s: float, duration_s: float) -> float:
         text=True,
         check=True,
     )
-    for line in result.stderr.splitlines():
-        if "mean_volume" in line:
-            return float(line.split(":")[1].strip().split(" ")[0])
+    # Anchor on the label: FFmpeg 8.x can flush this summary onto the same
+    # captured line as preceding encoder/version metadata (mirrors audio/qc.py).
+    match = re.search(r"mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB", result.stderr)
+    if match:
+        return float(match.group(1))
     raise AssertionError(f"mean_volume not found in ffmpeg output for {path}")
 
 

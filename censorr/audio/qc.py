@@ -1,3 +1,4 @@
+import re
 import subprocess
 from pathlib import Path
 
@@ -6,6 +7,12 @@ from pydantic import BaseModel
 from censorr.audio.windows import MuteWindow
 
 _SILENCE_FLOOR_DB = -50.0
+
+# volumedetect prints e.g. "[Parsed_volumedetect_0 @ 0x..] mean_volume: -21.1 dB".
+# Anchor on the label rather than splitting on ":" — newer FFmpeg (8.x) can flush
+# this summary onto the same captured line as preceding encoder/version metadata
+# (Lavf.../Lavc...), which broke a naive positional parse.
+_MEAN_VOLUME_RE = re.compile(r"mean_volume:\s*(-?\d+(?:\.\d+)?)\s*dB")
 
 
 class WindowMeasurement(BaseModel):
@@ -37,9 +44,9 @@ def _mean_volume_db(path: Path, start_s: float, duration_s: float) -> float:
         text=True,
         check=True,
     )
-    for line in result.stderr.splitlines():
-        if "mean_volume" in line:
-            return float(line.split(":")[1].strip().split(" ")[0])
+    match = _MEAN_VOLUME_RE.search(result.stderr)
+    if match:
+        return float(match.group(1))
     return _SILENCE_FLOOR_DB
 
 
