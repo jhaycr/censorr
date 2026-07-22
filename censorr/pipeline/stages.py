@@ -167,7 +167,10 @@ def remux_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
     audio_codec = audio_bitrate = None
     if audio_mode == "mute_encode":
         audio_codec, audio_bitrate = resolve_audio_codec(
-            audio_info.codec_name, audio_info.channels or 2, ctx.cfg.audio
+            audio_info.codec_name,
+            audio_info.channels or 2,
+            ctx.cfg.audio,
+            source_bitrate=audio_info.bit_rate,
         )
 
     wordlist = resolve_wordlist(ctx.cfg)

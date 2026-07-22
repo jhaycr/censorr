@@ -12,6 +12,9 @@ from censorr.media.progress import run_with_progress
 
 # R13: FFmpeg encodes these well; eac3 above 5.1 (6ch) can't round-trip.
 GOOD_ENCODE_CODECS = {"aac", "ac3", "eac3", "flac", "opus"}
+# Used only when the source bitrate is unknown -- a re-encode to the same codec
+# preserves the source's actual bitrate (so the clean copy matches the original)
+# and only falls back to these conservative defaults when ffprobe reports none.
 _DEFAULT_BITRATES = {"aac": "192k", "ac3": "448k", "eac3": "448k", "opus": "128k"}
 
 CENSORED_TITLE = "English (Censored)"
@@ -35,19 +38,22 @@ def extract_subtitle_stream(source: Path, stream_index: int, workdir: Path) -> P
 
 
 def resolve_audio_codec(
-    source_codec: str, channels: int, cfg: AudioConfig
+    source_codec: str, channels: int, cfg: AudioConfig, source_bitrate: int | None = None
 ) -> tuple[str, str | None]:
     """R13 codec policy: reuse the source codec when FFmpeg encodes it well;
     otherwise fall back to the configured default (channel preservation is
     automatic -- we never force a downmix). A per-preset target_codec wins.
     Returns (codec, bitrate); bitrate is None for lossless codecs (flac).
+
+    When reusing the source codec, the source's own bitrate is preserved so the
+    clean copy matches the original instead of shrinking to the codec default.
     """
     if cfg.target_codec:
         return cfg.target_codec, _bitrate_for(cfg.target_codec, cfg)
 
     eac3_too_many_channels = source_codec == "eac3" and channels > 6
     if source_codec in GOOD_ENCODE_CODECS and not eac3_too_many_channels:
-        return source_codec, _bitrate_for(source_codec, cfg)
+        return source_codec, _reencode_bitrate(source_codec, cfg, source_bitrate)
 
     return cfg.fallback_codec, cfg.fallback_bitrate
 
@@ -55,6 +61,16 @@ def resolve_audio_codec(
 def _bitrate_for(codec: str, cfg: AudioConfig) -> str | None:
     if codec == "flac":
         return None
+    return _DEFAULT_BITRATES.get(codec, cfg.fallback_bitrate)
+
+
+def _reencode_bitrate(codec: str, cfg: AudioConfig, source_bitrate: int | None) -> str | None:
+    """Preserve the source bitrate on a same-codec re-encode; fall back to the
+    codec default when the container didn't report one. flac stays bitrate-less."""
+    if codec == "flac":
+        return None
+    if source_bitrate and source_bitrate > 0:
+        return str(source_bitrate)
     return _DEFAULT_BITRATES.get(codec, cfg.fallback_bitrate)
 
 

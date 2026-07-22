@@ -15,6 +15,7 @@ class StreamInfo(BaseModel):
     disposition: dict[str, bool] = {}
     duration_s: float | None = None
     channels: int | None = None
+    bit_rate: int | None = None  # bits/s; None when the container doesn't expose it
 
 
 class MediaInfo(BaseModel):
@@ -67,4 +68,17 @@ def _parse_stream(raw: dict[str, Any]) -> StreamInfo:
         disposition=disposition,
         duration_s=float(duration) if duration is not None else None,
         channels=raw.get("channels"),
+        bit_rate=_parse_bitrate(raw, tags),
     )
+
+
+def _parse_bitrate(raw: dict[str, Any], tags: dict[str, Any]) -> int | None:
+    """Stream bit_rate in bits/s. Matroska often omits the stream-level field
+    and carries an mkvmerge `BPS` tag instead, so fall back to that."""
+    for value in (raw.get("bit_rate"), tags.get("BPS")):
+        if value is not None:
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                continue
+    return None
