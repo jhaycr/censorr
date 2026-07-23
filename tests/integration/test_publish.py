@@ -94,6 +94,38 @@ class TestFingerprintSkip:
         assert forced.exit_code == 0
         assert "Published:" in forced.stdout
 
+    def test_unrelated_wordlist_change_skips_reencode(self, tmp_path: Path) -> None:
+        # Option 4: adding a word the file doesn't contain leaves its censor
+        # plan identical, so the tier-2 check skips the expensive re-encode even
+        # though the wordlist hash changed.
+        source = build_movie_fixture(tmp_path / "src", duration=90.0)
+        output = (
+            tmp_path / "src-clean" / "Test Movie (2024)"
+            / "Test Movie (2024) {edition-Censorr}.mkv"
+        )
+
+        def cfg_with_wordlist(name: str, words: list[str]) -> Path:
+            wl = tmp_path / f"{name}.json"
+            wl.write_text(json.dumps({"words": [{"word": w} for w in words], "allowlist": []}))
+            cfg = tmp_path / f"{name}.toml"
+            queue = tmp_path / "queue"
+            cfg.write_text(
+                f'[service]\nqueue_path = "{queue}"\n[detect]\nwordlist = "{wl}"\n'
+            )
+            return cfg
+
+        first = cli_runner.invoke(app, ["process", str(source), "--config",
+                                        str(cfg_with_wordlist("wl1", ["fuck", "shit"]))])
+        assert first.exit_code == 0
+        assert output.is_file()
+        first_mtime = output.stat().st_mtime
+
+        # "banana" appears nowhere in the fixture -> same plan -> skip re-encode.
+        second = cli_runner.invoke(app, ["process", str(source), "--config",
+                                         str(cfg_with_wordlist("wl2", ["fuck", "shit", "banana"]))])
+        assert second.exit_code == 2
+        assert output.stat().st_mtime == first_mtime  # untouched: no re-encode
+
     def test_modified_wordlist_reprocesses_and_replaces(self, tmp_path: Path) -> None:
         source = build_movie_fixture(tmp_path / "src", duration=90.0)
 

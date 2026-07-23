@@ -18,7 +18,11 @@ from censorr.naming.models import MediaType
 from censorr.naming.plex import classify, plan_names
 from censorr.pipeline.context import PipelineContext, QCReport
 from censorr.pipeline.errors import JobValidationError, QCError, TransientError
-from censorr.pipeline.fingerprint import fingerprint_for_source, resolve_wordlist
+from censorr.pipeline.fingerprint import (
+    fingerprint_for_source,
+    plan_hash_from_context,
+    resolve_wordlist,
+)
 from censorr.pipeline.job import JobRecord, JobResult, JobStats, JobStatus
 from censorr.subtitles import qc as subtitle_qc
 from censorr.subtitles.io import load as load_subtitle_doc
@@ -174,7 +178,6 @@ def remux_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
         )
 
     wordlist = resolve_wordlist(ctx.cfg)
-    fingerprint = fingerprint_for_source(ctx.job.source, cfg=ctx.cfg, wordlist=wordlist)
 
     plan = RemuxPlan(
         source=ctx.job.source,
@@ -189,7 +192,9 @@ def remux_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
         captions_sub=captions_sub_path,
         stream_titles=ctx.naming_plan.track_titles,
         language=ctx.selection.subtitle_lang or ctx.cfg.subtitles.language,
-        fingerprint=fingerprint,
+        fingerprint=fingerprint_for_source(ctx.job.source, cfg=ctx.cfg),
+        wordlist_hash=wordlist.content_hash,
+        plan_hash=plan_hash_from_context(ctx),
     )
     temp_output = ffmpeg_remux(plan)
     return ctx.model_copy(update={"temp_output": temp_output})
@@ -384,8 +389,7 @@ def publish_stage(ctx: PipelineContext, workdir: Path) -> PipelineContext:
             save_subtitle_doc(ctx.masked_doc, sidecar_path)
             outputs.append(sidecar_path)
 
-    wordlist = resolve_wordlist(ctx.cfg)
-    fingerprint = fingerprint_for_source(ctx.job.source, cfg=ctx.cfg, wordlist=wordlist)
+    fingerprint = fingerprint_for_source(ctx.job.source, cfg=ctx.cfg)
     now = datetime.now(UTC)
     record = JobRecord(
         job=ctx.job,

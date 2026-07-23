@@ -87,7 +87,9 @@ class RemuxPlan(BaseModel):
     captions_sub: Path | None = None
     stream_titles: dict[str, str] = {}
     language: str = "en"
-    fingerprint: str
+    fingerprint: str  # base: source + settings + version (no wordlist)
+    wordlist_hash: str = ""
+    plan_hash: str = ""
 
 
 def _mute_filter_script(windows: list[MuteWindow], audio_stream: int) -> str:
@@ -159,7 +161,11 @@ def remux(plan: RemuxPlan, *, on_progress: Callable[[float], None] | None = None
             f"-disposition:s:{captions_out_index}", "forced+default",
         ]
 
-    args += ["-metadata", f"CENSORR_FINGERPRINT={plan.fingerprint}"]
+    args += [
+        "-metadata", f"CENSORR_FINGERPRINT={plan.fingerprint}",
+        "-metadata", f"CENSORR_WORDLIST_HASH={plan.wordlist_hash}",
+        "-metadata", f"CENSORR_PLAN_HASH={plan.plan_hash}",
+    ]
     args += ["-progress", "pipe:1", str(plan.temp_output)]
 
     total_duration_s = probe(plan.source).duration_s

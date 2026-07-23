@@ -83,10 +83,14 @@ run; publish is always last, so a failed job never leaves partial files in a lib
   word boundary + buffer. `verify` measures RMS of every window in the actual output.
 - **Output ≠ source, structurally**: `naming/plex.py` raises `JobValidationError` if the
   planned path equals the source; sources are additionally mounted read-only in compose.
-- **The output file is the idempotency store** (R10): the job fingerprint (source
-  size+mtime + content-affecting settings + wordlist hash + app version — deliberately
-  path-independent and `service.*`-independent) is embedded as `CENSORR_FINGERPRINT`
-  MKV metadata; skip-checks read it back. No separate cache to corrupt.
+- **The output file is the idempotency store** (R10): three stamps are embedded as MKV
+  metadata — `CENSORR_FINGERPRINT` (base: source size+mtime + content-affecting settings
+  + app version, **excluding** the wordlist; path- and `service.*`-independent),
+  `CENSORR_WORDLIST_HASH`, and `CENSORR_PLAN_HASH` (the censor outcome: mode + windows +
+  masked/caption text). `check_skip` is two-tier: base mismatch → reprocess; base+wordlist
+  match → skip (cheap); base match but wordlist changed → run planning only and compare
+  plan hashes, re-encoding *only* files whose plan actually changed. No separate cache to
+  corrupt.
 - **QC is symmetric** (R14): under-mute/under-mask AND over-mute/over-mask budgets;
   control-audio integrity is measured within the output, never cross-file.
 - **Track identity flows through typed fields only** — never path substrings (a chief
