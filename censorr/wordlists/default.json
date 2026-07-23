@@ -1,5 +1,6 @@
 {
   "words": [
+    {"word": "asshole", "aggressive": true},
     {"word": "cunt"},
     {"word": "fuck", "threshold": 75, "aggressive": true},
     {"word": "goddamn"},
