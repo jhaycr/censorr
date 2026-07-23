@@ -12,6 +12,12 @@ from censorr.detect.wordlist import WordList
 # "fuckin", "well-being" -> "well" + "being").
 _TOKEN_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
 
+# Character elongation: runs of 3+ identical letters collapse to one so
+# drawn-out spellings ("fuuuck", "shiiit") match. English words essentially
+# never contain 3+ identical consecutive letters, so ordinary doubles ("pass",
+# "cool") are untouched -- only runs of length >= 3 are affected.
+_ELONGATION_RE = re.compile(r"(.)\1{2,}")
+
 _ALLOWED_SUFFIXES = {"", "s", "ed", "er", "ing", "in"}
 _AGGRESSIVE_SUFFIXES = {
     "", "s", "ed", "er", "ing", "in", "ly", "ness", "able", "ible",
@@ -47,7 +53,8 @@ class _Token(NamedTuple):
 def _normalize_word(word: str) -> str:
     word = word.lower()
     word = unicodedata.normalize("NFKD", word)
-    return "".join(ch for ch in word if not unicodedata.combining(ch))
+    word = "".join(ch for ch in word if not unicodedata.combining(ch))
+    return _ELONGATION_RE.sub(r"\1", word)
 
 
 def _tokenize(text: str) -> list[_Token]:

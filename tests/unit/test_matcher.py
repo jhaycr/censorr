@@ -132,6 +132,40 @@ class TestAggressiveVariantDetection:
         assert matcher._morphology_score("shitable", "shit") < 100.0
 
 
+class TestCharacterElongation:
+    """Drawn-out spellings collapse runs of 3+ identical letters, so
+    "fuuuck"/"shiiit" match even under the 95% short-word threshold floor."""
+
+    def test_elongated_short_word_is_caught(self) -> None:
+        # "fuck" (<=4 chars) is held to a 95% threshold; fuzzy alone scores
+        # elongations at ~80. Collapsing the run is what makes them match.
+        matcher = make_matcher([Word(word="fuck", threshold=75.0)], threshold=85.0)
+
+        for query in ["fuuuck", "fuuuuuck", "What the fuuuck"]:
+            assert "fuck" in matched_words(matcher, query), query
+
+    def test_elongation_works_without_aggressive_mode(self) -> None:
+        matcher = make_matcher([Word(word="shit")], threshold=85.0)
+
+        assert "shit" in matched_words(matcher, "oh shiiit")
+
+    def test_two_repeats_are_not_collapsed(self) -> None:
+        # Only runs of length >= 3 collapse; an ordinary double stays put, so
+        # "fuuck" still falls below the short-word threshold floor.
+        matcher = make_matcher([Word(word="fuck", threshold=75.0)], threshold=85.0)
+
+        assert "fuck" not in matched_words(matcher, "fuuck")
+
+    def test_ordinary_doubles_do_not_false_positive(self) -> None:
+        matcher = make_matcher(
+            [Word(word="fuck", aggressive=True), Word(word="shit", aggressive=True)],
+            threshold=85.0,
+        )
+
+        for clean in ["pass the ball", "that is so cool", "a great success", "bookkeeper"]:
+            assert matched_words(matcher, clean) == set(), clean
+
+
 @pytest.mark.parametrize(
     ("target_word", "false_positives"),
     [
