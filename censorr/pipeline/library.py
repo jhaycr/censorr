@@ -63,6 +63,11 @@ def find_reprocess_candidates(root: Path, cfg: ResolvedConfig) -> list[Path]:
         plan = plan_names(path, classify(path), cfg.naming, language=cfg.subtitles.language)
         if not plan.video_path.is_file():
             continue  # never produced an output -> not a reprocess target
+        if plan.video_path.samefile(path):
+            # The planned output *is* this file -- happens when the clean root
+            # is nested in / bind-aliased with the source root (the path strings
+            # differ so plan_names doesn't flag it, but they share an inode).
+            continue
         candidates.append(path)
     return candidates
 
