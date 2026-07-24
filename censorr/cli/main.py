@@ -122,8 +122,10 @@ def reprocess(
     config: Path | None = typer.Option(None, "--config"),
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
-    """Bulk walk: (re)process every source file under ROOT whose fingerprint
-    is stale. Skips Censorr outputs and Plex extras (R7)."""
+    """Bulk walk: refresh every *previously-censored* source under ROOT whose
+    fingerprint is stale (i.e. that already has a Censorr output). Sources never
+    processed before are left alone -- reprocess is not first-time bulk
+    censoring. Skips Censorr outputs and Plex extras (R7)."""
     cfg = load_config(config_path=config, preset=preset)
     wordlist = resolve_wordlist(cfg)
 

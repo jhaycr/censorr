@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -66,23 +67,26 @@ def test_reprocess_and_reconcile_touch_exactly_the_right_sets(tmp_path: Path) ->
     tree = build_tree(tmp_path)
     cfg = ResolvedConfig(service={"queue_path": str(tmp_path / "queue")})
 
-    # --- find_reprocess_candidates: sources only, no outputs/extras/samples
+    # --- find_reprocess_candidates: only *previously-processed* sources (those
+    # with an existing output). The never-censored source is left alone, as are
+    # outputs/extras/samples.
     candidates = find_reprocess_candidates(tree["root"], cfg)
-    assert tree["unprocessed"] in candidates
     assert tree["processed_src"] in candidates  # candidate; fingerprint check filters it later
+    assert tree["unprocessed"] not in candidates  # never produced an output
     assert tree["processed_out"] not in candidates
     assert tree["trailer"] not in candidates
     assert tree["sample"] not in candidates
     assert tree["orphan_out"] not in candidates
 
-    # --- reprocess --dry-run: fingerprint-fresh processed_src drops out too
+    # --- reprocess --dry-run: processed_src is fingerprint-fresh and the
+    # unprocessed source isn't a candidate, so nothing is due.
     result = cli_runner.invoke(
         app,
         ["reprocess", str(tree["root"]), "--config", str(tree["cfg_path"]), "--dry-run"],
     )
     assert result.exit_code == 0
-    assert str(tree["unprocessed"]) in result.stdout
-    assert str(tree["processed_src"]) not in result.stdout
+    assert "0 file(s) would be processed" in result.stdout
+    assert str(tree["unprocessed"]) not in result.stdout
 
     # --- reconcile: the orphan-clean root holds exactly one orphan
     orphan_clean_root = tree["root"] / "orphan-clean"
@@ -107,24 +111,40 @@ def test_reprocess_and_reconcile_touch_exactly_the_right_sets(tmp_path: Path) ->
     assert tree["processed_out"].is_file()  # non-orphan output untouched
 
 
-def test_reprocess_processes_stale_files_for_real(tmp_path: Path) -> None:
+def test_reprocess_reencodes_stale_previously_processed_file(tmp_path: Path) -> None:
     root = tmp_path / "library"
     source = build_movie_fixture(root, duration=90.0)
     cfg_path = tmp_path / "censorr.toml"
     cfg_path.write_text(f'[service]\nqueue_path = "{tmp_path / "queue"}"\n')
-
-    result = cli_runner.invoke(app, ["reprocess", str(root), "--config", str(cfg_path)])
-
-    assert result.exit_code == 0
-    assert "published" in result.stdout
     expected = (
         tmp_path / "library-clean" / "Test Movie (2024)"
         / "Test Movie (2024) {edition-Censorr}.mkv"
     )
+
+    # A brand-new source is NOT reprocessed (never processed -> no output).
+    untouched = cli_runner.invoke(
+        app, ["reprocess", str(root), "--config", str(cfg_path), "--dry-run"]
+    )
+    assert untouched.exit_code == 0
+    assert "0 file(s) would be processed" in untouched.stdout
+    assert not expected.exists()
+
+    # Process it once so an output exists, then make the source stale.
+    processed = cli_runner.invoke(app, ["process", str(source), "--config", str(cfg_path)])
+    assert processed.exit_code == 0
     assert expected.is_file()
+    first_mtime = expected.stat().st_mtime
+    stale_time = source.stat().st_mtime + 100
+    os.utime(source, (stale_time, stale_time))  # new mtime -> base fingerprint stale
+
+    # Now reprocess re-encodes it in place.
+    result = cli_runner.invoke(app, ["reprocess", str(root), "--config", str(cfg_path)])
+    assert result.exit_code == 0
+    assert "published" in result.stdout
+    assert expected.stat().st_mtime > first_mtime
     assert source.is_file()
 
-    # Second run: everything fingerprint-fresh -> empty worklist.
+    # Second run: fingerprint-fresh again -> empty worklist.
     rerun = cli_runner.invoke(
         app, ["reprocess", str(root), "--config", str(cfg_path), "--dry-run"]
     )

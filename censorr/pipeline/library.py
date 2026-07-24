@@ -3,6 +3,7 @@ from pathlib import Path
 
 from censorr.config.schema import ResolvedConfig
 from censorr.media.probe import probe
+from censorr.naming.plex import classify, plan_names
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".m4v", ".avi", ".mov"}
 
@@ -41,9 +42,15 @@ def is_censorr_output(path: Path, edition_tag: str) -> bool:
 
 
 def find_reprocess_candidates(root: Path, cfg: ResolvedConfig) -> list[Path]:
-    """Walk `root` for source video files eligible for (re)processing:
-    skips Censorr outputs and Plex extras. Fingerprint staleness is the
-    caller's per-file check (check_skip) -- this only builds the worklist.
+    """Walk `root` for source video files eligible for *re*processing: sources
+    that were already censored, i.e. an existing Censorr output maps back to
+    them. Skips Censorr outputs and Plex extras.
+
+    Reprocessing refreshes what was processed before -- it is *not* first-time
+    bulk censoring, so a source with no existing output is left alone (that is
+    the webhook/`process` path's job, and it must not silently censor untagged
+    library content). Fingerprint staleness is the caller's per-file check
+    (check_skip); this only builds the worklist.
     """
     candidates = []
     for path in sorted(root.rglob("*")):
@@ -53,6 +60,9 @@ def find_reprocess_candidates(root: Path, cfg: ResolvedConfig) -> list[Path]:
             continue
         if is_censorr_output(path, cfg.naming.edition_tag):
             continue
+        plan = plan_names(path, classify(path), cfg.naming, language=cfg.subtitles.language)
+        if not plan.video_path.is_file():
+            continue  # never produced an output -> not a reprocess target
         candidates.append(path)
     return candidates
 
