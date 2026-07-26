@@ -4,6 +4,11 @@ Censorr takes a movie or TV episode, finds profanity via its subtitles, and prod
 **new, clean copy** — profane audio muted, subtitles masked — named and placed so Plex
 resolves it correctly. The original file is never touched.
 
+> **Personal project, no support.** Built largely with AI code-generation tools
+> to scratch my own itch. Shared in case it's useful to you too. Issues and
+> feature requests are welcome and I read them all, but responses and fixes
+> happen on hobby-project time. Review and test before relying on it.
+
 ## 🤖 An AI-native project
 
 Censorr is built AI-natively: the requirements interrogation, research, adversarial
