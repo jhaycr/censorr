@@ -79,9 +79,9 @@ module that runs the same two roles as systemd units — `censorr-serve` and
 `settings` is rendered to `censorr.toml` and passed to both roles (see the
 [configuration reference](#configuration-reference) for the full schema). The
 clean roots you set become the worker's only writable media paths; give the
-`censorr` user read access to your sources. Because the config lives in the Nix
-store, manage it declaratively here — the web UI's config editor is read-only
-under NixOS. Point Radarr/Sonarr at the serve port exactly as below.
+`censorr` user read access to your sources. Config is file-managed only (the
+service exposes no HTTP read/write access to it), so managing it declaratively
+here is the natural fit. Point Radarr/Sonarr at the serve port exactly as below.
 
 Ad-hoc use without the module: `nix run github:jhaycr/censorr -- process movie.mkv --dry-run`.
 

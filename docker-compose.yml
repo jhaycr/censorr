@@ -19,8 +19,7 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - queue:/app/queue
-      # rw: the web UI's config editor writes censorr.toml
-      - ${CONFIG_PATH:-./config}:/app/config
+      - ${CONFIG_PATH:-./config}:/app/config:ro
       # ro sources power the UI's path browser (Q19); serve never writes
       # media and still mounts no clean roots.
       - ${MEDIA_PATH_MOVIES:-/mnt/media/movies}:/data/media/movies:ro
