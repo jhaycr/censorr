@@ -9,9 +9,11 @@ UI_HTML = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>censorr</title>
 <style>
-  :root { --fg:#1a1a1a; --muted:#667; --line:#ddd; --ok:#0a7d32; --bad:#b3261e; --accent:#3b5bdb; }
+  :root { --fg:#1a1a1a; --muted:#667; --line:#ddd; --ok:#0a7d32; --bad:#b3261e; --accent:#3b5bdb;
+          --hov:#eef1fb; }
   @media (prefers-color-scheme: dark) {
-    :root { --fg:#e8e8e8; --muted:#99a; --line:#333; --ok:#4cc776; --bad:#ff6b61; --accent:#7a95f5; }
+    :root { --fg:#e8e8e8; --muted:#99a; --line:#333; --ok:#4cc776; --bad:#ff6b61; --accent:#7a95f5;
+            --hov:#23252d; }
     body { background:#141518; }
   }
   * { box-sizing:border-box; }
@@ -34,6 +36,27 @@ UI_HTML = """<!DOCTYPE html>
   form.row input[type=text] { flex:1; }
   .msg { margin:.4rem 0; font-size:.85rem; white-space:pre-wrap; }
   label.chk { display:flex; gap:.3rem; align-items:center; font-size:.85rem; }
+  #browser { border:1px solid var(--line); border-radius:6px; margin:.5rem 0; }
+  .btoolbar { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;
+              padding:.4rem .5rem; border-bottom:1px solid var(--line); }
+  #browse-crumbs { flex:1 1 14rem; display:flex; flex-wrap:wrap; align-items:center;
+                   gap:.1rem; font-size:.85rem; min-width:0; }
+  .crumb { color:var(--accent); text-decoration:none; padding:.05rem .25rem;
+           border-radius:4px; overflow-wrap:anywhere; }
+  a.crumb:hover { background:var(--hov); }
+  .crumb.cur { color:var(--fg); font-weight:600; }
+  #browse-filter { flex:0 1 11rem; width:auto; font-size:.85rem; }
+  #browse-count { font-size:.75rem; white-space:nowrap; }
+  #browse-list { max-height:24rem; overflow:auto; padding:.25rem; font-size:.85rem;
+                 display:grid; grid-template-columns:repeat(auto-fill, minmax(15rem, 1fr));
+                 gap:0 .5rem; align-content:start; }
+  .brow { display:flex; align-items:center; gap:.4rem; padding:.25rem .5rem;
+          border-radius:4px; cursor:pointer; min-width:0; }
+  .brow:hover { background:var(--hov); }
+  .bname { flex:1; overflow-wrap:anywhere; min-width:0; }
+  .buse { visibility:hidden; font-size:.75rem; padding:.05rem .5rem; flex:none; }
+  .brow:hover .buse, .buse:focus { visibility:visible; }
+  .bspan { grid-column:1 / -1; padding:.3rem .5rem; }
 </style>
 </head>
 <body>
@@ -47,12 +70,11 @@ UI_HTML = """<!DOCTYPE html>
   <button type="button" class="quiet" id="browse-toggle">Browse…</button>
   <button type="submit">Queue</button>
 </form>
-<div id="browser" style="display:none; border:1px solid var(--line); border-radius:4px;
-     padding:.5rem; margin:.5rem 0; max-height:16rem; overflow:auto; font-size:.85rem;">
-  <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.3rem;">
-    <button type="button" class="quiet" id="browse-up">&#8593; up</button>
-    <span id="browse-path" class="muted"></span>
-    <span style="flex:1"></span>
+<div id="browser" style="display:none">
+  <div class="btoolbar">
+    <span id="browse-crumbs"></span>
+    <input type="text" id="browse-filter" placeholder="type to filter" autocomplete="off">
+    <span id="browse-count" class="muted"></span>
     <button type="button" id="browse-pick">Use this folder</button>
   </div>
   <div id="browse-list"></div>
@@ -145,32 +167,108 @@ $("cfg-save").addEventListener("click", async () => {
   $("cfg-msg").className = "msg " + (resp.ok ? "ok" : "bad");
 });
 
-let browseCurrent = null, browseParent = null;
-async function browseTo(path) {
+let browseCurrent = null, browseParent = null, browseRoots = null;
+let browseEntries = { dirs: [], files: [] };
+
+async function fetchBrowse(path) {
   const resp = await fetch("browse" + (path ? `?path=${encodeURIComponent(path)}` : ""));
-  if (!resp.ok) return;
-  const b = await resp.json();
-  browseCurrent = b.path; browseParent = b.parent;
-  $("browse-path").textContent = b.path ?? "(roots)";
-  $("browse-pick").style.display = b.path ? "" : "none";
-  $("browse-list").innerHTML =
-    b.dirs.map(d => `<div><a href="#" class="bdir" data-p="${esc(b.path ? b.path + "/" + d : d)}">&#128193; ${esc(d)}</a></div>`).join("") +
-    b.files.map(f => `<div><a href="#" class="bfile" data-p="${esc(b.path + "/" + f)}">&#127916; ${esc(f)}</a></div>`).join("") ||
-    `<div class="muted">empty</div>`;
-  $("browse-list").querySelectorAll(".bdir").forEach(a =>
-    a.addEventListener("click", e => { e.preventDefault(); browseTo(a.dataset.p); }));
-  $("browse-list").querySelectorAll(".bfile").forEach(a =>
-    a.addEventListener("click", e => { e.preventDefault();
-      $("job-path").value = a.dataset.p; $("browser").style.display = "none"; }));
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.detail ?? `error ${resp.status}`);
+  return data;
 }
+
+// Shortest suffix of `root` that tells the configured roots apart, so root
+// crumbs/chips read "tv/General" rather than "/data/media/tv/General".
+function rootLabel(root) {
+  const split = (p) => p.split("/").filter(Boolean);
+  const roots = (browseRoots?.length ? browseRoots : [root]).map(split);
+  let n = 0;
+  while (roots.every(r => r.length > n + 1 && r[n] === roots[0][n])) n++;
+  return split(root).slice(n).join("/") || root;
+}
+
+function pickPath(path) {
+  $("job-path").value = path;
+  $("browser").style.display = "none";
+}
+
+function renderCrumbs() {
+  const crumbs = [{ label: "roots", path: null }];
+  if (browseCurrent !== null) {
+    const root = (browseRoots ?? []).find(r => browseCurrent === r || browseCurrent.startsWith(r + "/"));
+    if (root) {
+      crumbs.push({ label: rootLabel(root), path: root });
+      if (browseCurrent !== root) {
+        const parts = browseCurrent.slice(root.length + 1).split("/");
+        parts.forEach((seg, i) =>
+          crumbs.push({ label: seg, path: root + "/" + parts.slice(0, i + 1).join("/") }));
+      }
+    } else crumbs.push({ label: browseCurrent, path: browseCurrent });
+  }
+  $("browse-crumbs").innerHTML = crumbs.map((c, i) =>
+    (i ? `<span class="muted">/</span>` : "") +
+    (i === crumbs.length - 1 && crumbs.length > 1
+      ? `<span class="crumb cur">${esc(c.label)}</span>`
+      : `<a href="#" class="crumb" data-p="${esc(c.path ?? "")}">${esc(c.label)}</a>`)).join("");
+  $("browse-crumbs").querySelectorAll("a.crumb").forEach(a =>
+    a.addEventListener("click", e => { e.preventDefault(); browseTo(a.dataset.p || null); }));
+}
+
+function renderList() {
+  const q = $("browse-filter").value.trim().toLowerCase();
+  const dirs = browseEntries.dirs.filter(d => d.toLowerCase().includes(q));
+  const files = browseEntries.files.filter(f => f.toLowerCase().includes(q));
+  const join = (n) => browseCurrent ? browseCurrent + "/" + n : n;
+  $("browse-list").innerHTML =
+    dirs.map(d => `<div class="brow bdir" data-p="${esc(join(d))}" title="${esc(join(d))}">` +
+      `<span>&#128193;</span><span class="bname">${esc(browseCurrent ? d : rootLabel(d))}</span>` +
+      `<button type="button" class="quiet buse" title="queue this folder">use</button></div>`).join("") +
+    files.map(f => `<div class="brow bfile" data-p="${esc(join(f))}" title="${esc(join(f))}">` +
+      `<span>&#127916;</span><span class="bname">${esc(f)}</span></div>`).join("") ||
+    `<div class="bspan muted">${q ? "no matches" : "empty"}</div>`;
+  const total = browseEntries.dirs.length + browseEntries.files.length;
+  $("browse-count").textContent =
+    (q ? `${dirs.length + files.length} of ` : "") + `${total}${total >= 500 ? " (first 500)" : ""}`;
+  $("browse-list").querySelectorAll(".bdir").forEach(el =>
+    el.addEventListener("click", () => browseTo(el.dataset.p)));
+  $("browse-list").querySelectorAll(".bfile").forEach(el =>
+    el.addEventListener("click", () => pickPath(el.dataset.p)));
+  $("browse-list").querySelectorAll(".buse").forEach(el =>
+    el.addEventListener("click", e => { e.stopPropagation(); pickPath(el.closest(".brow").dataset.p); }));
+}
+
+async function browseTo(path) {
+  let b;
+  try { b = await fetchBrowse(path); }
+  catch (err) { $("browse-list").innerHTML = `<div class="bspan bad">${esc(err.message)}</div>`; return; }
+  if (b.path === null) browseRoots = b.dirs;
+  browseCurrent = b.path; browseParent = b.parent;
+  browseEntries = { dirs: b.dirs, files: b.files };
+  $("browse-filter").value = "";
+  $("browse-pick").style.display = b.path ? "" : "none";
+  renderCrumbs(); renderList();
+  $("browse-filter").focus();
+}
+
 $("browse-toggle").addEventListener("click", () => {
   const el = $("browser");
   el.style.display = el.style.display === "none" ? "" : "none";
-  if (el.style.display === "") browseTo(null);
+  if (el.style.display === "") browseTo(browseCurrent);   // reopen where you left off
 });
-$("browse-up").addEventListener("click", () => browseTo(browseParent));
+$("browse-filter").addEventListener("input", renderList);
+$("browse-filter").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { $("browser").style.display = "none"; return; }
+  if (e.key === "Backspace" && !e.target.value && browseCurrent !== null) {
+    e.preventDefault(); browseTo(browseParent); return;
+  }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const rows = $("browse-list").querySelectorAll(".brow");
+    if (rows.length === 1) rows[0].click();   // sole match: enter dir / pick file
+  }
+});
 $("browse-pick").addEventListener("click", () => {
-  if (browseCurrent) { $("job-path").value = browseCurrent; $("browser").style.display = "none"; }
+  if (browseCurrent) pickPath(browseCurrent);
 });
 
 $("refresh").addEventListener("click", () => { refreshJobs(); refreshStatus(); });
