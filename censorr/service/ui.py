@@ -26,9 +26,8 @@ UI_HTML = """<!DOCTYPE html>
            overflow-wrap:anywhere; }
   th { color:var(--muted); font-weight:600; }
   .ok { color:var(--ok); } .bad { color:var(--bad); } .muted { color:var(--muted); }
-  input[type=text], select, textarea { width:100%; padding:.4rem; border:1px solid var(--line);
+  input[type=text], select { width:100%; padding:.4rem; border:1px solid var(--line);
     border-radius:4px; background:transparent; color:var(--fg); font:inherit; }
-  textarea { font:12px/1.5 ui-monospace, monospace; min-height:18rem; }
   button { padding:.4rem .9rem; border:1px solid var(--accent); border-radius:4px;
     background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
   button.quiet { background:transparent; color:var(--accent); }
@@ -97,13 +96,6 @@ copy is already up to date — tick force to redo those too.</div>
   <tbody id="jobs"></tbody>
 </table>
 
-<h2>Configuration <button class="quiet" id="cfg-reload">Reload</button>
-  <button id="cfg-save">Save</button></h2>
-<div class="msg muted">Saved changes apply to webhooks immediately and to each
-worker job as it starts. Queue-path or port changes need a container restart.</div>
-<textarea id="cfg" spellcheck="false"></textarea>
-<div class="msg" id="cfg-msg"></div>
-
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c =>
@@ -151,21 +143,6 @@ $("submit-form").addEventListener("submit", async (e) => {
     `queued: ${data.job_id}` : `error: ${JSON.stringify(data)}`;
   $("submit-msg").className = "msg " + (resp.ok ? "ok" : "bad");
   refreshJobs(); refreshStatus();
-});
-
-async function loadConfig() {
-  const resp = await fetch("config/file");
-  if (resp.ok) { $("cfg").value = (await resp.json()).content; $("cfg-msg").textContent = ""; }
-  else { $("cfg-msg").textContent = "no config file configured for this service"; }
-}
-$("cfg-reload").addEventListener("click", loadConfig);
-$("cfg-save").addEventListener("click", async () => {
-  const resp = await fetch("config/file", { method: "PUT",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ content: $("cfg").value }) });
-  const data = await resp.json();
-  $("cfg-msg").textContent = resp.ok ? "saved and reloaded" : `rejected: ${data.detail}`;
-  $("cfg-msg").className = "msg " + (resp.ok ? "ok" : "bad");
 });
 
 let browseCurrent = null, browseParent = null, browseRoots = null;
@@ -275,7 +252,7 @@ $("browse-pick").addEventListener("click", () => {
 
 $("refresh").addEventListener("click", () => { refreshJobs(); refreshStatus(); });
 $("status-filter").addEventListener("change", refreshJobs);
-refreshStatus(); refreshJobs(); loadConfig();
+refreshStatus(); refreshJobs();
 setInterval(() => { refreshStatus(); refreshJobs(); }, 5000);
 </script>
 </body>
