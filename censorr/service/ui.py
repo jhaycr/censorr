@@ -171,7 +171,7 @@ let browseCurrent = null, browseParent = null, browseRoots = null;
 let browseEntries = { dirs: [], files: [] };
 
 async function fetchBrowse(path) {
-  const resp = await fetch("browse" + (path ? `?path=${encodeURIComponent(path)}` : ""));
+  const resp = await fetch("browse?limit=10000" + (path ? `&path=${encodeURIComponent(path)}` : ""));
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.detail ?? `error ${resp.status}`);
   return data;
@@ -228,7 +228,8 @@ function renderList() {
     `<div class="bspan muted">${q ? "no matches" : "empty"}</div>`;
   const total = browseEntries.dirs.length + browseEntries.files.length;
   $("browse-count").textContent =
-    (q ? `${dirs.length + files.length} of ` : "") + `${total}${total >= 500 ? " (first 500)" : ""}`;
+    (q ? `${dirs.length + files.length} of ` : "") +
+    `${total}${browseEntries.truncated ? ` (first ${total} only)` : ""}`;
   $("browse-list").querySelectorAll(".bdir").forEach(el =>
     el.addEventListener("click", () => browseTo(el.dataset.p)));
   $("browse-list").querySelectorAll(".bfile").forEach(el =>
@@ -243,7 +244,7 @@ async function browseTo(path) {
   catch (err) { $("browse-list").innerHTML = `<div class="bspan bad">${esc(err.message)}</div>`; return; }
   if (b.path === null) browseRoots = b.dirs;
   browseCurrent = b.path; browseParent = b.parent;
-  browseEntries = { dirs: b.dirs, files: b.files };
+  browseEntries = { dirs: b.dirs, files: b.files, truncated: b.truncated };
   $("browse-filter").value = "";
   $("browse-pick").style.display = b.path ? "" : "none";
   renderCrumbs(); renderList();

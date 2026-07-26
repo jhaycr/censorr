@@ -76,3 +76,49 @@ class TestBrowse:
         response = client.get("/browse", params={"path": str(media / "tv" / "nope")})
 
         assert response.status_code == 404
+
+
+class TestBrowseLimit:
+    """Large directories (a movie library easily exceeds 500 entries) are
+    truncated honestly: `limit` raises the cap, `truncated` says when
+    entries were dropped so the UI never silently hides the rest."""
+
+    def make_wide_client(self, tmp_path: Path, entries: int) -> tuple[TestClient, Path]:
+        media = tmp_path / "media"
+        for i in range(entries):
+            (media / f"Movie {i:04d} (2024)").mkdir(parents=True)
+        cfg = ResolvedConfig(
+            service={"queue_path": str(tmp_path / "queue"), "browse_roots": [str(media)]}
+        )
+        return TestClient(create_app(cfg)), media
+
+    def test_default_limit_truncates_and_flags(self, tmp_path: Path) -> None:
+        client, media = self.make_wide_client(tmp_path, 501)
+
+        body = client.get("/browse", params={"path": str(media)}).json()
+
+        assert len(body["dirs"]) == 500
+        assert body["truncated"] is True
+
+    def test_higher_limit_returns_everything(self, tmp_path: Path) -> None:
+        client, media = self.make_wide_client(tmp_path, 501)
+
+        body = client.get("/browse", params={"path": str(media), "limit": 10000}).json()
+
+        assert len(body["dirs"]) == 501
+        assert body["truncated"] is False
+
+    def test_exactly_limit_entries_is_not_truncated(self, tmp_path: Path) -> None:
+        client, media = self.make_wide_client(tmp_path, 3)
+
+        body = client.get("/browse", params={"path": str(media), "limit": 3}).json()
+
+        assert len(body["dirs"]) == 3
+        assert body["truncated"] is False
+
+    def test_limit_above_maximum_rejected(self, tmp_path: Path) -> None:
+        client, media = self.make_wide_client(tmp_path, 1)
+
+        response = client.get("/browse", params={"path": str(media), "limit": 10001})
+
+        assert response.status_code == 422

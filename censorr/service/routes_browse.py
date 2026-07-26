@@ -7,7 +7,8 @@ from censorr.pipeline.library import VIDEO_EXTENSIONS
 
 router = APIRouter()
 
-_MAX_ENTRIES = 500
+_DEFAULT_LIMIT = 500
+_MAX_LIMIT = 10_000
 
 
 def _browse_roots(cfg: ResolvedConfig) -> list[Path]:
@@ -26,10 +27,15 @@ def _resolve_inside_roots(candidate: str, roots: list[Path]) -> Path:
 
 
 @router.get("/browse")
-def browse(request: Request, path: str | None = Query(default=None)) -> dict[str, object]:
+def browse(
+    request: Request,
+    path: str | None = Query(default=None),
+    limit: int = Query(default=_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT),
+) -> dict[str, object]:
     """List directories and video files at `path`, confined to
     service.browse_roots (Q19: serve mounts sources read-only for this).
-    No path -> list the roots themselves."""
+    No path -> list the roots themselves. At most `limit` entries are
+    returned (dirs first); `truncated` says whether any were dropped."""
     cfg: ResolvedConfig = request.app.state.cfg
     roots = _browse_roots(cfg)
 
@@ -39,6 +45,7 @@ def browse(request: Request, path: str | None = Query(default=None)) -> dict[str
             "parent": None,
             "dirs": [str(r) for r in roots if r.is_dir()],
             "files": [],
+            "truncated": False,
         }
 
     target = _resolve_inside_roots(path, roots)
@@ -54,8 +61,11 @@ def browse(request: Request, path: str | None = Query(default=None)) -> dict[str
             dirs.append(entry.name)
         elif entry.suffix.lower() in VIDEO_EXTENSIONS:
             files.append(entry.name)
-        if len(dirs) + len(files) >= _MAX_ENTRIES:
-            break
+
+    truncated = len(dirs) + len(files) > limit
+    if truncated:
+        dirs = dirs[:limit]
+        files = files[: limit - len(dirs)]
 
     at_root = any(target == r for r in roots)
     return {
@@ -63,4 +73,5 @@ def browse(request: Request, path: str | None = Query(default=None)) -> dict[str
         "parent": None if at_root else str(target.parent),
         "dirs": dirs,
         "files": files,
+        "truncated": truncated,
     }
