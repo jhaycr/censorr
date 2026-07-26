@@ -74,6 +74,7 @@ def healthz() -> dict[str, str]:
 def status_endpoint(request: Request) -> dict[str, object]:
     cfg: ResolvedConfig = request.app.state.cfg
     queue: FileJobQueue = request.app.state.queue
+    config_path = request.app.state.config_path
     return {
         "version": __version__,
         "queue_depth": len(list(queue.incoming.glob("*.json"))),
@@ -81,4 +82,8 @@ def status_endpoint(request: Request) -> dict[str, object]:
         "done": len(list(queue.done.glob("*.json"))),
         "failed": len(list(queue.failed.glob("*.json"))),
         "presets": cfg.preset_names,
+        # What a submission with no preset actually runs with: the base
+        # config file (jobs enqueued here never get the webhook-only
+        # media-type default, Q4).
+        "config_file": config_path.name if config_path else None,
     }

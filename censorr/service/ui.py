@@ -115,7 +115,8 @@ async function refreshStatus() {
     $("stat").textContent =
       `v${s.version} — queue ${s.queue_depth} · running ${s.processing} · done ${s.done} · failed ${s.failed}`;
     const sel = $("job-preset"), current = sel.value;
-    sel.innerHTML = `<option value="">default preset</option>` +
+    const base = s.config_file ? `no preset — ${s.config_file}` : "no preset — built-in defaults";
+    sel.innerHTML = `<option value="">${esc(base)}</option>` +
       (s.presets ?? []).map(p => `<option${p === current ? " selected" : ""}>${esc(p)}</option>`).join("");
   } catch { $("stat").textContent = "(status unavailable)"; }
 }

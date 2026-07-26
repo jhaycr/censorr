@@ -309,6 +309,19 @@ class TestJobsApi:
 
         assert client.get("/status").json()["presets"] == ["movies", "strict", "tv"]
 
+    def test_status_names_the_base_config_file(self, tmp_path: Path) -> None:
+        config_path = tmp_path / "censorr.toml"
+        config_path.write_text(f'[service]\nqueue_path = "{tmp_path / "queue"}"\n')
+        cfg = ResolvedConfig(service={"queue_path": str(tmp_path / "queue")})
+        client = TestClient(create_app(cfg, config_path))
+
+        assert client.get("/status").json()["config_file"] == "censorr.toml"
+
+    def test_status_config_file_none_without_config(self, tmp_path: Path) -> None:
+        client = make_client(tmp_path)
+
+        assert client.get("/status").json()["config_file"] is None
+
     def test_openapi_docs_render(self, tmp_path: Path) -> None:
         client = make_client(tmp_path)
 
