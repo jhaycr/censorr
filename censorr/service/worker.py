@@ -137,7 +137,7 @@ class Worker:
         wordlist = resolve_wordlist(job_cfg)
         queued = 0
         fresh = 0
-        for candidate in library.find_reprocess_candidates(job.source, job_cfg):
+        for candidate in library.find_backfill_candidates(job.source, job_cfg):
             if not job.force:
                 media_type = classify(candidate, None)
                 skip, _plan = check_skip(candidate, media_type, cfg=job_cfg, wordlist=wordlist)

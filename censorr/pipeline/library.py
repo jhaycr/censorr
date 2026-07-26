@@ -41,18 +41,10 @@ def is_censorr_output(path: Path, edition_tag: str) -> bool:
     return _name_carries_edition_tag(path, edition_tag) or _metadata_carries_fingerprint(path)
 
 
-def find_reprocess_candidates(root: Path, cfg: ResolvedConfig) -> list[Path]:
-    """Walk `root` for source video files eligible for *re*processing: sources
-    that were already censored, i.e. an existing Censorr output maps back to
-    them. Skips Censorr outputs and Plex extras.
-
-    Reprocessing refreshes what was processed before -- it is *not* first-time
-    bulk censoring, so a source with no existing output is left alone (that is
-    the webhook/`process` path's job, and it must not silently censor untagged
-    library content). Fingerprint staleness is the caller's per-file check
-    (check_skip); this only builds the worklist.
-    """
-    candidates = []
+def _walk_sources(root: Path, cfg: ResolvedConfig) -> list[Path]:
+    """Source video files under `root`: skips non-video, Plex extras (R7),
+    and Censorr outputs (ingestion must never re-censor an output)."""
+    sources = []
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.suffix.lower() not in VIDEO_EXTENSIONS:
             continue
@@ -60,13 +52,44 @@ def find_reprocess_candidates(root: Path, cfg: ResolvedConfig) -> list[Path]:
             continue
         if is_censorr_output(path, cfg.naming.edition_tag):
             continue
+        sources.append(path)
+    return sources
+
+
+def _maps_to_itself(path: Path, cfg: ResolvedConfig) -> bool:
+    # The planned output *is* this file -- happens when the clean root
+    # is nested in / bind-aliased with the source root (the path strings
+    # differ so plan_names doesn't flag it, but they share an inode).
+    plan = plan_names(path, classify(path), cfg.naming, language=cfg.subtitles.language)
+    return plan.video_path.is_file() and plan.video_path.samefile(path)
+
+
+def find_backfill_candidates(root: Path, cfg: ResolvedConfig) -> list[Path]:
+    """Walk `root` for *every* source video file: a directory job explicitly
+    requests bulk censoring, so sources never processed before are included.
+    Fingerprint freshness is the caller's per-file check (check_skip); this
+    only builds the worklist."""
+    return [path for path in _walk_sources(root, cfg) if not _maps_to_itself(path, cfg)]
+
+
+def find_reprocess_candidates(root: Path, cfg: ResolvedConfig) -> list[Path]:
+    """Walk `root` for source video files eligible for *re*processing: sources
+    that were already censored, i.e. an existing Censorr output maps back to
+    them.
+
+    Reprocessing refreshes what was processed before -- it is *not* first-time
+    bulk censoring, so a source with no existing output is left alone (that is
+    the webhook/backfill path's job, and it must not silently censor untagged
+    library content). Fingerprint staleness is the caller's per-file check
+    (check_skip); this only builds the worklist.
+    """
+    candidates = []
+    for path in _walk_sources(root, cfg):
         plan = plan_names(path, classify(path), cfg.naming, language=cfg.subtitles.language)
         if not plan.video_path.is_file():
             continue  # never produced an output -> not a reprocess target
         if plan.video_path.samefile(path):
-            # The planned output *is* this file -- happens when the clean root
-            # is nested in / bind-aliased with the source root (the path strings
-            # differ so plan_names doesn't flag it, but they share an inode).
+            # Nested/bind-aliased clean root: the output *is* this file.
             continue
         candidates.append(path)
     return candidates

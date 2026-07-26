@@ -4,6 +4,7 @@ from censorr.config.schema import ResolvedConfig
 from censorr.pipeline.library import (
     _strip_censorr_from_edition,
     derive_source_for_output,
+    find_backfill_candidates,
     find_reprocess_candidates,
 )
 
@@ -48,6 +49,38 @@ class TestFindReprocessCandidates:
         cfg = ResolvedConfig(naming={"tv_clean_root": str(clean_alias)})
 
         assert aliased not in find_reprocess_candidates(tv, cfg)
+
+
+class TestFindBackfillCandidates:
+    """A directory job is explicit first-time bulk censoring: *every* source
+    is a candidate, processed or not -- unlike find_reprocess_candidates."""
+
+    def test_never_processed_source_is_a_candidate(self, tmp_path: Path) -> None:
+        tv, clean = tmp_path / "tv", tmp_path / "tv-clean"
+        src = _episode(tv, "Show/Season 01/Show - s01e01.mkv")
+        clean.mkdir()
+        cfg = ResolvedConfig(naming={"tv_clean_root": str(clean)})
+
+        assert find_backfill_candidates(tv, cfg) == [src]
+
+    def test_processed_source_is_also_a_candidate(self, tmp_path: Path) -> None:
+        tv, clean = tmp_path / "tv", tmp_path / "tv-clean"
+        src = _episode(tv, "Show/Season 01/Show - s01e01.mkv")
+        _episode(clean, "Show/Season 01/Show - s01e01.mkv")
+        cfg = ResolvedConfig(naming={"tv_clean_root": str(clean)})
+
+        assert find_backfill_candidates(tv, cfg) == [src]
+
+    def test_bind_aliased_clean_root_inside_source_is_not_a_candidate(
+        self, tmp_path: Path
+    ) -> None:
+        tv = tmp_path / "tv"
+        aliased = _episode(tv, "General_Clean/Show/Season 01/Show - s01e01.mkv")
+        clean_alias = tmp_path / "tv-clean"
+        clean_alias.symlink_to(tv / "General_Clean")
+        cfg = ResolvedConfig(naming={"tv_clean_root": str(clean_alias)})
+
+        assert aliased not in find_backfill_candidates(tv, cfg)
 
 
 class TestStripCensorrFromEdition:
